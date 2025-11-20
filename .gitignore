@@ -1,0 +1,21 @@
+# Archivos temporales
+*.tmp
+*.bak
+~$*
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de editor
+*.swp
+*.swo
+*~
+
+# Carpetas de IDE
+.vscode/
+.idea/
+
+# Archivos de configuración local
+.env
+config.local.js
