@@ -7,6 +7,32 @@
  */
 
 // =========================================================================
+// GESTIÓN DE TRIGGERS
+// =========================================================================
+
+/**
+ * Limpiar todos los triggers existentes
+ */
+function limpiarTriggers() {
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    let count = 0;
+
+    for (let i = 0; i < triggers.length; i++) {
+      ScriptApp.deleteTrigger(triggers[i]);
+      count++;
+    }
+
+    Logger.log("🗑️ Triggers eliminados: " + count);
+    return count;
+
+  } catch (error) {
+    Logger.log("❌ Error limpiando triggers: " + error.toString());
+    return 0;
+  }
+}
+
+// =========================================================================
 // INSTALACIÓN PRINCIPAL
 // =========================================================================
 
@@ -89,6 +115,7 @@ function crearTodasLasHojasMejoradas() {
   sheets[0].setName("Nuevos Ingresos");
 
   // Crear todas las hojas
+  crearHojaListaEspera();
   crearHojaNuevosIngresosMejorada();
   crearHojaAsignacionesMejorada();
   crearHojaProcesosCulminados();
@@ -102,6 +129,95 @@ function crearTodasLasHojasMejoradas() {
 // =========================================================================
 // CREACIÓN DE HOJAS INDIVIDUALES
 // =========================================================================
+
+/**
+ * Crear hoja Lista de Espera
+ */
+function crearHojaListaEspera() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.insertSheet("Lista de Espera", 0); // Insertar como primera hoja
+
+  sheet.clear();
+
+  // Encabezados
+  const headers = [
+    "Fecha Solicitud", "No.", "Nombre Completo", "Creemos ID", "Sexo",
+    "Rango Edad", "Malestar Principal", "Prioridad", "Tipo Atención",
+    "Derivado Por", "Contacto Emergencia", "Teléfono", "Estado", "Observaciones"
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+
+  // Formato encabezados
+  sheet.getRange(1, 1, 1, headers.length)
+    .setBackground("#e91e63")
+    .setFontColor("white")
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center");
+
+  // Fórmulas automáticas (fila 2)
+  sheet.getRange("A2").setFormula('=IF(C2<>"";HOY();"")');
+  sheet.getRange("B2").setFormula('=IF(C2<>"";FILA()-1;"")');
+  sheet.getRange("M2").setFormula('=IF(C2<>"";"En espera";"")');
+
+  // Copiar fórmulas hacia abajo (100 filas)
+  sheet.getRange("A2:A2").copyTo(sheet.getRange("A3:A100"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
+  sheet.getRange("B2:B2").copyTo(sheet.getRange("B3:B100"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
+  sheet.getRange("M2:M2").copyTo(sheet.getRange("M3:M100"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
+
+  // Ajustar anchos
+  const widths = [110, 60, 200, 120, 80, 100, 250, 100, 120, 150, 180, 120, 120, 200];
+  widths.forEach((width, i) => {
+    sheet.setColumnWidth(i + 1, width);
+  });
+
+  // Instrucciones
+  sheet.getRange("P1").setValue("📋 LISTA DE ESPERA");
+  sheet.getRange("P2").setValue("═".repeat(25));
+  sheet.getRange("P3").setValue("🎯 INSTRUCCIONES:");
+  sheet.getRange("P4").setValue("1. Registrar participantes aquí");
+  sheet.getRange("P5").setValue("2. Prioridad: Alta/Media/Baja");
+  sheet.getRange("P6").setValue("3. Cuando haya cupo:");
+  sheet.getRange("P7").setValue("   → Marcar estado: 'Aceptado'");
+  sheet.getRange("P8").setValue("   → Se moverá automáticamente");
+  sheet.getRange("P9").setValue("   → a 'Nuevos Ingresos'");
+  sheet.getRange("P10").setValue("");
+  sheet.getRange("P11").setValue("⚠️ ESTADOS:");
+  sheet.getRange("P12").setValue("• En espera (esperando cupo)");
+  sheet.getRange("P13").setValue("• Aceptado (se mueve automático)");
+  sheet.getRange("P14").setValue("• Rechazado (no cumple criterios)");
+  sheet.getRange("P15").setValue("• Cancelado (desistió)");
+  sheet.getRange("P1:P15").setBackground("#fce4ec").setFontWeight("bold");
+
+  // Formato condicional para prioridad
+  const altaPrioridadRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("Alta")
+    .setBackground("#ffcdd2")
+    .setFontColor("#c62828")
+    .setRanges([sheet.getRange("H2:H100")])
+    .build();
+
+  const mediaPrioridadRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("Media")
+    .setBackground("#fff9c4")
+    .setFontColor("#f57f17")
+    .setRanges([sheet.getRange("H2:H100")])
+    .build();
+
+  const bajaPrioridadRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("Baja")
+    .setBackground("#c8e6c9")
+    .setFontColor("#2e7d32")
+    .setRanges([sheet.getRange("H2:H100")])
+    .build();
+
+  sheet.setConditionalFormatRules([altaPrioridadRule, mediaPrioridadRule, bajaPrioridadRule]);
+
+  // Proteger columnas automáticas
+  sheet.getRange("A2:A100").protect().setWarningOnly(true);
+  sheet.getRange("B2:B100").protect().setWarningOnly(true);
+  sheet.getRange("M2:M100").protect().setWarningOnly(true);
+}
 
 /**
  * Crear hoja Nuevos Ingresos
@@ -593,6 +709,39 @@ function configurarValidacionesMejoradas() {
     .setHelpText("Al cambiar estado se procesa automáticamente")
     .build();
   asignaciones.getRange("L2:L200").setDataValidation(estadoRule);
+
+  // ===== VALIDACIONES PARA LISTA DE ESPERA =====
+  const listaEspera = ss.getSheetByName("Lista de Espera");
+
+  if (listaEspera) {
+    // Sexo
+    listaEspera.getRange("E2:E200").setDataValidation(sexoRule);
+
+    // Edad
+    listaEspera.getRange("F2:F200").setDataValidation(edadRule);
+
+    // Malestar
+    listaEspera.getRange("G2:G200").setDataValidation(malestarRule);
+
+    // Prioridad
+    const prioridadRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(["Alta", "Media", "Baja"])
+      .setAllowInvalid(false)
+      .setHelpText("Prioridad del caso")
+      .build();
+    listaEspera.getRange("H2:H200").setDataValidation(prioridadRule);
+
+    // Tipo atención
+    listaEspera.getRange("I2:I200").setDataValidation(tipoAtencionRule);
+
+    // Estado de lista de espera
+    const estadoListaRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(["En espera", "Aceptado", "Rechazado", "Cancelado"])
+      .setAllowInvalid(false)
+      .setHelpText("Al seleccionar 'Aceptado' se moverá automáticamente a Nuevos Ingresos")
+      .build();
+    listaEspera.getRange("M2:M200").setDataValidation(estadoListaRule);
+  }
 }
 
 /**

@@ -20,6 +20,7 @@ function diagnosticoCompletoMejorado() {
 
   // 1. Verificar hojas
   const hojasRequeridas = [
+    "Lista de Espera",
     "Nuevos Ingresos",
     "Asignaciones y Terapias",
     "Procesos Culminados",

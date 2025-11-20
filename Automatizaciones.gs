@@ -109,6 +109,28 @@ function onEditSistemaCompleto(e) {
     Logger.log("🔥 EDIT: " + nombreHoja + " | Fila: " + fila + " | Col: " + columna + " | Valor: " + valorLimpio);
 
     // ==========================================
+    // AUTOMATIZACIÓN 0: ACEPTAR DE LISTA DE ESPERA
+    // Hoja: "Lista de Espera", Columna M (13)
+    // ==========================================
+    if (nombreHoja === "Lista de Espera" && columna === 13) {
+      if (valorLimpio === "Aceptado") {
+        Logger.log("📋 Procesando aceptación desde lista de espera");
+
+        // Pequeña pausa para estabilidad
+        Utilities.sleep(300);
+
+        const resultado = procesarAceptacionListaEspera(sheet, fila);
+
+        if (resultado) {
+          Logger.log("✅ Movido a Nuevos Ingresos exitosamente");
+          actualizarReportesAutomaticos();
+        } else {
+          Logger.log("❌ Error moviendo de lista de espera");
+        }
+      }
+    }
+
+    // ==========================================
     // AUTOMATIZACIÓN 1: ASIGNACIÓN DE TERAPEUTA
     // Hoja: "Nuevos Ingresos", Columna H (8)
     // ==========================================
@@ -269,6 +291,121 @@ function procesarAsignacionCompleta(sheetOrigen, fila, terapeuta) {
     SpreadsheetApp.getActiveSpreadsheet().toast(
       "Error: " + error.toString(),
       "Error en Asignación",
+      5
+    );
+    return false;
+  }
+}
+
+/**
+ * Procesar aceptación desde lista de espera
+ */
+function procesarAceptacionListaEspera(sheetOrigen, fila) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const nuevosIngresos = ss.getSheetByName("Nuevos Ingresos");
+
+    if (!nuevosIngresos) {
+      Logger.log("❌ Hoja 'Nuevos Ingresos' no encontrada");
+      return false;
+    }
+
+    // Obtener datos del participante de Lista de Espera
+    // Columnas: A=Fecha, B=No, C=Nombre, D=Creemos, E=Sexo, F=Edad, G=Malestar, H=Prioridad, I=TipoAtencion, J=Derivado, K=Contacto, L=Telefono, M=Estado, N=Observaciones
+    const datos = sheetOrigen.getRange(fila, 1, 1, 14).getValues()[0];
+    const nombre = datos[2];       // C
+    const creemosId = datos[3];    // D
+    const sexo = datos[4];         // E
+    const rangoEdad = datos[5];    // F
+    const malestar = datos[6];     // G
+    const tipoAtencion = datos[8]; // I
+    const derivadoPor = datos[9];  // J
+    const contacto = datos[10];    // K
+
+    if (!nombre || nombre.toString().trim() === "") {
+      Logger.log("❌ No hay nombre de participante");
+      return false;
+    }
+
+    const nombreLimpio = nombre.toString().trim();
+
+    Logger.log("📋 Moviendo de lista de espera: " + nombreLimpio);
+
+    // Verificar si ya existe en Nuevos Ingresos
+    const datosNuevos = nuevosIngresos.getDataRange().getValues();
+    for (let i = 1; i < datosNuevos.length; i++) {
+      if (datosNuevos[i][2] && datosNuevos[i][2].toString().trim() === nombreLimpio) {
+        Logger.log("⚠️ Ya existe en Nuevos Ingresos");
+        ss.toast(nombreLimpio + " ya existe en Nuevos Ingresos", "Ya Registrado", 3);
+
+        // Marcar como procesado en Lista de Espera
+        sheetOrigen.getRange(fila, 1, 1, 14).setBackground("#d4edda");
+
+        return true;
+      }
+    }
+
+    // Encontrar primera fila vacía en Nuevos Ingresos
+    let nuevaFila = nuevosIngresos.getLastRow() + 1;
+
+    // Buscar desde fila 2 por si hay filas intermedias vacías
+    for (let i = 2; i <= nuevosIngresos.getLastRow() + 1; i++) {
+      const nombreExistente = nuevosIngresos.getRange(i, 3).getValue();
+      if (!nombreExistente || nombreExistente.toString().trim() === "") {
+        nuevaFila = i;
+        break;
+      }
+    }
+
+    // Crear datos para Nuevos Ingresos
+    // Columnas Nuevos Ingresos: A=Fecha, B=No, C=Nombre, D=Creemos, E=Sexo, F=Edad, G=Malestar, H=Terapeuta, I=TipoAtencion, J=Derivado, K=Contacto, L=Estado
+    const datosNuevosIngresos = [
+      "",                            // A - Fecha (fórmula automática)
+      "",                            // B - No. (fórmula automática)
+      nombreLimpio,                  // C - Nombre
+      creemosId || "",               // D - Creemos ID
+      sexo || "",                    // E - Sexo
+      rangoEdad || "",               // F - Rango Edad
+      malestar || "",                // G - Malestar
+      "",                            // H - Terapeuta (vacío, se asignará después)
+      tipoAtencion || "Individual",  // I - Tipo Atención
+      derivadoPor || "",             // J - Derivado Por
+      contacto || "",                // K - Contacto Emergencia
+      ""                             // L - Estado (fórmula automática)
+    ];
+
+    // Insertar en Nuevos Ingresos (solo las columnas con datos, las fórmulas se mantienen)
+    nuevosIngresos.getRange(nuevaFila, 3).setValue(nombreLimpio);           // C
+    nuevosIngresos.getRange(nuevaFila, 4).setValue(creemosId || "");        // D
+    nuevosIngresos.getRange(nuevaFila, 5).setValue(sexo || "");             // E
+    nuevosIngresos.getRange(nuevaFila, 6).setValue(rangoEdad || "");        // F
+    nuevosIngresos.getRange(nuevaFila, 7).setValue(malestar || "");         // G
+    nuevosIngresos.getRange(nuevaFila, 9).setValue(tipoAtencion || "Individual"); // I
+    nuevosIngresos.getRange(nuevaFila, 10).setValue(derivadoPor || "");     // J
+    nuevosIngresos.getRange(nuevaFila, 11).setValue(contacto || "");        // K
+
+    // Marcar fila en Lista de Espera como procesada (verde)
+    sheetOrigen.getRange(fila, 1, 1, 14).setBackground("#d4edda");
+
+    // Mensaje de confirmación
+    ss.toast(
+      "✅ ACEPTADO DESDE LISTA DE ESPERA\n\n" +
+      "👤 " + nombreLimpio + "\n" +
+      "📋 Movido a 'Nuevos Ingresos'\n" +
+      "👩‍⚕️ Siguiente: Asignar terapeuta",
+      "Aceptación Completa",
+      5
+    );
+
+    Logger.log("✅ Movido de lista de espera: " + nombreLimpio + " → Nuevos Ingresos (fila " + nuevaFila + ")");
+
+    return true;
+
+  } catch (error) {
+    Logger.log("❌ Error en procesarAceptacionListaEspera: " + error.toString());
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      "Error: " + error.toString(),
+      "Error en Aceptación",
       5
     );
     return false;
