@@ -496,6 +496,244 @@ function repararFormulas() {
 }
 
 // =========================================================================
+// IMPORTACIÓN DE ASISTENCIA GRUPAL
+// =========================================================================
+
+/**
+ * Importar asistencias desde otro archivo de Google Sheets
+ * IMPORTANTE: Debes tener acceso al archivo origen
+ */
+function importarAsistenciaGrupalDesdeOtroArchivo() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ui = SpreadsheetApp.getUi();
+
+    // Pedir URL del archivo origen
+    const respuesta = ui.prompt(
+      '📋 IMPORTAR ASISTENCIA GRUPAL',
+      'Pega aquí la URL completa del archivo de Google Sheets con las asistencias:\n\n' +
+      'Ejemplo: https://docs.google.com/spreadsheets/d/XXXXX/edit',
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    if (respuesta.getSelectedButton() !== ui.Button.OK) {
+      ss.toast('❌ Importación cancelada', 'Cancelado', 2);
+      return false;
+    }
+
+    const url = respuesta.getResponseText().trim();
+
+    if (!url || url === '') {
+      ss.toast('❌ No proporcionaste URL', 'Error', 3);
+      return false;
+    }
+
+    // Extraer ID del archivo
+    let archivoId = '';
+    if (url.includes('/d/')) {
+      archivoId = url.split('/d/')[1].split('/')[0];
+    } else {
+      ss.toast('❌ URL inválida. Debe ser de Google Sheets', 'Error', 4);
+      return false;
+    }
+
+    Logger.log('📋 Importando desde archivo: ' + archivoId);
+
+    // Abrir archivo origen
+    const archivoOrigen = SpreadsheetApp.openById(archivoId);
+    const hojaOrigen = archivoOrigen.getSheets()[0]; // Primera hoja
+
+    // Obtener datos
+    const datosOrigen = hojaOrigen.getDataRange().getValues();
+
+    if (datosOrigen.length < 2) {
+      ss.toast('❌ El archivo origen está vacío', 'Error', 3);
+      return false;
+    }
+
+    // Importar a hoja Asistencia Grupal
+    const asistenciaGrupal = ss.getSheetByName('Asistencia Grupal');
+
+    if (!asistenciaGrupal) {
+      ss.toast('❌ Hoja "Asistencia Grupal" no encontrada', 'Error', 3);
+      return false;
+    }
+
+    // Limpiar datos actuales (mantener encabezados)
+    const ultimaFila = asistenciaGrupal.getLastRow();
+    if (ultimaFila > 1) {
+      asistenciaGrupal.getRange(2, 1, ultimaFila - 1, asistenciaGrupal.getLastColumn()).clearContent();
+    }
+
+    // Copiar datos (sin encabezados)
+    const datosACopiar = datosOrigen.slice(1); // Sin primera fila
+    if (datosACopiar.length > 0) {
+      asistenciaGrupal.getRange(2, 1, datosACopiar.length, datosACopiar[0].length).setValues(datosACopiar);
+    }
+
+    ss.toast(
+      '✅ ASISTENCIAS IMPORTADAS\n\n' +
+      'Total registros: ' + datosACopiar.length + '\n' +
+      'Desde: ' + archivoOrigen.getName(),
+      'Importación Completa',
+      5
+    );
+
+    Logger.log('✅ Asistencias importadas: ' + datosACopiar.length + ' registros');
+
+    // Actualizar reportes
+    actualizarReportesAutomaticos();
+
+    return true;
+
+  } catch (error) {
+    Logger.log('❌ Error importando asistencias: ' + error.toString());
+
+    if (error.toString().includes('access')) {
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        '❌ NO TIENES ACCESO al archivo\n\n' +
+        'Pide al dueño que comparta el archivo contigo',
+        'Sin Acceso',
+        6
+      );
+    } else {
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        '❌ Error: ' + error.toString(),
+        'Error',
+        5
+      );
+    }
+
+    return false;
+  }
+}
+
+/**
+ * Calcular estadísticas de asistencia grupal por mes
+ */
+function calcularAsistenciasMensuales() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const asistenciaGrupal = ss.getSheetByName('Asistencia Grupal');
+
+    if (!asistenciaGrupal) {
+      return {
+        totalParticipantes: 0,
+        asistenciasDelMes: 0,
+        porcentajeAsistencia: '0%'
+      };
+    }
+
+    // Obtener datos
+    const datos = asistenciaGrupal.getDataRange().getValues();
+
+    if (datos.length < 2) {
+      return {
+        totalParticipantes: 0,
+        asistenciasDelMes: 0,
+        porcentajeAsistencia: '0%'
+      };
+    }
+
+    // Encabezados (fila 1) contienen fechas en columnas C en adelante
+    const encabezados = datos[0];
+    const participantes = datos.slice(1); // Sin encabezados
+
+    const totalParticipantes = participantes.filter(function(fila) {
+      return fila[0] && fila[0].toString().trim() !== '';
+    }).length;
+
+    // Obtener fechas del mes actual
+    const hoy = new Date();
+    const mesActual = hoy.getMonth();
+    const añoActual = hoy.getFullYear();
+
+    let asistenciasDelMes = 0;
+    let sesionesDelMes = 0;
+
+    // Revisar cada fecha en encabezados (desde columna C = índice 2)
+    for (let col = 2; col < encabezados.length; col++) {
+      const fechaStr = encabezados[col];
+
+      if (!fechaStr) continue;
+
+      // Intentar parsear fecha
+      let fecha = null;
+      if (fechaStr instanceof Date) {
+        fecha = fechaStr;
+      } else {
+        // Formato dd/MM/yyyy
+        const partes = fechaStr.toString().split('/');
+        if (partes.length === 3) {
+          fecha = new Date(partes[2], partes[1] - 1, partes[0]);
+        }
+      }
+
+      if (!fecha || isNaN(fecha.getTime())) continue;
+
+      // Verificar si es del mes actual
+      if (fecha.getMonth() === mesActual && fecha.getFullYear() === añoActual) {
+        sesionesDelMes++;
+
+        // Contar asistencias en esta columna
+        for (let fila = 1; fila < datos.length; fila++) {
+          if (datos[fila][col] === true) { // Checkbox marcado
+            asistenciasDelMes++;
+          }
+        }
+      }
+    }
+
+    // Calcular porcentaje
+    const asistenciasEsperadas = totalParticipantes * sesionesDelMes;
+    const porcentaje = asistenciasEsperadas > 0 ?
+      ((asistenciasDelMes / asistenciasEsperadas) * 100).toFixed(1) :
+      '0';
+
+    return {
+      totalParticipantes: totalParticipantes,
+      asistenciasDelMes: asistenciasDelMes,
+      sesionesDelMes: sesionesDelMes,
+      porcentajeAsistencia: porcentaje + '%'
+    };
+
+  } catch (error) {
+    Logger.log('❌ Error calculando asistencias: ' + error.toString());
+    return {
+      totalParticipantes: 0,
+      asistenciasDelMes: 0,
+      porcentajeAsistencia: '0%'
+    };
+  }
+}
+
+/**
+ * Mostrar estadísticas de asistencia grupal
+ */
+function mostrarEstadisticasAsistencia() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const stats = calcularAsistenciasMensuales();
+
+  const hoy = new Date();
+  const mesNombre = Utilities.formatDate(hoy, Session.getScriptTimeZone(), 'MMMM yyyy');
+
+  const mensaje =
+    '📊 ESTADÍSTICAS ASISTENCIA GRUPAL\n' +
+    '═'.repeat(35) + '\n\n' +
+    '📅 Mes: ' + mesNombre + '\n\n' +
+    '👥 Total participantes: ' + stats.totalParticipantes + '\n' +
+    '📋 Sesiones del mes: ' + stats.sesionesDelMes + '\n' +
+    '✅ Asistencias registradas: ' + stats.asistenciasDelMes + '\n' +
+    '📈 Porcentaje de asistencia: ' + stats.porcentajeAsistencia + '\n\n' +
+    '💡 Para actualizar:\n' +
+    'Menú → Datos → Importar Asistencia Grupal';
+
+  ss.toast(mensaje, 'Estadísticas Asistencia', -1);
+
+  Logger.log('📊 Estadísticas asistencia mostradas');
+}
+
+// =========================================================================
 // EXPORTACIÓN DE DATOS
 // =========================================================================
 

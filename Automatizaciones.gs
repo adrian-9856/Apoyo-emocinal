@@ -752,6 +752,10 @@ function onOpen() {
         .addItem('📅 Guardar Reporte Mensual', 'guardarReporteMensual')
         .addItem('🔄 Actualizar Reportes', 'actualizarReportesAutomaticos'))
       .addSeparator()
+      .addSubMenu(ui.createMenu('👥 Asistencia Grupal')
+        .addItem('📥 Importar desde Otro Archivo', 'importarAsistenciaGrupalDesdeOtroArchivo')
+        .addItem('📊 Ver Estadísticas del Mes', 'mostrarEstadisticasAsistencia'))
+      .addSeparator()
       .addItem('❓ Ayuda', 'mostrarAyuda')
       .addToUi();
 
