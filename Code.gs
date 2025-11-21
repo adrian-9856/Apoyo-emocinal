@@ -282,11 +282,11 @@ function crearHojaAsignacionesMejorada() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet("Asignaciones y Terapias");
 
+  // COLUMNAS SIMPLIFICADAS - Solo 10 columnas
   const headers = [
     "Terapeuta", "No.", "Participante", "Creemos ID", "Sexo",
-    "Tipo Terapia", "No. Sesión Actual", "Fecha Última Sesión", "Próxima Sesión",
-    "Asistencia Última", "Comentarios Sesión", "Estado Proceso",
-    "Fecha Inicio", "Fecha Finalización", "Motivo Finalización", "Total Sesiones"
+    "Tipo Terapia", "No. Sesión", "Estado Proceso",
+    "Fecha Inicio", "Motivo Finalización"
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -298,41 +298,41 @@ function crearHojaAsignacionesMejorada() {
     .setFontWeight("bold")
     .setHorizontalAlignment("center");
 
-  // Ajustar anchos
-  const widths = [120, 60, 180, 120, 80, 120, 100, 120, 120, 120, 200, 150, 100, 120, 200, 100];
+  // Ajustar anchos SIMPLIFICADOS
+  const widths = [150, 60, 200, 120, 80, 120, 100, 150, 120, 300];
   widths.forEach((width, i) => {
     sheet.setColumnWidth(i + 1, width);
   });
 
-  // Fórmulas para fila 2
+  // Fórmulas automáticas SIMPLIFICADAS
   sheet.getRange("B2").setFormula('=IF(A2<>"";FILA()-1;"")');
   sheet.getRange("F2").setFormula('=IF(A2<>"";"Individual";"")');
-  sheet.getRange("G2").setFormula('=IF(A2<>"";1;"")');
-  sheet.getRange("L2").setFormula('=IF(A2<>"";"En proceso";"")');
-  sheet.getRange("M2").setFormula('=IF(A2<>"";HOY();"")');
-  sheet.getRange("P2").setFormula('=IF(G2<>"";G2;0)');
+  sheet.getRange("G2").setFormula('=IF(A2<>"";1;"")');  // Sesión inicial = 1
+  sheet.getRange("H2").setFormula('=IF(A2<>"";"En proceso";"")');
+  sheet.getRange("I2").setFormula('=IF(A2<>"";HOY();"")');
 
   // Copiar fórmulas
   sheet.getRange("B2:B2").copyTo(sheet.getRange("B3:B200"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
   sheet.getRange("F2:F2").copyTo(sheet.getRange("F3:F200"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
   sheet.getRange("G2:G2").copyTo(sheet.getRange("G3:G200"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
-  sheet.getRange("L2:L2").copyTo(sheet.getRange("L3:L200"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
-  sheet.getRange("M2:M2").copyTo(sheet.getRange("M3:M200"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
-  sheet.getRange("P2:P2").copyTo(sheet.getRange("P3:P200"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
+  sheet.getRange("H2:H2").copyTo(sheet.getRange("H3:H200"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
+  sheet.getRange("I2:I2").copyTo(sheet.getRange("I3:I200"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
 
-  // Instrucciones
-  sheet.getRange("R1").setValue("⚡ AUTOMATIZACIÓN");
-  sheet.getRange("R2").setValue("═".repeat(20));
-  sheet.getRange("R3").setValue("COLUMNAS CLAVE:");
-  sheet.getRange("R4").setValue("G. No. Sesión");
-  sheet.getRange("R5").setValue("J. Asistencia");
-  sheet.getRange("R6").setValue("K. Comentarios");
-  sheet.getRange("R7").setValue("L. ESTADO:");
-  sheet.getRange("R8").setValue("  • En proceso");
-  sheet.getRange("R9").setValue("  • Proceso culminado");
-  sheet.getRange("R10").setValue("  • Deserción");
-  sheet.getRange("R11").setValue("  • Gestión de casos");
-  sheet.getRange("R1:R11").setBackground("#fff3e0").setFontWeight("bold");
+  // Instrucciones SIMPLIFICADAS
+  sheet.getRange("L1").setValue("⚡ INSTRUCCIONES");
+  sheet.getRange("L2").setValue("═".repeat(25));
+  sheet.getRange("L3").setValue("COLUMNAS CLAVE:");
+  sheet.getRange("L4").setValue("G. No. Sesión (1-20)");
+  sheet.getRange("L5").setValue("H. Estado:");
+  sheet.getRange("L6").setValue("  • En proceso");
+  sheet.getRange("L7").setValue("  • Finalizado");
+  sheet.getRange("L8").setValue("");
+  sheet.getRange("L9").setValue("🔥 AL SELECCIONAR 'Finalizado':");
+  sheet.getRange("L10").setValue("1. Pregunta motivo");
+  sheet.getRange("L11").setValue("2. Envía correo a director");
+  sheet.getRange("L12").setValue("3. Copia a hoja final");
+  sheet.getRange("L13").setValue("4. Mantiene registro aquí");
+  sheet.getRange("L1:L13").setBackground("#fff3e0").setFontWeight("bold");
 }
 
 /**
@@ -690,25 +690,28 @@ function configurarValidacionesMejoradas() {
   nuevos.getRange("I2:I200").setDataValidation(tipoAtencionRule);
   asignaciones.getRange("F2:F200").setDataValidation(tipoAtencionRule);
 
-  // Asistencia
-  const asistenciaRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(["Asistió", "Faltó", "Falta justificada", "Cancelada", "Reprogramada"])
+  // No. Sesión (1-20) - Columna G en Asignaciones
+  const sesionNumbers = [];
+  for (let i = 1; i <= 20; i++) {
+    sesionNumbers.push(i.toString());
+  }
+  const sesionRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(sesionNumbers)
     .setAllowInvalid(false)
+    .setHelpText("Número de sesión actual (1-20)")
     .build();
-  asignaciones.getRange("J2:J200").setDataValidation(asistenciaRule);
+  asignaciones.getRange("G2:G200").setDataValidation(sesionRule);
 
-  // Estado proceso
+  // Estado proceso - Columna H en Asignaciones (simplificado)
   const estadoRule = SpreadsheetApp.newDataValidation()
     .requireValueInList([
       "En proceso",
-      "Proceso culminado",
-      "Deserción",
-      "Gestión de casos"
+      "Finalizado"
     ])
     .setAllowInvalid(false)
-    .setHelpText("Al cambiar estado se procesa automáticamente")
+    .setHelpText("Al seleccionar 'Finalizado' se solicitará el motivo")
     .build();
-  asignaciones.getRange("L2:L200").setDataValidation(estadoRule);
+  asignaciones.getRange("H2:H200").setDataValidation(estadoRule);
 
   // ===== VALIDACIONES PARA LISTA DE ESPERA =====
   const listaEspera = ss.getSheetByName("Lista de Espera");
@@ -767,51 +770,23 @@ function configurarFormatosMejorados() {
 
   nuevos.setConditionalFormatRules([asignadoRule, pendienteRule]);
 
-  // Asignaciones - Asistencia y Estados
+  // Asignaciones - Estados (columna H simplificada)
   const asignaciones = ss.getSheetByName("Asignaciones y Terapias");
-
-  const asistioRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo("Asistió")
-    .setBackground("#d4edda")
-    .setRanges([asignaciones.getRange("J2:J200")])
-    .build();
-
-  const faltoRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo("Faltó")
-    .setBackground("#f8d7da")
-    .setRanges([asignaciones.getRange("J2:J200")])
-    .build();
 
   const procesoRule = SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo("En proceso")
     .setBackground("#d1ecf1")
-    .setRanges([asignaciones.getRange("L2:L200")])
+    .setRanges([asignaciones.getRange("H2:H200")])
     .build();
 
-  const culminadoRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo("Proceso culminado")
-    .setBackground("#d4edda")
-    .setFontColor("#155724")
-    .setRanges([asignaciones.getRange("L2:L200")])
-    .build();
-
-  const desercionRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo("Deserción")
-    .setBackground("#f8d7da")
-    .setFontColor("#721c24")
-    .setRanges([asignaciones.getRange("L2:L200")])
-    .build();
-
-  const gestionRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo("Gestión de casos")
+  const finalizadoRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("Finalizado")
     .setBackground("#fff3cd")
     .setFontColor("#856404")
-    .setRanges([asignaciones.getRange("L2:L200")])
+    .setRanges([asignaciones.getRange("H2:H200")])
     .build();
 
-  asignaciones.setConditionalFormatRules([
-    asistioRule, faltoRule, procesoRule, culminadoRule, desercionRule, gestionRule
-  ]);
+  asignaciones.setConditionalFormatRules([procesoRule, finalizadoRule]);
 }
 
 /**

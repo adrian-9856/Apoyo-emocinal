@@ -156,18 +156,16 @@ function onEditSistemaCompleto(e) {
 
     // ==========================================
     // AUTOMATIZACIÓN 2: FINALIZACIÓN DE CASO
-    // Hoja: "Asignaciones y Terapias", Columna L (12)
+    // Hoja: "Asignaciones y Terapias", Columna H (8)
     // ==========================================
-    if (nombreHoja === "Asignaciones y Terapias" && columna === 12) {
-      const estadosFinales = ["Proceso culminado", "Deserción", "Gestión de casos"];
-
-      if (estadosFinales.indexOf(valorLimpio) !== -1) {
-        Logger.log("🏁 Procesando finalización: " + valorLimpio);
+    if (nombreHoja === "Asignaciones y Terapias" && columna === 8) {
+      if (valorLimpio === "Finalizado") {
+        Logger.log("🏁 Procesando finalización");
 
         // Pequeña pausa para estabilidad
         Utilities.sleep(300);
 
-        const resultado = procesarFinalizacionCompleta(sheet, fila, valorLimpio);
+        const resultado = procesarFinalizacionConPrompt(sheet, fila);
 
         if (resultado) {
           Logger.log("✅ Finalización exitosa");
@@ -176,15 +174,6 @@ function onEditSistemaCompleto(e) {
           Logger.log("❌ Error en finalización");
         }
       }
-    }
-
-    // ==========================================
-    // AUTOMATIZACIÓN 3: ACTUALIZACIÓN DE SESIÓN
-    // Hoja: "Asignaciones y Terapias", Columna G (7)
-    // ==========================================
-    if (nombreHoja === "Asignaciones y Terapias" && columna === 7) {
-      Logger.log("📊 Actualizando información de sesión");
-      actualizarInformacionSesion(sheet, fila, valorLimpio);
     }
 
   } catch (error) {
@@ -243,10 +232,9 @@ function procesarAsignacionCompleta(sheetOrigen, fila, terapeuta) {
       }
     }
 
-    // Crear nueva asignación
+    // Crear nueva asignación (estructura simplificada - 10 columnas)
     const nuevaFila = asignaciones.getLastRow() + 1;
     const hoy = new Date();
-    const proximaSesion = new Date(hoy.getTime() + (7 * 24 * 60 * 60 * 1000));
 
     const nuevaAsignacion = [
       terapeuta,                          // A - Terapeuta
@@ -255,19 +243,13 @@ function procesarAsignacionCompleta(sheetOrigen, fila, terapeuta) {
       creemosId || "",                    // D - Creemos ID
       sexo || "",                         // E - Sexo
       tipoAtencion || "Individual",       // F - Tipo Terapia
-      1,                                  // G - No. Sesión Actual
-      hoy,                                // H - Fecha Última Sesión
-      proximaSesion,                      // I - Próxima Sesión
-      "",                                 // J - Asistencia Última
-      "Primera sesión programada",        // K - Comentarios
-      "En proceso",                       // L - Estado Proceso
-      hoy,                                // M - Fecha Inicio
-      "",                                 // N - Fecha Finalización
-      "",                                 // O - Motivo Finalización
-      1                                   // P - Total Sesiones
+      "1",                                // G - No. Sesión (empieza en 1)
+      "En proceso",                       // H - Estado Proceso
+      hoy,                                // I - Fecha Inicio
+      ""                                  // J - Motivo Finalización (vacío)
     ];
 
-    asignaciones.getRange(nuevaFila, 1, 1, 16).setValues([nuevaAsignacion]);
+    asignaciones.getRange(nuevaFila, 1, 1, 10).setValues([nuevaAsignacion]);
 
     // Actualizar estado en Nuevos Ingresos
     sheetOrigen.getRange(fila, 12).setValue("Asignado").setBackground("#d4edda");
@@ -417,7 +399,204 @@ function procesarAceptacionListaEspera(sheetOrigen, fila) {
 // =========================================================================
 
 /**
- * Procesar finalización de caso
+ * Procesar finalización con prompt para motivo y tipo
+ */
+function procesarFinalizacionConPrompt(sheetOrigen, fila) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ui = SpreadsheetApp.getUi();
+
+    // Obtener datos del caso (estructura de 10 columnas)
+    const datos = sheetOrigen.getRange(fila, 1, 1, 10).getValues()[0];
+    const terapeuta = datos[0];        // A
+    const numero = datos[1];           // B
+    const participante = datos[2];     // C
+    const creemosId = datos[3];        // D
+    const sexo = datos[4];             // E
+    const tipoTerapia = datos[5];      // F
+    const numSesion = datos[6];        // G
+    const estadoProceso = datos[7];    // H
+    const fechaInicio = datos[8];      // I
+
+    if (!participante || participante.toString().trim() === "") {
+      ui.alert("Error", "No hay nombre de participante en esta fila.", ui.ButtonSet.OK);
+      return false;
+    }
+
+    const nombreLimpio = participante.toString().trim();
+
+    // PASO 1: Preguntar tipo de finalización
+    const tipoResponse = ui.prompt(
+      "🏁 FINALIZAR CASO",
+      "Seleccione el tipo de finalización:\n\n" +
+      "1 - Proceso culminado\n" +
+      "2 - Deserción\n" +
+      "3 - Gestión de casos\n\n" +
+      "Ingrese el número (1, 2 o 3):",
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    if (tipoResponse.getSelectedButton() !== ui.Button.OK) {
+      // Usuario canceló, revertir estado
+      sheetOrigen.getRange(fila, 8).setValue("En proceso");
+      return false;
+    }
+
+    const tipoNumero = tipoResponse.getResponseText().trim();
+    let tipoFinalizacion = "";
+
+    if (tipoNumero === "1") {
+      tipoFinalizacion = "Proceso culminado";
+    } else if (tipoNumero === "2") {
+      tipoFinalizacion = "Deserción";
+    } else if (tipoNumero === "3") {
+      tipoFinalizacion = "Gestión de casos";
+    } else {
+      ui.alert("Error", "Opción no válida. Debe ingresar 1, 2 o 3.", ui.ButtonSet.OK);
+      sheetOrigen.getRange(fila, 8).setValue("En proceso");
+      return false;
+    }
+
+    // PASO 2: Preguntar motivo detallado
+    const motivoResponse = ui.prompt(
+      "📝 MOTIVO DE FINALIZACIÓN",
+      "Participante: " + nombreLimpio + "\n" +
+      "Tipo: " + tipoFinalizacion + "\n\n" +
+      "Ingrese el motivo detallado de la finalización:",
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    if (motivoResponse.getSelectedButton() !== ui.Button.OK) {
+      // Usuario canceló, revertir estado
+      sheetOrigen.getRange(fila, 8).setValue("En proceso");
+      return false;
+    }
+
+    const motivo = motivoResponse.getResponseText().trim();
+
+    if (!motivo || motivo === "") {
+      ui.alert("Error", "Debe ingresar un motivo para finalizar el caso.", ui.ButtonSet.OK);
+      sheetOrigen.getRange(fila, 8).setValue("En proceso");
+      return false;
+    }
+
+    // PASO 3: Actualizar motivo en la fila
+    sheetOrigen.getRange(fila, 10).setValue(motivo); // Columna J
+
+    // PASO 4: Calcular duración
+    const fechaFin = new Date();
+    const fechaInicioDate = new Date(fechaInicio);
+    const duracionDias = Math.round((fechaFin - fechaInicioDate) / (1000 * 60 * 60 * 24));
+
+    // PASO 5: Enviar email al director
+    const emailEnviado = enviarEmailFinalizacion(
+      nombreLimpio,
+      terapeuta,
+      tipoFinalizacion,
+      motivo,
+      numSesion,
+      duracionDias
+    );
+
+    // PASO 6: COPIAR (no mover) a hoja correspondiente
+    let copiaExitosa = false;
+
+    if (tipoFinalizacion === "Proceso culminado") {
+      copiaExitosa = enviarAProcesosCulminados(
+        nombreLimpio, terapeuta, creemosId, numSesion, duracionDias, motivo
+      );
+    } else if (tipoFinalizacion === "Deserción") {
+      copiaExitosa = enviarADeserciones(
+        nombreLimpio, terapeuta, creemosId, numSesion, motivo, duracionDias
+      );
+    } else if (tipoFinalizacion === "Gestión de casos") {
+      copiaExitosa = enviarAGestionCasos(
+        nombreLimpio, terapeuta, creemosId, motivo, tipoTerapia, numSesion
+      );
+    }
+
+    if (copiaExitosa) {
+      // Cambiar color según estado (mantener en Asignaciones)
+      const colores = {
+        "Proceso culminado": "#d4edda",
+        "Deserción": "#f8d7da",
+        "Gestión de casos": "#fff3cd"
+      };
+
+      sheetOrigen.getRange(fila, 1, 1, 10).setBackground(colores[tipoFinalizacion]);
+
+      // Notificación
+      ss.toast(
+        "✅ FINALIZACIÓN EXITOSA\n\n" +
+        "👤 " + nombreLimpio + "\n" +
+        "📊 " + tipoFinalizacion + "\n" +
+        "🔢 Sesiones: " + numSesion + "\n" +
+        "📅 Duración: " + duracionDias + " días\n" +
+        (emailEnviado ? "✉️ Email enviado al director" : "⚠️ Email no enviado"),
+        "Caso Finalizado",
+        6
+      );
+
+      Logger.log("✅ Finalización completa: " + nombreLimpio + " → " + tipoFinalizacion);
+
+      return true;
+    } else {
+      ui.alert("Error", "No se pudo copiar el registro a la hoja final.", ui.ButtonSet.OK);
+      return false;
+    }
+
+  } catch (error) {
+    Logger.log("❌ Error en procesarFinalizacionConPrompt: " + error.toString());
+    SpreadsheetApp.getActiveSpreadsheet().getUi().alert(
+      "Error",
+      "Error en finalización: " + error.toString(),
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+    return false;
+  }
+}
+
+/**
+ * Enviar email de notificación al director
+ */
+function enviarEmailFinalizacion(participante, terapeuta, tipo, motivo, sesiones, duracion) {
+  try {
+    // Email del director (CAMBIAR POR EL EMAIL REAL)
+    const emailDirector = "director@apoyoemocional.org"; // ⚠️ CAMBIAR ESTE EMAIL
+
+    const asunto = "🏁 Finalización de Caso - " + participante;
+
+    const cuerpo =
+      "Se ha finalizado un caso en el sistema de Apoyo Emocional.\n\n" +
+      "═══════════════════════════════════════\n" +
+      "INFORMACIÓN DEL CASO\n" +
+      "═══════════════════════════════════════\n\n" +
+      "👤 Participante: " + participante + "\n" +
+      "👩‍⚕️ Terapeuta: " + terapeuta + "\n" +
+      "📊 Tipo de finalización: " + tipo + "\n" +
+      "🔢 Sesiones realizadas: " + sesiones + "\n" +
+      "📅 Duración: " + duracion + " días\n\n" +
+      "═══════════════════════════════════════\n" +
+      "MOTIVO DE FINALIZACIÓN\n" +
+      "═══════════════════════════════════════\n\n" +
+      motivo + "\n\n" +
+      "═══════════════════════════════════════\n\n" +
+      "Este es un mensaje automático del Sistema de Apoyo Emocional.\n" +
+      "Fecha: " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm");
+
+    MailApp.sendEmail(emailDirector, asunto, cuerpo);
+
+    Logger.log("✅ Email enviado a: " + emailDirector);
+    return true;
+
+  } catch (error) {
+    Logger.log("⚠️ Error enviando email: " + error.toString());
+    return false;
+  }
+}
+
+/**
+ * Procesar finalización de caso (función legacy - mantener para compatibilidad)
  */
 function procesarFinalizacionCompleta(sheetOrigen, fila, estado) {
   try {
