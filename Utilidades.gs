@@ -1,7 +1,12 @@
 /**
  * =========================================================================
- * UTILIDADES Y DIAGNÓSTICO DEL SISTEMA
+ * UTILIDADES Y DIAGNÓSTICO DEL SISTEMA - Versión 3.0
  * Funciones auxiliares y herramientas de diagnóstico
+ * =========================================================================
+ *
+ * ⚠️ OPCIÓN 1: Usar este archivo con Code.gs + Automatizaciones.gs
+ * ⚠️ OPCIÓN 2: Usar solo SistemaCompleto.gs (TODO UNIFICADO)
+ *
  * =========================================================================
  */
 

@@ -1,8 +1,19 @@
 /**
  * =========================================================================
- * SISTEMA DE APOYO EMOCIONAL - VERSIÓN CORREGIDA Y FUNCIONAL
+ * SISTEMA DE APOYO EMOCIONAL - VERSIÓN SIMPLIFICADA
  * Por Adrian Torres - Manufacturing Operations
- * Versión: 2.0 - Corregida y Optimizada
+ * Versión: 3.0 - Simplificada y Reorganizada
+ * =========================================================================
+ *
+ * ⚠️ OPCIÓN 1: Usar este archivo + Automatizaciones.gs + Utilidades.gs
+ * ⚠️ OPCIÓN 2: Usar solo SistemaCompleto.gs (TODO UNIFICADO)
+ *
+ * CAMBIOS V3.0:
+ * ✅ Lista de Espera: solo dropdown "Enviar" (col L)
+ * ✅ Nuevos Ingresos: Terapeuta al final (col K)
+ * ✅ "Sexo" → "Género" (con más opciones)
+ * ✅ Flujo lógico: Llenar → Asignar → Enviar
+ *
  * =========================================================================
  */
 
@@ -139,11 +150,11 @@ function crearHojaListaEspera() {
 
   sheet.clear();
 
-  // Encabezados
+  // Encabezados simplificados - solo texto libre + dropdown final
   const headers = [
-    "Fecha Solicitud", "No.", "Nombre Completo", "Creemos ID", "Sexo",
-    "Rango Edad", "Malestar Principal", "Prioridad", "Tipo Atención",
-    "Derivado Por", "Contacto Emergencia", "Teléfono", "Estado", "Observaciones"
+    "Fecha Solicitud", "No.", "Nombre Completo", "Creemos ID", "Género",
+    "Rango Edad", "Malestar Principal", "Derivado Por", "Contacto Emergencia",
+    "Teléfono", "Observaciones", "Acción"
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -158,65 +169,36 @@ function crearHojaListaEspera() {
   // Fórmulas automáticas (fila 2)
   sheet.getRange("A2").setFormula('=IF(C2<>"";HOY();"")');
   sheet.getRange("B2").setFormula('=IF(C2<>"";FILA()-1;"")');
-  sheet.getRange("M2").setFormula('=IF(C2<>"";"En espera";"")');
 
   // Copiar fórmulas hacia abajo (100 filas)
   sheet.getRange("A2:A2").copyTo(sheet.getRange("A3:A100"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
   sheet.getRange("B2:B2").copyTo(sheet.getRange("B3:B100"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
-  sheet.getRange("M2:M2").copyTo(sheet.getRange("M3:M100"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
 
   // Ajustar anchos
-  const widths = [110, 60, 200, 120, 80, 100, 250, 100, 120, 150, 180, 120, 120, 200];
+  const widths = [110, 60, 200, 120, 100, 100, 250, 150, 180, 120, 200, 150];
   widths.forEach((width, i) => {
     sheet.setColumnWidth(i + 1, width);
   });
 
   // Instrucciones
-  sheet.getRange("P1").setValue("📋 LISTA DE ESPERA");
-  sheet.getRange("P2").setValue("═".repeat(25));
-  sheet.getRange("P3").setValue("🎯 INSTRUCCIONES:");
-  sheet.getRange("P4").setValue("1. Registrar participantes aquí");
-  sheet.getRange("P5").setValue("2. Prioridad: Alta/Media/Baja");
-  sheet.getRange("P6").setValue("3. Cuando haya cupo:");
-  sheet.getRange("P7").setValue("   → Marcar estado: 'Aceptado'");
-  sheet.getRange("P8").setValue("   → Se moverá automáticamente");
-  sheet.getRange("P9").setValue("   → a 'Nuevos Ingresos'");
-  sheet.getRange("P10").setValue("");
-  sheet.getRange("P11").setValue("⚠️ ESTADOS:");
-  sheet.getRange("P12").setValue("• En espera (esperando cupo)");
-  sheet.getRange("P13").setValue("• Aceptado (se mueve automático)");
-  sheet.getRange("P14").setValue("• Rechazado (no cumple criterios)");
-  sheet.getRange("P15").setValue("• Cancelado (desistió)");
-  sheet.getRange("P1:P15").setBackground("#fce4ec").setFontWeight("bold");
-
-  // Formato condicional para prioridad
-  const altaPrioridadRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo("Alta")
-    .setBackground("#ffcdd2")
-    .setFontColor("#c62828")
-    .setRanges([sheet.getRange("H2:H100")])
-    .build();
-
-  const mediaPrioridadRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo("Media")
-    .setBackground("#fff9c4")
-    .setFontColor("#f57f17")
-    .setRanges([sheet.getRange("H2:H100")])
-    .build();
-
-  const bajaPrioridadRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo("Baja")
-    .setBackground("#c8e6c9")
-    .setFontColor("#2e7d32")
-    .setRanges([sheet.getRange("H2:H100")])
-    .build();
-
-  sheet.setConditionalFormatRules([altaPrioridadRule, mediaPrioridadRule, bajaPrioridadRule]);
+  sheet.getRange("N1").setValue("📋 LISTA DE ESPERA");
+  sheet.getRange("N2").setValue("═".repeat(25));
+  sheet.getRange("N3").setValue("🎯 INSTRUCCIONES:");
+  sheet.getRange("N4").setValue("1. Llenar datos del participante");
+  sheet.getRange("N5").setValue("2. Todos los campos son texto libre");
+  sheet.getRange("N6").setValue("3. Al final (columna L):");
+  sheet.getRange("N7").setValue("   → Seleccionar: 'Enviar'");
+  sheet.getRange("N8").setValue("   → Se mueve automáticamente");
+  sheet.getRange("N9").setValue("   → a 'Nuevos Ingresos'");
+  sheet.getRange("N10").setValue("");
+  sheet.getRange("N11").setValue("⚠️ ACCIÓN (Columna L):");
+  sheet.getRange("N12").setValue("• (vacío) = en espera");
+  sheet.getRange("N13").setValue("• Enviar = mover a Nuevos Ingresos");
+  sheet.getRange("N1:N13").setBackground("#fce4ec").setFontWeight("bold");
 
   // Proteger columnas automáticas
   sheet.getRange("A2:A100").protect().setWarningOnly(true);
   sheet.getRange("B2:B100").protect().setWarningOnly(true);
-  sheet.getRange("M2:M100").protect().setWarningOnly(true);
 }
 
 /**
@@ -228,11 +210,12 @@ function crearHojaNuevosIngresosMejorada() {
 
   sheet.clear();
 
-  // Encabezados
+  // Encabezados reorganizados - TERAPEUTA AL FINAL
+  // FLUJO: Llenar datos C-J → AL FINAL asignar Terapeuta (K) que ENVÍA a Asignaciones
   const headers = [
-    "Fecha Ingreso", "No.", "Nombre Completo", "Creemos ID", "Sexo",
-    "Rango Edad", "Malestar Principal", "Terapeuta Asignado",
-    "Tipo Atención", "Derivado Por", "Contacto Emergencia", "Estado Ingreso"
+    "Fecha Ingreso", "No.", "Nombre Completo", "Creemos ID", "Género",
+    "Rango Edad", "Malestar Principal", "Tipo Atención", "Derivado Por",
+    "Contacto Emergencia", "Terapeuta Asignado"
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -245,7 +228,7 @@ function crearHojaNuevosIngresosMejorada() {
     .setHorizontalAlignment("center");
 
   // Ajustar anchos
-  const widths = [110, 60, 200, 120, 80, 100, 250, 150, 120, 150, 180, 120];
+  const widths = [110, 60, 200, 120, 100, 100, 250, 120, 150, 180, 150];
   widths.forEach((width, i) => {
     sheet.setColumnWidth(i + 1, width);
   });
@@ -253,26 +236,30 @@ function crearHojaNuevosIngresosMejorada() {
   // Fórmulas automáticas (fila 2)
   sheet.getRange("A2").setFormula('=IF(C2<>"";HOY();"")');
   sheet.getRange("B2").setFormula('=IF(C2<>"";FILA()-1;"")');
-  sheet.getRange("L2").setFormula('=IF(H2<>"";"Asignado";"Pendiente")');
 
   // Copiar fórmulas hacia abajo (100 filas)
   sheet.getRange("A2:A2").copyTo(sheet.getRange("A3:A100"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
   sheet.getRange("B2:B2").copyTo(sheet.getRange("B3:B100"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
-  sheet.getRange("L2:L2").copyTo(sheet.getRange("L3:L100"), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
 
   // Instrucciones
-  sheet.getRange("N1").setValue("🎯 INSTRUCCIONES");
-  sheet.getRange("N2").setValue("═".repeat(20));
-  sheet.getRange("N3").setValue("1. Llenar datos del participante");
-  sheet.getRange("N4").setValue("2. ASIGNAR TERAPEUTA (col H)");
-  sheet.getRange("N5").setValue("3. → Envío AUTOMÁTICO");
-  sheet.getRange("N6").setValue("");
-  sheet.getRange("N7").setValue("TERAPEUTAS:");
-  sheet.getRange("N8").setValue("• Gerber");
-  sheet.getRange("N9").setValue("• Melissa");
-  sheet.getRange("N10").setValue("• Diana");
-  sheet.getRange("N11").setValue("• Karina");
-  sheet.getRange("N1:N11").setBackground("#e8f5e8").setFontWeight("bold");
+  sheet.getRange("M1").setValue("🎯 FLUJO DE USO");
+  sheet.getRange("M2").setValue("═".repeat(25));
+  sheet.getRange("M3").setValue("ORDEN CORRECTO:");
+  sheet.getRange("M4").setValue("1️⃣ Llenar TODA la información");
+  sheet.getRange("M5").setValue("   C-J (Nombre hasta Contacto)");
+  sheet.getRange("M6").setValue("");
+  sheet.getRange("M7").setValue("2️⃣ AL FINAL: Asignar Terapeuta");
+  sheet.getRange("M8").setValue("   Columna K (dropdown)");
+  sheet.getRange("M9").setValue("");
+  sheet.getRange("M10").setValue("3️⃣ AUTOMÁTICO: Se envía");
+  sheet.getRange("M11").setValue("   → a Asignaciones y Terapias");
+  sheet.getRange("M12").setValue("");
+  sheet.getRange("M13").setValue("TERAPEUTAS:");
+  sheet.getRange("M14").setValue("• Gerber");
+  sheet.getRange("M15").setValue("• Melissa");
+  sheet.getRange("M16").setValue("• Diana");
+  sheet.getRange("M17").setValue("• Karina");
+  sheet.getRange("M1:M17").setBackground("#e8f5e8").setFontWeight("bold");
 }
 
 /**
@@ -284,7 +271,7 @@ function crearHojaAsignacionesMejorada() {
 
   // COLUMNAS SIMPLIFICADAS - Solo 10 columnas
   const headers = [
-    "Terapeuta", "No.", "Participante", "Creemos ID", "Sexo",
+    "Terapeuta", "No.", "Participante", "Creemos ID", "Género",
     "Tipo Terapia", "No. Sesión", "Estado Proceso",
     "Fecha Inicio", "Motivo Finalización"
   ];
@@ -639,55 +626,29 @@ function configurarValidacionesMejoradas() {
   const nuevos = ss.getSheetByName("Nuevos Ingresos");
   const asignaciones = ss.getSheetByName("Asignaciones y Terapias");
 
-  // Sexo
-  const sexoRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(["Hombre", "Mujer", "Otro"])
+  // Género (actualizado con más opciones)
+  const generoRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(["Hombre", "Mujer", "Trans hombre", "No binario", "Otro"])
     .setAllowInvalid(false)
     .build();
-  nuevos.getRange("E2:E200").setDataValidation(sexoRule);
-  asignaciones.getRange("E2:E200").setDataValidation(sexoRule);
+  nuevos.getRange("E2:E200").setDataValidation(generoRule);
+  asignaciones.getRange("E2:E200").setDataValidation(generoRule);
 
-  // Edad
-  const edadRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(["16 a 25", "26 a 30", "31 a 40", "41 a 50", "51 a 60", "60+"])
-    .setAllowInvalid(false)
-    .build();
-  nuevos.getRange("F2:F200").setDataValidation(edadRule);
-
-  // Malestar
-  const malestarRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList([
-      "Sintomatología depresiva",
-      "Sintomatología de ansiedad",
-      "Sintomatología de TEA o TEPT",
-      "Violencia de género",
-      "Dificultad en las relaciones interpersonales",
-      "Dinámica familiar disfuncional",
-      "Requerimiento legal",
-      "Duelo y pérdidas",
-      "Trastornos alimentarios",
-      "Adicciones",
-      "Otros"
-    ])
-    .setAllowInvalid(false)
-    .build();
-  nuevos.getRange("G2:G200").setDataValidation(malestarRule);
-
-  // Terapeuta
+  // Terapeuta - AHORA EN COLUMNA K (al final, porque es la acción que envía)
   const terapeutaRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(["Gerber", "Melissa", "Diana", "Karina"])
     .setAllowInvalid(false)
     .setHelpText("Al seleccionar se enviará automáticamente a Asignaciones")
     .build();
-  nuevos.getRange("H2:H200").setDataValidation(terapeutaRule);
+  nuevos.getRange("K2:K200").setDataValidation(terapeutaRule);
   asignaciones.getRange("A2:A200").setDataValidation(terapeutaRule);
 
-  // Tipo atención
+  // Tipo atención - AHORA EN COLUMNA H de Nuevos Ingresos
   const tipoAtencionRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(["Individual", "Grupal", "Familiar", "Pareja"])
     .setAllowInvalid(false)
     .build();
-  nuevos.getRange("I2:I200").setDataValidation(tipoAtencionRule);
+  nuevos.getRange("H2:H200").setDataValidation(tipoAtencionRule);
   asignaciones.getRange("F2:F200").setDataValidation(tipoAtencionRule);
 
   // No. Sesión (1-20) - Columna G en Asignaciones
@@ -717,33 +678,13 @@ function configurarValidacionesMejoradas() {
   const listaEspera = ss.getSheetByName("Lista de Espera");
 
   if (listaEspera) {
-    // Sexo
-    listaEspera.getRange("E2:E200").setDataValidation(sexoRule);
-
-    // Edad
-    listaEspera.getRange("F2:F200").setDataValidation(edadRule);
-
-    // Malestar
-    listaEspera.getRange("G2:G200").setDataValidation(malestarRule);
-
-    // Prioridad
-    const prioridadRule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(["Alta", "Media", "Baja"])
+    // SOLO UN DROPDOWN: Acción (Columna L)
+    const accionListaRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(["Enviar"])
       .setAllowInvalid(false)
-      .setHelpText("Prioridad del caso")
+      .setHelpText("Seleccionar 'Enviar' moverá automáticamente a Nuevos Ingresos")
       .build();
-    listaEspera.getRange("H2:H200").setDataValidation(prioridadRule);
-
-    // Tipo atención
-    listaEspera.getRange("I2:I200").setDataValidation(tipoAtencionRule);
-
-    // Estado de lista de espera
-    const estadoListaRule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(["En espera", "Aceptado", "Rechazado", "Cancelado"])
-      .setAllowInvalid(false)
-      .setHelpText("Al seleccionar 'Aceptado' se moverá automáticamente a Nuevos Ingresos")
-      .build();
-    listaEspera.getRange("M2:M200").setDataValidation(estadoListaRule);
+    listaEspera.getRange("L2:L200").setDataValidation(accionListaRule);
   }
 }
 
@@ -801,16 +742,18 @@ function crearDatosEjemploMejorados() {
     nuevos.getRange(2, 3, nuevos.getLastRow() - 1, 10).clearContent();
   }
 
+  // Ejemplos con nueva estructura (C a J - 8 columnas)
+  // C=Nombre, D=Creemos, E=Género, F=Edad, G=Malestar, H=TipoAtención, I=Derivado, J=Contacto
   const ejemplos = [
-    ["María González Pérez", "MG001", "Mujer", "26 a 30", "Sintomatología de ansiedad", "", "Individual", "Centro de Salud", "Juan Pérez - 12345678"],
-    ["Carlos López Morales", "CL002", "Hombre", "31 a 40", "Sintomatología depresiva", "", "Individual", "Derivación médica", "Ana López - 87654321"],
-    ["Ana Morales Rivera", "AM003", "Mujer", "16 a 25", "Violencia de género", "", "Individual", "Servicios sociales", "María Morales - 11223344"],
-    ["José Torres Vega", "JT004", "Hombre", "41 a 50", "Dificultad en las relaciones interpersonales", "", "Pareja", "Consulta voluntaria", "Carmen Torres - 44332211"],
-    ["Sofia Ramírez Castro", "SR005", "Mujer", "26 a 30", "Sintomatología de TEA o TEPT", "", "Individual", "Hospital público", "Luis Ramírez - 55667788"]
+    ["María González Pérez", "MG001", "Mujer", "26 a 30", "Sintomatología de ansiedad", "Individual", "Centro de Salud", "Juan Pérez - 12345678"],
+    ["Carlos López Morales", "CL002", "Hombre", "31 a 40", "Sintomatología depresiva", "Individual", "Derivación médica", "Ana López - 87654321"],
+    ["Ana Morales Rivera", "AM003", "No binario", "16 a 25", "Violencia de género", "Individual", "Servicios sociales", "María Morales - 11223344"],
+    ["José Torres Vega", "JT004", "Trans hombre", "41 a 50", "Dificultad en las relaciones interpersonales", "Pareja", "Consulta voluntaria", "Carmen Torres - 44332211"],
+    ["Sofia Ramírez Castro", "SR005", "Mujer", "26 a 30", "Sintomatología de TEA o TEPT", "Individual", "Hospital público", "Luis Ramírez - 55667788"]
   ];
 
-  // Insertar datos (columnas C a K)
-  nuevos.getRange(2, 3, ejemplos.length, 9).setValues(ejemplos);
+  // Insertar datos (columnas C a J - 8 columnas)
+  nuevos.getRange(2, 3, ejemplos.length, 8).setValues(ejemplos);
 
   SpreadsheetApp.flush();
 
@@ -819,7 +762,7 @@ function crearDatosEjemploMejorados() {
     "5 participantes registrados\n" +
     "Estado: Pendientes de asignar\n\n" +
     "Siguiente paso:\n" +
-    "Asigna un terapeuta en columna H",
+    "Asigna un terapeuta en columna K (al final)",
     "Datos Listos",
     6
   );

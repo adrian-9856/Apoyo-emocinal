@@ -1,7 +1,19 @@
 /**
  * =========================================================================
- * AUTOMATIZACIONES DEL SISTEMA
+ * AUTOMATIZACIONES DEL SISTEMA - Versión 3.0
  * Funciones que se ejecutan automáticamente al editar
+ * =========================================================================
+ *
+ * ⚠️ OPCIÓN 1: Usar este archivo con Code.gs + Utilidades.gs
+ * ⚠️ OPCIÓN 2: Usar solo SistemaCompleto.gs (TODO UNIFICADO)
+ *
+ * CAMBIOS V3.0:
+ * ✅ Lista de Espera: detecta columna L "Enviar"
+ * ✅ Nuevos Ingresos: detecta columna K (Terapeuta al final)
+ * ✅ Asignaciones: detecta columna H (Estado Finalizado)
+ * ✅ Sistema de prompts para finalización
+ * ✅ Email automático al director
+ *
  * =========================================================================
  */
 
@@ -109,17 +121,17 @@ function onEditSistemaCompleto(e) {
     Logger.log("🔥 EDIT: " + nombreHoja + " | Fila: " + fila + " | Col: " + columna + " | Valor: " + valorLimpio);
 
     // ==========================================
-    // AUTOMATIZACIÓN 0: ACEPTAR DE LISTA DE ESPERA
-    // Hoja: "Lista de Espera", Columna M (13)
+    // AUTOMATIZACIÓN 0: ENVIAR DE LISTA DE ESPERA
+    // Hoja: "Lista de Espera", Columna L (12) - Acción
     // ==========================================
-    if (nombreHoja === "Lista de Espera" && columna === 13) {
-      if (valorLimpio === "Aceptado") {
-        Logger.log("📋 Procesando aceptación desde lista de espera");
+    if (nombreHoja === "Lista de Espera" && columna === 12) {
+      if (valorLimpio === "Enviar") {
+        Logger.log("📋 Procesando envío desde lista de espera");
 
         // Pequeña pausa para estabilidad
         Utilities.sleep(300);
 
-        const resultado = procesarAceptacionListaEspera(sheet, fila);
+        const resultado = procesarEnvioListaEspera(sheet, fila);
 
         if (resultado) {
           Logger.log("✅ Movido a Nuevos Ingresos exitosamente");
@@ -132,9 +144,9 @@ function onEditSistemaCompleto(e) {
 
     // ==========================================
     // AUTOMATIZACIÓN 1: ASIGNACIÓN DE TERAPEUTA
-    // Hoja: "Nuevos Ingresos", Columna H (8)
+    // Hoja: "Nuevos Ingresos", Columna K (11) - AL FINAL
     // ==========================================
-    if (nombreHoja === "Nuevos Ingresos" && columna === 8) {
+    if (nombreHoja === "Nuevos Ingresos" && columna === 11) {
       const terapeutas = ["Gerber", "Melissa", "Diana", "Karina"];
 
       if (terapeutas.indexOf(valorLimpio) !== -1) {
@@ -205,12 +217,13 @@ function procesarAsignacionCompleta(sheetOrigen, fila, terapeuta) {
       return false;
     }
 
-    // Obtener datos del participante
-    const datos = sheetOrigen.getRange(fila, 1, 1, 12).getValues()[0];
-    const nombre = datos[2]; // Columna C
-    const creemosId = datos[3];
-    const sexo = datos[4];
-    const tipoAtencion = datos[8];
+    // Obtener datos del participante (Nuevos Ingresos - 11 columnas)
+    // A=Fecha, B=No, C=Nombre, D=Creemos, E=Género, F=Edad, G=Malestar, H=TipoAtención, I=Derivado, J=Contacto, K=Terapeuta
+    const datos = sheetOrigen.getRange(fila, 1, 1, 11).getValues()[0];
+    const nombre = datos[2];          // C
+    const creemosId = datos[3];       // D
+    const genero = datos[4];          // E
+    const tipoAtencion = datos[7];    // H
 
     if (!nombre || nombre.toString().trim() === "") {
       Logger.log("❌ No hay nombre de participante");
@@ -226,7 +239,7 @@ function procesarAsignacionCompleta(sheetOrigen, fila, terapeuta) {
     for (let i = 1; i < datosAsignaciones.length; i++) {
       if (datosAsignaciones[i][2] && datosAsignaciones[i][2].toString().trim() === nombreLimpio) {
         Logger.log("⚠️ Ya existe en Asignaciones");
-        sheetOrigen.getRange(fila, 12).setValue("Asignado").setBackground("#d4edda");
+        sheetOrigen.getRange(fila, 1, 1, 11).setBackground("#d4edda");
         ss.toast(nombreLimpio + " ya estaba asignado", "Ya Procesado", 2);
         return true;
       }
@@ -241,7 +254,7 @@ function procesarAsignacionCompleta(sheetOrigen, fila, terapeuta) {
       nuevaFila - 1,                      // B - No.
       nombreLimpio,                       // C - Participante
       creemosId || "",                    // D - Creemos ID
-      sexo || "",                         // E - Sexo
+      genero || "",                       // E - Género
       tipoAtencion || "Individual",       // F - Tipo Terapia
       "1",                                // G - No. Sesión (empieza en 1)
       "En proceso",                       // H - Estado Proceso
@@ -251,8 +264,8 @@ function procesarAsignacionCompleta(sheetOrigen, fila, terapeuta) {
 
     asignaciones.getRange(nuevaFila, 1, 1, 10).setValues([nuevaAsignacion]);
 
-    // Actualizar estado en Nuevos Ingresos
-    sheetOrigen.getRange(fila, 12).setValue("Asignado").setBackground("#d4edda");
+    // Marcar fila en Nuevos Ingresos como procesada (verde)
+    sheetOrigen.getRange(fila, 1, 1, 11).setBackground("#d4edda");
 
     // Mensaje de confirmación
     ss.toast(
@@ -280,9 +293,9 @@ function procesarAsignacionCompleta(sheetOrigen, fila, terapeuta) {
 }
 
 /**
- * Procesar aceptación desde lista de espera
+ * Procesar envío desde lista de espera a nuevos ingresos
  */
-function procesarAceptacionListaEspera(sheetOrigen, fila) {
+function procesarEnvioListaEspera(sheetOrigen, fila) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const nuevosIngresos = ss.getSheetByName("Nuevos Ingresos");
@@ -292,17 +305,16 @@ function procesarAceptacionListaEspera(sheetOrigen, fila) {
       return false;
     }
 
-    // Obtener datos del participante de Lista de Espera
-    // Columnas: A=Fecha, B=No, C=Nombre, D=Creemos, E=Sexo, F=Edad, G=Malestar, H=Prioridad, I=TipoAtencion, J=Derivado, K=Contacto, L=Telefono, M=Estado, N=Observaciones
-    const datos = sheetOrigen.getRange(fila, 1, 1, 14).getValues()[0];
+    // Obtener datos del participante de Lista de Espera (12 columnas)
+    // A=Fecha, B=No, C=Nombre, D=Creemos, E=Género, F=Edad, G=Malestar, H=Derivado, I=Contacto, J=Teléfono, K=Observaciones, L=Acción
+    const datos = sheetOrigen.getRange(fila, 1, 1, 12).getValues()[0];
     const nombre = datos[2];       // C
     const creemosId = datos[3];    // D
-    const sexo = datos[4];         // E
+    const genero = datos[4];       // E
     const rangoEdad = datos[5];    // F
     const malestar = datos[6];     // G
-    const tipoAtencion = datos[8]; // I
-    const derivadoPor = datos[9];  // J
-    const contacto = datos[10];    // K
+    const derivadoPor = datos[7];  // H
+    const contacto = datos[8];     // I
 
     if (!nombre || nombre.toString().trim() === "") {
       Logger.log("❌ No hay nombre de participante");
@@ -321,7 +333,7 @@ function procesarAceptacionListaEspera(sheetOrigen, fila) {
         ss.toast(nombreLimpio + " ya existe en Nuevos Ingresos", "Ya Registrado", 3);
 
         // Marcar como procesado en Lista de Espera
-        sheetOrigen.getRange(fila, 1, 1, 14).setBackground("#d4edda");
+        sheetOrigen.getRange(fila, 1, 1, 12).setBackground("#d4edda");
 
         return true;
       }
@@ -339,43 +351,27 @@ function procesarAceptacionListaEspera(sheetOrigen, fila) {
       }
     }
 
-    // Crear datos para Nuevos Ingresos
-    // Columnas Nuevos Ingresos: A=Fecha, B=No, C=Nombre, D=Creemos, E=Sexo, F=Edad, G=Malestar, H=Terapeuta, I=TipoAtencion, J=Derivado, K=Contacto, L=Estado
-    const datosNuevosIngresos = [
-      "",                            // A - Fecha (fórmula automática)
-      "",                            // B - No. (fórmula automática)
-      nombreLimpio,                  // C - Nombre
-      creemosId || "",               // D - Creemos ID
-      sexo || "",                    // E - Sexo
-      rangoEdad || "",               // F - Rango Edad
-      malestar || "",                // G - Malestar
-      "",                            // H - Terapeuta (vacío, se asignará después)
-      tipoAtencion || "Individual",  // I - Tipo Atención
-      derivadoPor || "",             // J - Derivado Por
-      contacto || "",                // K - Contacto Emergencia
-      ""                             // L - Estado (fórmula automática)
-    ];
-
-    // Insertar en Nuevos Ingresos (solo las columnas con datos, las fórmulas se mantienen)
+    // Insertar en Nuevos Ingresos (11 columnas)
+    // A=Fecha, B=No, C=Nombre, D=Creemos, E=Género, F=Edad, G=Malestar, H=TipoAtención, I=Derivado, J=Contacto, K=Terapeuta
     nuevosIngresos.getRange(nuevaFila, 3).setValue(nombreLimpio);           // C
     nuevosIngresos.getRange(nuevaFila, 4).setValue(creemosId || "");        // D
-    nuevosIngresos.getRange(nuevaFila, 5).setValue(sexo || "");             // E
+    nuevosIngresos.getRange(nuevaFila, 5).setValue(genero || "");           // E
     nuevosIngresos.getRange(nuevaFila, 6).setValue(rangoEdad || "");        // F
     nuevosIngresos.getRange(nuevaFila, 7).setValue(malestar || "");         // G
-    nuevosIngresos.getRange(nuevaFila, 9).setValue(tipoAtencion || "Individual"); // I
-    nuevosIngresos.getRange(nuevaFila, 10).setValue(derivadoPor || "");     // J
-    nuevosIngresos.getRange(nuevaFila, 11).setValue(contacto || "");        // K
+    nuevosIngresos.getRange(nuevaFila, 8).setValue("Individual");           // H - Tipo Atención (default)
+    nuevosIngresos.getRange(nuevaFila, 9).setValue(derivadoPor || "");      // I
+    nuevosIngresos.getRange(nuevaFila, 10).setValue(contacto || "");        // J
 
     // Marcar fila en Lista de Espera como procesada (verde)
-    sheetOrigen.getRange(fila, 1, 1, 14).setBackground("#d4edda");
+    sheetOrigen.getRange(fila, 1, 1, 12).setBackground("#d4edda");
 
     // Mensaje de confirmación
     ss.toast(
-      "✅ ACEPTADO DESDE LISTA DE ESPERA\n\n" +
+      "✅ ENVIADO DESDE LISTA DE ESPERA\n\n" +
       "👤 " + nombreLimpio + "\n" +
       "📋 Movido a 'Nuevos Ingresos'\n" +
-      "👩‍⚕️ Siguiente: Asignar terapeuta",
-      "Aceptación Completa",
+      "👩‍⚕️ Siguiente: Asignar terapeuta (col K)",
+      "Envío Completo",
       5
     );
 
@@ -384,14 +380,21 @@ function procesarAceptacionListaEspera(sheetOrigen, fila) {
     return true;
 
   } catch (error) {
-    Logger.log("❌ Error en procesarAceptacionListaEspera: " + error.toString());
+    Logger.log("❌ Error en procesarEnvioListaEspera: " + error.toString());
     SpreadsheetApp.getActiveSpreadsheet().toast(
       "Error: " + error.toString(),
-      "Error en Aceptación",
+      "Error en Envío",
       5
     );
     return false;
   }
+}
+
+/**
+ * Función legacy - mantener para compatibilidad
+ */
+function procesarAceptacionListaEspera(sheetOrigen, fila) {
+  return procesarEnvioListaEspera(sheetOrigen, fila);
 }
 
 // =========================================================================
