@@ -97,10 +97,17 @@ function onEditSistemaCompleto(e) {
   try {
     // Validaciones básicas
     if (!e || !e.range) {
+      Logger.log("⚠️ onEditSistemaCompleto: evento no válido");
       return;
     }
 
     const sheet = e.range.getSheet();
+
+    if (!sheet || typeof sheet.getName !== 'function') {
+      Logger.log("❌ ERROR: No se pudo obtener la hoja del evento");
+      return;
+    }
+
     const fila = e.range.getRow();
     const columna = e.range.getColumn();
     const valor = e.range.getValue();
@@ -210,6 +217,19 @@ function onEditSistemaCompleto(e) {
 function procesarAsignacionCompleta(sheetOrigen, fila, terapeuta) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Validar parámetros
+    if (!sheetOrigen || typeof sheetOrigen.getRange !== 'function') {
+      Logger.log("❌ ERROR: sheetOrigen no es válido");
+      ss.toast("Error: Parámetro inválido en procesarAsignacionCompleta", "Error", 3);
+      return false;
+    }
+
+    if (!fila || fila < 2) {
+      Logger.log("❌ ERROR: fila inválida: " + fila);
+      return false;
+    }
+
     const asignaciones = ss.getSheetByName("Asignaciones y Terapias");
 
     if (!asignaciones) {
@@ -298,6 +318,19 @@ function procesarAsignacionCompleta(sheetOrigen, fila, terapeuta) {
 function procesarEnvioListaEspera(sheetOrigen, fila) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Validar parámetros
+    if (!sheetOrigen || typeof sheetOrigen.getRange !== 'function') {
+      Logger.log("❌ ERROR: sheetOrigen no es válido");
+      ss.toast("Error: Parámetro inválido en procesarEnvioListaEspera", "Error", 3);
+      return false;
+    }
+
+    if (!fila || fila < 2) {
+      Logger.log("❌ ERROR: fila inválida: " + fila);
+      return false;
+    }
+
     const nuevosIngresos = ss.getSheetByName("Nuevos Ingresos");
 
     if (!nuevosIngresos) {
@@ -408,6 +441,18 @@ function procesarFinalizacionConPrompt(sheetOrigen, fila) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const ui = SpreadsheetApp.getUi();
+
+    // Validar parámetros
+    if (!sheetOrigen || typeof sheetOrigen.getRange !== 'function') {
+      Logger.log("❌ ERROR: sheetOrigen no es válido");
+      ss.toast("Error: Parámetro inválido en procesarFinalizacionConPrompt", "Error", 3);
+      return false;
+    }
+
+    if (!fila || fila < 2) {
+      Logger.log("❌ ERROR: fila inválida: " + fila);
+      return false;
+    }
 
     // Obtener datos del caso (estructura de 10 columnas)
     const datos = sheetOrigen.getRange(fila, 1, 1, 10).getValues()[0];
