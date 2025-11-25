@@ -272,27 +272,27 @@ function crearReporte() {
   const sheet = ss.insertSheet('Reporte');
 
   const data = [
-    ['📊 REPORTE AUTOMÁTICO'],
+    ['📊 REPORTE AUTOMÁTICO', ''],
     ['Última actualización:', '=AHORA()'],
-    [''],
-    ['👥 NUEVOS INGRESOS'],
+    ['', ''],
+    ['👥 NUEVOS INGRESOS', ''],
     ['Total ingresos', "=CONTARA('Nuevos Ingresos'!C:C)-1"],
     ['Pendientes asignar', "=CONTAR.SI.CONJUNTO('Nuevos Ingresos'!K:K,\"\";'Nuevos Ingresos'!C:C,\"<>\")"],
-    [''],
-    ['👩‍⚕️ CASOS ACTIVOS'],
+    ['', ''],
+    ['👩‍⚕️ CASOS ACTIVOS', ''],
     ['Gerber', '=CONTAR.SI.CONJUNTO(Terapias!A:A,"Gerber";Terapias!G:G,"En proceso")'],
     ['Melissa', '=CONTAR.SI.CONJUNTO(Terapias!A:A,"Melissa";Terapias!G:G,"En proceso")'],
     ['Diana', '=CONTAR.SI.CONJUNTO(Terapias!A:A,"Diana";Terapias!G:G,"En proceso")'],
     ['Karina', '=CONTAR.SI.CONJUNTO(Terapias!A:A,"Karina";Terapias!G:G,"En proceso")'],
     ['Total activos', '=B9+B10+B11+B12'],
-    [''],
-    ['🎉 CULMINADOS'],
+    ['', ''],
+    ['🎉 CULMINADOS', ''],
     ['Total', "=CONTARA('Procesos Culminados'!A:A)-1"],
-    [''],
-    ['⚠️ DESERCIONES'],
+    ['', ''],
+    ['⚠️ DESERCIONES', ''],
     ['Total', '=CONTARA(Deserciones!A:A)-1'],
-    [''],
-    ['📋 GESTIÓN'],
+    ['', ''],
+    ['📋 GESTIÓN', ''],
     ['Total', "=CONTARA('Gestión de Casos'!A:A)-1"]
   ];
 
