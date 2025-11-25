@@ -2,7 +2,7 @@
 
 Sistema automatizado para la gestión de casos de apoyo emocional y seguimiento terapéutico.
 
-**Versión:** 3.0 - Flujo Simplificado y Unificado
+**Versión:** 3.1 LIMPIA - Super Simplificada
 **Desarrollador:** Adrian Torres - Manufacturing Operations
 **Fecha:** Noviembre 2024
 
@@ -23,9 +23,36 @@ Sistema automatizado para la gestión de casos de apoyo emocional y seguimiento 
 
 ---
 
-## 🆕 Novedades Versión 3.0
+## 🆕 Novedades Versión 3.1 LIMPIA
 
-### ✨ CAMBIOS IMPORTANTES
+### 🎉 NUEVA VERSIÓN SUPER SIMPLIFICADA
+
+**¡Código reducido 50%!** De 1,607 líneas → 804 líneas
+
+### ✨ CAMBIOS EN V3.1 LIMPIA
+
+1. **Código 50% Más Pequeño**
+   - Eliminadas todas las funciones innecesarias
+   - De 1,607 líneas → 804 líneas
+   - Más rápido y eficiente
+
+2. **Asignaciones SUPER SIMPLIFICADA**
+   - De 10 columnas → **8 columnas**
+   - ❌ Eliminado dropdown de Terapeuta (fluye automáticamente desde Nuevos Ingresos)
+   - ❌ Eliminado dropdown de Tipo Terapia (fluye automáticamente desde Nuevos Ingresos)
+   - ✅ Los datos fluyen sin necesidad de volver a seleccionarlos
+
+3. **Sin Asistencia Grupal**
+   - ❌ Hoja "Asistencia Grupal" eliminada completamente
+   - ✅ Sistema enfocado 100% en terapia individual
+   - ✅ Código más limpio y rápido
+
+4. **Archivo Único Optimizado**
+   - **CodigoCompleto_LIMPIO.gs** (804 líneas)
+   - Todo en un solo archivo
+   - Super fácil de copiar y pegar
+
+### 📖 Cambios Anteriores (V3.0)
 
 1. **"Sexo" → "Género"**
    - Terminología más inclusiva
@@ -41,20 +68,12 @@ Sistema automatizado para la gestión de casos de apoyo emocional y seguimiento 
    - **Flujo correcto**: Primero llenar todo → Al final asignar terapeuta
    - Ya NO tiene columna de "Estado" automática
 
-4. **Asignaciones SIMPLIFICADO**
-   - De 16 columnas → 10 columnas
-   - Estado en columna H (antes L)
-   - Dropdown 1-20 para sesiones
+4. **Finalización MEJORADA**
    - Al marcar "Finalizado":
      - Aparece diálogo para seleccionar tipo de finalización
      - Solicita motivo detallado
      - Envía email automático al director
      - COPIA (no mueve) a hoja final correspondiente
-
-5. **Código UNIFICADO**
-   - Nuevo archivo **CodigoCompleto.gs** con TODO en uno
-   - Más fácil de instalar y mantener
-   - También disponible versión con 3 archivos separados
 
 ### 📖 Documentación Completa de v3.0
 
@@ -66,24 +85,47 @@ Para una guía visual detallada del nuevo flujo, consulta:
 
 ## 🎯 ¿Qué Archivo Usar?
 
-### ⭐ OPCIÓN RECOMENDADA: Archivo Unificado
+### ⭐⭐⭐ OPCIÓN MÁS RECOMENDADA: Versión LIMPIA (NUEVO)
+
+**📄 Usa: `CodigoCompleto_LIMPIO.gs`**
+
+✅ **Ventajas:**
+- 🚀 **50% más pequeño** - Solo 804 líneas (vs 1,607 líneas)
+- ⚡ **Más rápido** - Código optimizado sin funciones innecesarias
+- 🎯 **Más simple** - Asignaciones con solo 8 columnas
+- 📊 **Sin Asistencia Grupal** - Enfocado 100% en terapia individual
+- 🔄 **Datos fluyen automáticamente** - Sin dropdowns duplicados
+- 📄 **Un solo archivo** - Super fácil de copiar y pegar
+
+📦 **Tamaño:** 25 KB (804 líneas super limpias)
+
+**👉 IDEAL PARA:** Todos los usuarios que NO necesitan Asistencia Grupal
+
+📖 **Guía completa:** [GUIA_CODIGO_LIMPIO.md](GUIA_CODIGO_LIMPIO.md)
+
+---
+
+### ⭐ OPCIÓN ALTERNATIVA: Versión Completa
 
 **📄 Usa: `CodigoCompleto.gs`**
 
 ✅ **Ventajas:**
+- Incluye Asistencia Grupal
 - Un solo archivo con TODO el código
-- Más fácil de instalar (copiar y pegar)
-- Más fácil de actualizar
-- Menos posibilidad de errores
-- Código organizado en secciones claras
+- Más funciones (pero más pesado)
 
-📦 **Tamaño:** 54 KB (1,800+ líneas bien documentadas)
+❌ **Desventajas:**
+- 100% más grande (1,607 líneas)
+- Más lento
+- Más complejo
 
-**👉 IDEAL PARA:** Todos los usuarios, especialmente si es tu primera instalación
+📦 **Tamaño:** 54 KB (1,800+ líneas)
+
+**👉 IDEAL PARA:** Usuarios que SÍ necesitan gestionar Asistencia Grupal
 
 ---
 
-### 🗂️ OPCIÓN ALTERNATIVA: Archivos Separados
+### 🗂️ OPCIÓN PARA DESARROLLADORES: Archivos Separados
 
 **📄 Usa: `Code.gs` + `Automatizaciones.gs` + `Utilidades.gs`**
 
