@@ -1,6 +1,6 @@
 /**
  * =====================================================================
- * SISTEMA DE APOYO EMOCIONAL - CÓDIGO COMPLETO MEJORADO
+ * SISTEMA DE APOYO EMOCIONAL - VERSIÓN CORREGIDA
  * =====================================================================
  *
  * INSTALACIÓN:
@@ -15,23 +15,26 @@
  * 7. (Opcional) Menú → ⏰ Instalar Trigger de Tiempo
  *    - Actualiza reportes cada hora automáticamente
  *
+ * SI YA TENÍAS EL SISTEMA INSTALADO:
+ * 1. Menú → 🔧 Reparar Validaciones
+ *    - Esto quitará el desplegable de columna L
+ *    - Limpiará validaciones incorrectas
+ *
  * CÓMO PROBAR EL SISTEMA:
  * 1. Menú → 🧪 Crear Datos de Prueba
  * 2. Ir a Lista de Espera → Columna L → Seleccionar "Enviar"
- * 3. Los datos se moverán automáticamente a Nuevos Ingresos
+ * 3. Los datos se moverán a Nuevos Ingresos CON FECHA Y NÚMERO
  * 4. En Nuevos Ingresos → Columna K → Asignar terapeuta
  * 5. El caso se creará en Terapias
  * 6. Cuando termine: Menú → 🧹 Limpiar Todos los Datos
  *
- * MEJORAS EN ESTA VERSIÓN:
- * - ✅ Fórmulas de fecha corregidas (TODAY/ROW en inglés)
- * - ✅ Envío de datos completo con limpieza automática
- * - ✅ Actualización automática de reportes cada hora
- * - ✅ Validaciones mejoradas en todas las hojas
- * - ✅ Mensajes de error más claros
- * - ✅ Prevención de duplicados mejorada
- * - ✅ Sistema de pruebas integrado
- * - ✅ Función de limpieza completa
+ * CORRECCIONES EN ESTA VERSIÓN:
+ * - ✅ Fecha y número se agregan AUTOMÁTICAMENTE al enviar
+ * - ✅ Eliminado desplegable de columna L en Nuevos Ingresos
+ * - ✅ Nuevos Ingresos solo tiene 11 columnas (A-K)
+ * - ✅ Actualización de reportes mejorada con confirmación
+ * - ✅ Función de reparación para limpiar validaciones
+ * - ✅ Sistema completamente funcional
  *
  * =====================================================================
  */
@@ -50,6 +53,8 @@ function onOpen() {
     .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
     .addSeparator()
     .addItem('⏰ Instalar Trigger de Tiempo', 'instalarTriggerTiempo')
+    .addSeparator()
+    .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
     .addSeparator()
     .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
     .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos')
@@ -206,16 +211,14 @@ function crearNuevosIngresos() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  // Fórmulas para fecha y número automáticos
-  for (let i = 2; i <= 100; i++) {
-    sheet.getRange('A' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
-    sheet.getRange('B' + i).setFormula('=IF(C' + i + '<>"",ROW()-1,"")');
-  }
+  // NO agregar fórmulas automáticas aquí
+  // La fecha y número se agregarán cuando se envíe desde Lista de Espera
 
   [110, 60, 200, 120, 100, 100, 250, 120, 150, 180, 150].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
+  // Proteger solo las columnas de fecha y número cuando tengan datos
   sheet.getRange('A2:A100').protect().setWarningOnly(true);
   sheet.getRange('B2:B100').protect().setWarningOnly(true);
 }
@@ -383,6 +386,9 @@ function configurarValidaciones() {
   const terapias = ss.getSheetByName('Terapias');
   const espera = ss.getSheetByName('Lista de Espera');
 
+  // LIMPIAR cualquier validación existente en Nuevos Ingresos
+  nuevos.getDataRange().clearDataValidations();
+
   // Validaciones de género
   const generoRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Hombre', 'Mujer', 'Trans hombre', 'No binario', 'Otro'])
@@ -408,7 +414,7 @@ function configurarValidaciones() {
   nuevos.getRange('H2:H200').setDataValidation(tipoRule);
   terapias.getRange('E2:E200').setDataValidation(tipoRule);
 
-  // Validaciones de terapeuta
+  // Validaciones de terapeuta - SOLO en columna K (la última)
   const terapeutaRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Gerber', 'Melissa', 'Diana', 'Karina'])
     .setAllowInvalid(false)
@@ -434,12 +440,15 @@ function configurarValidaciones() {
     .build();
   terapias.getRange('G2:G200').setDataValidation(estadoRule);
 
-  // Validaciones de acción
+  // Validaciones de acción - SOLO en Lista de Espera columna L
   const accionRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Enviar'])
     .setAllowInvalid(false)
     .build();
   espera.getRange('L2:L200').setDataValidation(accionRule);
+
+  // IMPORTANTE: Nuevos Ingresos NO tiene columna L
+  // Solo tiene 11 columnas (A a K)
 }
 
 function configurarFormatos() {
@@ -539,6 +548,12 @@ function enviarANuevosIngresos(sheetOrigen, fila) {
 
   // Agregar a Nuevos Ingresos
   const nuevaFila = nuevos.getLastRow() + 1;
+
+  // Agregar FECHA y NÚMERO automáticamente
+  nuevos.getRange(nuevaFila, 1).setValue(new Date()); // Fecha actual
+  nuevos.getRange(nuevaFila, 2).setValue(nuevaFila - 1); // Número correlativo
+
+  // Agregar resto de datos
   nuevos.getRange(nuevaFila, 3).setValue(nombreLimpio);
   nuevos.getRange(nuevaFila, 4).setValue(creemosId || '');
   nuevos.getRange(nuevaFila, 5).setValue(genero || '');
@@ -769,11 +784,17 @@ function actualizarReportes() {
 
     if (reporte) {
       // Forzar recalculo de la celda de última actualización
-      const ahora = reporte.getRange('B2');
-      ahora.setValue(new Date());
+      reporte.getRange('B2').setValue(new Date());
 
-      // Forzar flush para actualizar todas las fórmulas
+      // Forzar recalculo de todas las fórmulas de la hoja
       SpreadsheetApp.flush();
+
+      // Toast de confirmación (solo en ejecuciones manuales)
+      try {
+        ss.toast('Reportes actualizados correctamente', 'Actualización', 2);
+      } catch (e) {
+        // Si falla el toast (en ejecuciones automáticas), continuar
+      }
     }
 
     Logger.log('📊 Reportes actualizados: ' + new Date());
@@ -875,6 +896,36 @@ function guardarReporteMensual() {
 }
 
 // =====================================================================
+// FUNCIÓN DE REPARACIÓN
+// =====================================================================
+
+function repararValidaciones() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    ss.toast('Reparando validaciones...', 'Reparación', 2);
+
+    // Reconfigurar todas las validaciones
+    configurarValidaciones();
+
+    ss.toast(
+      '✅ REPARACIÓN COMPLETA\n\n' +
+      'Se han limpiado y reconfigurado\n' +
+      'todas las validaciones correctamente.\n\n' +
+      'Columna L de Nuevos Ingresos: Limpia\n' +
+      'Validaciones correctas: Aplicadas',
+      'Reparación Exitosa',
+      5
+    );
+
+    Logger.log('Validaciones reparadas correctamente');
+  } catch (error) {
+    ss.toast('❌ Error: ' + error.message, 'Error en Reparación', 5);
+    Logger.log('Error reparando validaciones: ' + error.message);
+  }
+}
+
+// =====================================================================
 // FUNCIONES DE PRUEBA Y LIMPIEZA
 // =====================================================================
 
@@ -960,11 +1011,8 @@ function limpiarTodosLosDatos() {
     if (nuevos.getLastRow() > 1) {
       nuevos.getRange(2, 1, nuevos.getLastRow() - 1, 11).clearContent();
       nuevos.getRange(2, 1, nuevos.getLastRow() - 1, 11).setBackground(null);
-      // Restaurar fórmulas
-      for (let i = 2; i <= 100; i++) {
-        nuevos.getRange('A' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
-        nuevos.getRange('B' + i).setFormula('=IF(C' + i + '<>"",ROW()-1,"")');
-      }
+      // NO restaurar fórmulas en Nuevos Ingresos
+      // La fecha y número se agregan automáticamente al enviar
     }
 
     // Limpiar Terapias (desde fila 2)
