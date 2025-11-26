@@ -15,19 +15,7 @@
 4. Pegar el código completo de `SistemaCompleto.gs`
 5. **Guardar** (Ctrl+S)
 
-### 3. CAMBIAR EMAIL (IMPORTANTE)
-
-Buscar la línea que dice:
-```javascript
-const emailDirector = 'director@apoyoemocional.org';
-```
-
-Cambiar por tu email real:
-```javascript
-const emailDirector = 'tuemail@gmail.com';
-```
-
-### 4. EJECUTAR INSTALACIÓN
+### 3. EJECUTAR INSTALACIÓN
 
 1. En Apps Script, seleccionar la función `instalarSistema` del desplegable
 2. Click en **Ejecutar** (▶️)
@@ -39,7 +27,7 @@ const emailDirector = 'tuemail@gmail.com';
    - Click en "Permitir"
 4. Esperar a que termine (aparecerá mensaje de éxito)
 
-### 5. CREAR TRIGGER AL EDITAR (OBLIGATORIO)
+### 4. CREAR TRIGGER AL EDITAR (OBLIGATORIO)
 
 1. En Apps Script, ir a **Activadores** (icono de reloj ⏰)
 2. Click en **+ Agregar activador**
@@ -50,27 +38,46 @@ const emailDirector = 'tuemail@gmail.com';
 4. Click en **Guardar**
 5. Aceptar permisos si los pide
 
-### 6. VOLVER A GOOGLE SHEETS
+### 5. VOLVER A GOOGLE SHEETS
 
 1. Cerrar la pestaña de Apps Script
 2. Volver a tu Google Sheet
 3. **Recargar la página** (F5)
 4. Debería aparecer el menú **🏥 Apoyo Emocional**
 
-### 7. VERIFICAR INSTALACIÓN
+### 6. VERIFICAR INSTALACIÓN
 
 1. Menú → `✅ Verificar Instalación`
 2. Debe mostrar:
    - ✅ Hojas: 8/8
    - ✅ Trigger al editar: OK
 
-### 8. REPARAR VALIDACIONES
+### 7. CONFIGURAR EMAIL (IMPORTANTE)
+
+1. Menú → `📧 Configurar Email`
+2. Ingresar tu email real (ej: director@apoyoemocional.org)
+3. Click en OK
+4. Debe aparecer confirmación: "Email configurado correctamente"
+
+### 8. PROBAR ENVÍO DE EMAIL
+
+1. Menú → `✉️ Probar Envío de Email`
+2. Confirmar el envío
+3. Revisar tu bandeja de entrada (o spam)
+4. Si recibes el email, ¡funciona correctamente! ✅
+
+**Importante:** Si no recibes el email:
+- Verifica que el email sea correcto
+- Revisa la carpeta de spam
+- Ve a Apps Script → Permisos y autoriza el envío de emails
+
+### 9. REPARAR VALIDACIONES
 
 1. Menú → `🔧 Reparar Validaciones`
 2. Esperar mensaje de éxito
 3. Esto configura todos los desplegables correctamente
 
-### 9. PROBAR EL SISTEMA
+### 10. PROBAR EL SISTEMA
 
 1. Menú → `🧪 Crear Datos de Prueba`
 2. Ir a hoja "Lista de Espera"
@@ -122,6 +129,27 @@ const emailDirector = 'tuemail@gmail.com';
 3. Si persiste el error, ejecutar: Menú → `🚀 Instalar Sistema` de nuevo
 4. El sistema recreará las hojas con las fórmulas correctas
 
+### Problema: No se envían los emails
+
+**Solución:**
+1. Menú → `📧 Configurar Email` e ingresa tu email
+2. Menú → `✉️ Probar Envío de Email`
+3. Si no funciona, verifica permisos:
+   - Apps Script → Permisos
+   - Autorizar "Enviar correo como tú"
+4. Revisa la carpeta de spam
+5. Verifica que el email esté bien escrito
+
+### Problema: Email de prueba funciona pero no llegan notificaciones de casos
+
+**Solución:**
+1. Verifica que el trigger "alEditar" esté instalado
+2. Cuando finalices un caso en Terapias (columna G = "Finalizado"):
+   - Debes ingresar el tipo de finalización (1, 2 o 3)
+   - Debes ingresar el motivo
+3. Si hay error, aparecerá una notificación en pantalla
+4. Revisa el log: Apps Script → Ejecuciones
+
 ---
 
 ## 📋 ESTRUCTURA FINAL DEL SISTEMA
@@ -137,12 +165,12 @@ const emailDirector = 'tuemail@gmail.com';
 8. **Reportes Mensuales** - Histórico mensual
 
 ### Desplegables configurados:
-- **Género:** Hombre, Mujer, Trans hombre, No binario, Otro
-- **Rango Edad:** 13 a 17, 18 a 25, 26 a 30, 31 a 40, 41 a 50, 51 a 60, 61+
-- **Malestar Principal:** Ansiedad, Depresión, Estrés, Duelo, Trauma, etc.
-- **Tipo Atención:** Individual, Grupal, Familiar, Pareja
-- **Terapeuta:** Gerber, Melissa, Diana, Karina
-- **Acción (solo en Lista de Espera):** Enviar
+- **Género:** Hombre, Mujer, Trans hombre, No binario, Otro (Lista de Espera y Nuevos Ingresos)
+- **Rango Edad:** 13 a 17, 18 a 25, 26 a 30, 31 a 40, 41 a 50, 51 a 60, 61+ (Lista de Espera y Nuevos Ingresos)
+- **Malestar Principal:** Ansiedad, Depresión, Estrés, Duelo, Trauma, etc. (**SOLO en Nuevos Ingresos** - en Lista de Espera se escribe libremente)
+- **Tipo Atención:** Individual, Grupal, Familiar, Pareja (Nuevos Ingresos)
+- **Terapeuta:** Gerber, Melissa, Diana, Karina (Nuevos Ingresos y Terapias)
+- **Acción:** Enviar (**SOLO en Lista de Espera** - en Nuevos Ingresos NO existe)
 
 ---
 

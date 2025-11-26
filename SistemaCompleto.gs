@@ -6,13 +6,14 @@
  * INSTALACIÓN NUEVA:
  * 1. Copiar TODO este archivo
  * 2. Apps Script → Pegar
- * 3. Cambiar email línea 690 (director@apoyoemocional.org)
- * 4. Guardar (Ctrl+S)
- * 5. Ejecutar: instalarSistema
- * 6. Apps Script → Activadores → + Agregar activador
+ * 3. Guardar (Ctrl+S)
+ * 4. Ejecutar: instalarSistema
+ * 5. Apps Script → Activadores → + Agregar activador
  *    - Función: alEditar
  *    - Tipo de evento: Al editar
- * 7. (Opcional) Menú → ⏰ Instalar Trigger de Tiempo
+ * 6. Menú → 📧 Configurar Email (configura tu email para notificaciones)
+ * 7. Menú → ✉️ Probar Envío de Email (verifica que funcione)
+ * 8. (Opcional) Menú → ⏰ Instalar Trigger de Tiempo
  *    - Actualiza reportes cada hora automáticamente
  *
  * SI YA TENÍAS EL SISTEMA INSTALADO:
@@ -34,11 +35,15 @@
  * - ✅ Fecha y número se agregan AUTOMÁTICAMENTE al enviar
  * - ✅ Eliminado completamente desplegable de columna L
  * - ✅ Nuevos Ingresos solo tiene 11 columnas (A-K)
- * - ✅ Desplegable de Malestar Principal agregado
+ * - ✅ Desplegable de Malestar Principal SOLO en Nuevos Ingresos (no en Lista de Espera)
  * - ✅ Actualización de reportes MEJORADA (fuerza recalculo)
  * - ✅ Función de reparación completa
  * - ✅ clearDataValidations() en todas las hojas
  * - ✅ Fórmulas del reporte en INGLÉS (NOW, COUNTA, COUNTIFS, etc.)
+ * - ✅ Sistema de correos MEJORADO con configuración y pruebas
+ * - ✅ Email configurable desde el menú (no hardcodeado)
+ * - ✅ Función de prueba de email incluida
+ * - ✅ Notificaciones visuales de envío de email
  * - ✅ Sistema 100% funcional y probado
  *
  * =====================================================================
@@ -56,6 +61,9 @@ function onOpen() {
     .addSeparator()
     .addItem('📊 Actualizar Reportes', 'actualizarReportes')
     .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
+    .addSeparator()
+    .addItem('📧 Configurar Email', 'configurarEmail')
+    .addItem('✉️ Probar Envío de Email', 'probarEmail')
     .addSeparator()
     .addItem('⏰ Instalar Trigger de Tiempo', 'instalarTriggerTiempo')
     .addSeparator()
@@ -414,7 +422,7 @@ function configurarValidaciones() {
   nuevos.getRange('F2:F200').setDataValidation(rangoEdadRule);
   espera.getRange('F2:F200').setDataValidation(rangoEdadRule);
 
-  // Validaciones de MALESTAR PRINCIPAL
+  // Validaciones de MALESTAR PRINCIPAL - SOLO en Nuevos Ingresos
   const malestarRule = SpreadsheetApp.newDataValidation()
     .requireValueInList([
       'Ansiedad',
@@ -432,7 +440,7 @@ function configurarValidaciones() {
     .setAllowInvalid(false)
     .build();
   nuevos.getRange('G2:G200').setDataValidation(malestarRule);
-  espera.getRange('G2:G200').setDataValidation(malestarRule);
+  // NO agregar en Lista de Espera - el usuario puede escribir libremente
 
   // Validaciones de tipo de atención
   const tipoRule = SpreadsheetApp.newDataValidation()
@@ -732,24 +740,189 @@ function finalizarTerapia(sheetOrigen, fila) {
   }
 }
 
+// =====================================================================
+// SISTEMA DE CORREOS MEJORADO
+// =====================================================================
+
+function obtenerEmailConfiguracion() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const props = PropertiesService.getDocumentProperties();
+  let email = props.getProperty('EMAIL_DIRECTOR');
+
+  if (!email || email === '') {
+    // Email por defecto - el usuario debe configurarlo
+    email = Session.getActiveUser().getEmail();
+  }
+
+  return email;
+}
+
+function configurarEmail() {
+  const ui = SpreadsheetApp.getUi();
+  const emailActual = obtenerEmailConfiguracion();
+
+  const respuesta = ui.prompt(
+    '📧 Configurar Email para Notificaciones',
+    '¿A qué email deseas recibir las notificaciones de casos finalizados?\n\n' +
+    'Email actual: ' + emailActual + '\n\n' +
+    'Ingresa el nuevo email:',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (respuesta.getSelectedButton() === ui.Button.OK) {
+    const nuevoEmail = respuesta.getResponseText().trim();
+
+    // Validar formato básico de email
+    if (!nuevoEmail || !nuevoEmail.includes('@') || !nuevoEmail.includes('.')) {
+      ui.alert(
+        '❌ Email Inválido',
+        'Por favor ingresa un email válido.\n\nEjemplo: director@apoyoemocional.org',
+        ui.ButtonSet.OK
+      );
+      return;
+    }
+
+    // Guardar en propiedades del documento
+    const props = PropertiesService.getDocumentProperties();
+    props.setProperty('EMAIL_DIRECTOR', nuevoEmail);
+
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      '✅ Email configurado correctamente\n\n' +
+      'Email: ' + nuevoEmail + '\n\n' +
+      'Recibirás notificaciones cuando se finalicen casos.\n\n' +
+      'Usa "✉️ Probar Envío de Email" para verificar.',
+      'Email Configurado',
+      8
+    );
+
+    Logger.log('Email configurado: ' + nuevoEmail);
+  }
+}
+
+function probarEmail() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const email = obtenerEmailConfiguracion();
+
+  const confirmacion = ui.alert(
+    '✉️ Probar Envío de Email',
+    'Se enviará un email de prueba a:\n\n' +
+    email + '\n\n' +
+    '¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmacion !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    ss.toast('📧 Enviando email de prueba...', 'Enviando', 2);
+
+    const asunto = '✅ Prueba - Sistema de Apoyo Emocional';
+    const cuerpo =
+      '¡FUNCIONA CORRECTAMENTE!\n\n' +
+      'Este es un email de prueba del Sistema de Apoyo Emocional.\n\n' +
+      '📊 Información:\n' +
+      '- Email configurado: ' + email + '\n' +
+      '- Fecha de prueba: ' + new Date().toLocaleString() + '\n' +
+      '- Google Sheets: ' + ss.getName() + '\n\n' +
+      '✅ El sistema está configurado correctamente y enviará notificaciones\n' +
+      'cuando se finalicen casos.\n\n' +
+      '---\n' +
+      'Sistema de Apoyo Emocional\n' +
+      'Google Apps Script';
+
+    MailApp.sendEmail(email, asunto, cuerpo);
+
+    ss.toast(
+      '✅ EMAIL ENVIADO CORRECTAMENTE\n\n' +
+      'Destinatario: ' + email + '\n\n' +
+      'Revisa tu bandeja de entrada (o spam).\n\n' +
+      'Si no lo recibes:\n' +
+      '1. Verifica que el email sea correcto\n' +
+      '2. Revisa la carpeta de spam\n' +
+      '3. Verifica permisos en Apps Script',
+      'Email Enviado',
+      10
+    );
+
+    Logger.log('✅ Email de prueba enviado a: ' + email);
+    return true;
+
+  } catch (error) {
+    ss.toast(
+      '❌ ERROR AL ENVIAR EMAIL\n\n' +
+      'Error: ' + error.message + '\n\n' +
+      'Posibles causas:\n' +
+      '1. Email inválido\n' +
+      '2. Faltan permisos en Apps Script\n' +
+      '3. Límite de envíos excedido\n\n' +
+      'Ve a Apps Script → Permisos y autoriza el envío de emails.',
+      'Error',
+      10
+    );
+
+    Logger.log('❌ Error enviando email: ' + error.message);
+    return false;
+  }
+}
+
 function enviarEmailFinalizacion(participante, terapeuta, tipo, motivo, sesiones) {
   try {
-    const emailDirector = 'director@apoyoemocional.org';
+    const emailDirector = obtenerEmailConfiguracion();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    const asunto = 'Finalización: ' + participante;
+    const asunto = '📋 Finalización de Caso: ' + participante;
     const cuerpo =
-      'CASO FINALIZADO\n\n' +
-      'Participante: ' + participante + '\n' +
-      'Terapeuta: ' + terapeuta + '\n' +
-      'Tipo: ' + tipo + '\n' +
-      'Sesiones: ' + sesiones + '\n\n' +
-      'Motivo:\n' + motivo + '\n\n' +
-      'Fecha: ' + new Date().toLocaleDateString();
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+      '📋 CASO FINALIZADO\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      '👤 Participante: ' + participante + '\n' +
+      '👨‍⚕️ Terapeuta: ' + terapeuta + '\n' +
+      '📊 Tipo: ' + tipo + '\n' +
+      '🔢 Sesiones completadas: ' + sesiones + '\n' +
+      '📅 Fecha: ' + new Date().toLocaleString() + '\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+      '📝 MOTIVO DE FINALIZACIÓN\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      motivo + '\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      'Este email fue generado automáticamente por el\n' +
+      'Sistema de Apoyo Emocional.\n\n' +
+      '🔗 Google Sheet: ' + ss.getName() + '\n';
 
     MailApp.sendEmail(emailDirector, asunto, cuerpo);
+
+    // Notificación visual de éxito
+    ss.toast(
+      '✅ Email enviado correctamente\n\n' +
+      'Destinatario: ' + emailDirector + '\n' +
+      'Asunto: ' + asunto,
+      'Email Enviado',
+      3
+    );
+
+    Logger.log('✅ Email enviado a: ' + emailDirector + ' | Caso: ' + participante);
     return true;
+
   } catch (error) {
-    Logger.log('Error email: ' + error.message);
+    Logger.log('❌ Error enviando email: ' + error.message);
+
+    // Notificación de error al usuario
+    try {
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        '⚠️ No se pudo enviar el email\n\n' +
+        'Error: ' + error.message + '\n\n' +
+        'El caso se guardó correctamente pero no se envió la notificación.\n\n' +
+        'Usa el menú "📧 Configurar Email" para verificar la configuración.',
+        'Error de Email',
+        5
+      );
+    } catch (e) {
+      // Ignorar si falla el toast
+    }
+
     return false;
   }
 }
