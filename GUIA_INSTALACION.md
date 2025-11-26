@@ -112,6 +112,16 @@ const emailDirector = 'tuemail@gmail.com';
 2. Debe aparecer mensaje de confirmación
 3. Si no aparece, verificar que existe la hoja "Reporte"
 
+### Problema: Reporte muestra #NAME? en todas las celdas
+
+**Causa:** Las fórmulas están en inglés pero tu Google Sheets está en español (o viceversa)
+
+**Solución:**
+1. Las fórmulas del código están en INGLÉS (NOW, COUNTA, COUNTIFS, IF, etc.)
+2. Si tu Google Sheets está en español, las fórmulas ya están corregidas
+3. Si persiste el error, ejecutar: Menú → `🚀 Instalar Sistema` de nuevo
+4. El sistema recreará las hojas con las fórmulas correctas
+
 ---
 
 ## 📋 ESTRUCTURA FINAL DEL SISTEMA

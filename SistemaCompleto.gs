@@ -38,6 +38,7 @@
  * - ✅ Actualización de reportes MEJORADA (fuerza recalculo)
  * - ✅ Función de reparación completa
  * - ✅ clearDataValidations() en todas las hojas
+ * - ✅ Fórmulas del reporte en INGLÉS (NOW, COUNTA, COUNTIFS, etc.)
  * - ✅ Sistema 100% funcional y probado
  *
  * =====================================================================
@@ -304,38 +305,38 @@ function crearReporte() {
 
   const data = [
     ['📊 REPORTE AUTOMÁTICO COMPLETO', ''],
-    ['🔄 Última actualización:', '=AHORA()'],
-    ['📅 Mes actual:', '=TEXTO(HOY(),"MMMM YYYY")'],
+    ['🔄 Última actualización:', '=NOW()'],
+    ['📅 Mes actual:', '=TEXT(TODAY(),"MMMM YYYY")'],
     ['', ''],
     ['👥 NUEVOS INGRESOS', ''],
-    ['Total ingresos', '=CONTARA(\'Nuevos Ingresos\'!C:C)-1'],
-    ['Ingresos este mes', '=CONTAR.SI.CONJUNTO(\'Nuevos Ingresos\'!A:A,">="&FECHA(AÑO(HOY()),MES(HOY()),1),\'Nuevos Ingresos\'!A:A,"<="&FIN.MES(HOY(),0))'],
-    ['Pendientes asignar', '=CONTAR.SI.CONJUNTO(\'Nuevos Ingresos\'!K:K,"",\'Nuevos Ingresos\'!C:C,"<>")'],
-    ['Ya asignados', '=CONTAR.SI.CONJUNTO(\'Nuevos Ingresos\'!K:K,"<>",\'Nuevos Ingresos\'!C:C,"<>")'],
+    ['Total ingresos', '=COUNTA(\'Nuevos Ingresos\'!C:C)-1'],
+    ['Ingresos este mes', '=COUNTIFS(\'Nuevos Ingresos\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Nuevos Ingresos\'!A:A,"<="&EOMONTH(TODAY(),0))'],
+    ['Pendientes asignar', '=COUNTIFS(\'Nuevos Ingresos\'!K:K,"",\'Nuevos Ingresos\'!C:C,"<>")'],
+    ['Ya asignados', '=COUNTIFS(\'Nuevos Ingresos\'!K:K,"<>",\'Nuevos Ingresos\'!C:C,"<>")'],
     ['', ''],
     ['👩‍⚕️ CASOS ACTIVOS POR TERAPEUTA', ''],
-    ['Gerber - Casos activos', '=CONTAR.SI.CONJUNTO(Terapias!A:A,"Gerber",Terapias!G:G,"En proceso")'],
-    ['Melissa - Casos activos', '=CONTAR.SI.CONJUNTO(Terapias!A:A,"Melissa",Terapias!G:G,"En proceso")'],
-    ['Diana - Casos activos', '=CONTAR.SI.CONJUNTO(Terapias!A:A,"Diana",Terapias!G:G,"En proceso")'],
-    ['Karina - Casos activos', '=CONTAR.SI.CONJUNTO(Terapias!A:A,"Karina",Terapias!G:G,"En proceso")'],
+    ['Gerber - Casos activos', '=COUNTIFS(Terapias!A:A,"Gerber",Terapias!G:G,"En proceso")'],
+    ['Melissa - Casos activos', '=COUNTIFS(Terapias!A:A,"Melissa",Terapias!G:G,"En proceso")'],
+    ['Diana - Casos activos', '=COUNTIFS(Terapias!A:A,"Diana",Terapias!G:G,"En proceso")'],
+    ['Karina - Casos activos', '=COUNTIFS(Terapias!A:A,"Karina",Terapias!G:G,"En proceso")'],
     ['Total casos activos', '=B12+B13+B14+B15'],
     ['', ''],
     ['🎉 PROCESOS CULMINADOS', ''],
-    ['Total culminados', '=CONTARA(\'Procesos Culminados\'!A:A)-1'],
-    ['Culminados este mes', '=CONTAR.SI.CONJUNTO(\'Procesos Culminados\'!A:A,">="&FECHA(AÑO(HOY()),MES(HOY()),1),\'Procesos Culminados\'!A:A,"<="&FIN.MES(HOY(),0))'],
-    ['Promedio sesiones', '=SI(B19>0,PROMEDIO(\'Procesos Culminados\'!E:E),0)'],
+    ['Total culminados', '=COUNTA(\'Procesos Culminados\'!A:A)-1'],
+    ['Culminados este mes', '=COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0))'],
+    ['Promedio sesiones', '=IF(B19>0,AVERAGE(\'Procesos Culminados\'!E:E),0)'],
     ['', ''],
     ['⚠️ DESERCIONES', ''],
-    ['Total deserciones', '=CONTARA(Deserciones!A:A)-1'],
-    ['Deserciones este mes', '=CONTAR.SI.CONJUNTO(Deserciones!A:A,">="&FECHA(AÑO(HOY()),MES(HOY()),1),Deserciones!A:A,"<="&FIN.MES(HOY(),0))'],
-    ['Tasa deserción', '=SI((B19+B23)>0,B23/(B19+B23)*100&"%","0%")'],
+    ['Total deserciones', '=COUNTA(Deserciones!A:A)-1'],
+    ['Deserciones este mes', '=COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0))'],
+    ['Tasa deserción', '=IF((B19+B23)>0,B23/(B19+B23)*100&"%","0%")'],
     ['', ''],
     ['📋 GESTIÓN DE CASOS', ''],
-    ['Total en gestión', '=CONTARA(\'Gestión de Casos\'!A:A)-1'],
+    ['Total en gestión', '=COUNTA(\'Gestión de Casos\'!A:A)-1'],
     ['', ''],
     ['📊 ESTADÍSTICAS GENERALES', ''],
     ['Total casos procesados', '=B19+B23+B27'],
-    ['Tasa de éxito', '=SI(B30>0,B19/B30*100&"%","0%")'],
+    ['Tasa de éxito', '=IF(B30>0,B19/B30*100&"%","0%")'],
     ['Casos activos', '=B16']
   ];
 
