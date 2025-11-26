@@ -391,9 +391,10 @@ function configurarValidaciones() {
   const espera = ss.getSheetByName('Lista de Espera');
 
   // LIMPIAR TODAS las validaciones existentes primero
-  nuevos.clearDataValidations();
-  espera.clearDataValidations();
-  terapias.clearDataValidations();
+  // clearDataValidations() debe llamarse sobre un rango, no sobre la hoja
+  nuevos.getRange('A1:Z200').clearDataValidations();
+  espera.getRange('A1:Z200').clearDataValidations();
+  terapias.getRange('A1:Z200').clearDataValidations();
 
   // Validaciones de género
   const generoRule = SpreadsheetApp.newDataValidation()
