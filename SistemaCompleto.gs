@@ -1,17 +1,27 @@
 /**
  * =====================================================================
- * SISTEMA DE APOYO EMOCIONAL - CÓDIGO COMPLETO QUE FUNCIONA
+ * SISTEMA DE APOYO EMOCIONAL - CÓDIGO COMPLETO MEJORADO
  * =====================================================================
  *
  * INSTALACIÓN:
  * 1. Copiar TODO este archivo
  * 2. Apps Script → Pegar
- * 3. Cambiar email línea 638
+ * 3. Cambiar email línea 650 (director@apoyoemocional.org)
  * 4. Guardar (Ctrl+S)
  * 5. Ejecutar: instalarSistema
  * 6. Apps Script → Activadores → + Agregar activador
  *    - Función: alEditar
  *    - Tipo de evento: Al editar
+ * 7. (Opcional) Menú → ⏰ Instalar Trigger de Tiempo
+ *    - Actualiza reportes cada hora automáticamente
+ *
+ * MEJORAS EN ESTA VERSIÓN:
+ * - ✅ Fórmulas de fecha corregidas (TODAY/ROW en inglés)
+ * - ✅ Envío de datos completo con limpieza automática
+ * - ✅ Actualización automática de reportes cada hora
+ * - ✅ Validaciones mejoradas en todas las hojas
+ * - ✅ Mensajes de error más claros
+ * - ✅ Prevención de duplicados mejorada
  *
  * =====================================================================
  */
@@ -28,6 +38,8 @@ function onOpen() {
     .addSeparator()
     .addItem('📊 Actualizar Reportes', 'actualizarReportes')
     .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
+    .addSeparator()
+    .addItem('⏰ Instalar Trigger de Tiempo', 'instalarTriggerTiempo')
     .addToUi();
 }
 
@@ -75,7 +87,7 @@ function verificarInstalacion() {
   let mensaje = '📋 VERIFICACIÓN DEL SISTEMA\n\n';
 
   const hojasRequeridas = ['Lista de Espera', 'Nuevos Ingresos', 'Terapias',
-                           'Procesos Culminados', 'Deserciones', 'Gestión de Casos', 
+                           'Procesos Culminados', 'Deserciones', 'Gestión de Casos',
                            'Reporte', 'Reportes Mensuales'];
   let hojasOk = 0;
   hojasRequeridas.forEach(nombre => {
@@ -83,19 +95,28 @@ function verificarInstalacion() {
   });
   mensaje += '✅ Hojas: ' + hojasOk + '/8\n';
 
-  let triggerOk = false;
+  let triggerEditarOk = false;
+  let triggerTiempoOk = false;
   triggers.forEach(trigger => {
-    if (trigger.getHandlerFunction() === 'alEditar') triggerOk = true;
+    if (trigger.getHandlerFunction() === 'alEditar') triggerEditarOk = true;
+    if (trigger.getHandlerFunction() === 'actualizarReportes') triggerTiempoOk = true;
   });
-  mensaje += (triggerOk ? '✅' : '❌') + ' Trigger: ' + (triggerOk ? 'Configurado' : 'FALTA CONFIGURAR') + '\n\n';
 
-  if (!triggerOk) {
-    mensaje += 'DEBES CREAR EL TRIGGER:\n' +
+  mensaje += (triggerEditarOk ? '✅' : '❌') + ' Trigger al editar: ' + (triggerEditarOk ? 'OK' : 'FALTA') + '\n';
+  mensaje += (triggerTiempoOk ? '✅' : '⚠️') + ' Trigger de tiempo: ' + (triggerTiempoOk ? 'OK' : 'Opcional') + '\n\n';
+
+  if (!triggerEditarOk) {
+    mensaje += 'DEBES CREAR EL TRIGGER AL EDITAR:\n' +
                'Apps Script → Activadores → + Agregar\n' +
                'Función: alEditar\n' +
-               'Tipo: Al editar';
-  } else {
-    mensaje += '🎉 TODO LISTO PARA USAR';
+               'Tipo: Al editar\n\n';
+  }
+
+  if (!triggerTiempoOk) {
+    mensaje += 'Recomendado: Usar el menú para\n' +
+               '"⏰ Instalar Trigger de Tiempo"';
+  } else if (triggerEditarOk) {
+    mensaje += '🎉 TODO LISTO Y FUNCIONANDO';
   }
 
   ss.toast(mensaje, 'Verificación', -1);
@@ -141,9 +162,11 @@ function crearListaEspera() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  sheet.getRange('A2').setFormula('=IF(C2<>"",HOY(),"")');
-  sheet.getRange('B2').setFormula('=IF(C2<>"",FILA()-1,"")');
-  sheet.getRange('A2:B2').copyTo(sheet.getRange('A3:B100'), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
+  // Fórmulas para fecha y número automáticos
+  for (let i = 2; i <= 100; i++) {
+    sheet.getRange('A' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
+    sheet.getRange('B' + i).setFormula('=IF(C' + i + '<>"",ROW()-1,"")');
+  }
 
   [110, 60, 200, 120, 100, 100, 250, 150, 180, 120, 200, 100].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
@@ -170,13 +193,18 @@ function crearNuevosIngresos() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  sheet.getRange('A2').setFormula('=IF(C2<>"",HOY(),"")');
-  sheet.getRange('B2').setFormula('=IF(C2<>"",FILA()-1,"")');
-  sheet.getRange('A2:B2').copyTo(sheet.getRange('A3:B100'), SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
+  // Fórmulas para fecha y número automáticos
+  for (let i = 2; i <= 100; i++) {
+    sheet.getRange('A' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
+    sheet.getRange('B' + i).setFormula('=IF(C' + i + '<>"",ROW()-1,"")');
+  }
 
   [110, 60, 200, 120, 100, 100, 250, 120, 150, 180, 150].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
+
+  sheet.getRange('A2:A100').protect().setWarningOnly(true);
+  sheet.getRange('B2:B100').protect().setWarningOnly(true);
 }
 
 function crearTerapias() {
@@ -342,24 +370,40 @@ function configurarValidaciones() {
   const terapias = ss.getSheetByName('Terapias');
   const espera = ss.getSheetByName('Lista de Espera');
 
+  // Validaciones de género
   const generoRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Hombre', 'Mujer', 'Trans hombre', 'No binario', 'Otro'])
     .setAllowInvalid(false)
     .build();
   nuevos.getRange('E2:E200').setDataValidation(generoRule);
+  espera.getRange('E2:E200').setDataValidation(generoRule);
+  terapias.getRange('D2:D200').setDataValidation(generoRule);
 
+  // Validaciones de rango de edad
+  const rangoEdadRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['13 a 17', '18 a 25', '26 a 30', '31 a 40', '41 a 50', '51 a 60', '61+'])
+    .setAllowInvalid(false)
+    .build();
+  nuevos.getRange('F2:F200').setDataValidation(rangoEdadRule);
+  espera.getRange('F2:F200').setDataValidation(rangoEdadRule);
+
+  // Validaciones de tipo de atención
   const tipoRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Individual', 'Grupal', 'Familiar', 'Pareja'])
     .setAllowInvalid(false)
     .build();
   nuevos.getRange('H2:H200').setDataValidation(tipoRule);
+  terapias.getRange('E2:E200').setDataValidation(tipoRule);
 
+  // Validaciones de terapeuta
   const terapeutaRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Gerber', 'Melissa', 'Diana', 'Karina'])
     .setAllowInvalid(false)
     .build();
   nuevos.getRange('K2:K200').setDataValidation(terapeutaRule);
+  terapias.getRange('A2:A200').setDataValidation(terapeutaRule);
 
+  // Validaciones de número de sesión
   const sesiones = [];
   for (let i = 1; i <= 20; i++) {
     sesiones.push(i.toString());
@@ -370,12 +414,14 @@ function configurarValidaciones() {
     .build();
   terapias.getRange('F2:F200').setDataValidation(sesionRule);
 
+  // Validaciones de estado
   const estadoRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['En proceso', 'Finalizado'])
     .setAllowInvalid(false)
     .build();
   terapias.getRange('G2:G200').setDataValidation(estadoRule);
 
+  // Validaciones de acción
   const accionRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Enviar'])
     .setAllowInvalid(false)
@@ -455,7 +501,8 @@ function enviarANuevosIngresos(sheetOrigen, fila) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const nuevos = ss.getSheetByName('Nuevos Ingresos');
 
-  const datos = sheetOrigen.getRange(fila, 3, 1, 8).getValues()[0];
+  // Leer todos los datos de Lista de Espera (columnas C a K = 3 a 11)
+  const datos = sheetOrigen.getRange(fila, 3, 1, 9).getValues()[0];
   const nombre = datos[0];
   const creemosId = datos[1];
   const genero = datos[2];
@@ -463,20 +510,28 @@ function enviarANuevosIngresos(sheetOrigen, fila) {
   const malestar = datos[4];
   const derivadoPor = datos[5];
   const contacto = datos[6];
+  const telefono = datos[7];
+  const observaciones = datos[8];
 
-  if (!nombre || nombre.toString().trim() === '') return;
+  if (!nombre || nombre.toString().trim() === '') {
+    ss.toast('⚠️ Debe ingresar un nombre', 'Error', 2);
+    return;
+  }
 
   const nombreLimpio = nombre.toString().trim();
 
+  // Verificar duplicados
   const datosNuevos = nuevos.getDataRange().getValues();
   for (let i = 1; i < datosNuevos.length; i++) {
     if (datosNuevos[i][2] && datosNuevos[i][2].toString().trim() === nombreLimpio) {
-      sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#d4edda');
+      sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#fff3cd');
+      sheetOrigen.getRange(fila, 12).clearContent(); // Limpiar la acción
       ss.toast(nombreLimpio + ' ya existe en Nuevos Ingresos', 'Ya Registrado', 2);
       return;
     }
   }
 
+  // Agregar a Nuevos Ingresos
   const nuevaFila = nuevos.getLastRow() + 1;
   nuevos.getRange(nuevaFila, 3).setValue(nombreLimpio);
   nuevos.getRange(nuevaFila, 4).setValue(creemosId || '');
@@ -487,7 +542,11 @@ function enviarANuevosIngresos(sheetOrigen, fila) {
   nuevos.getRange(nuevaFila, 9).setValue(derivadoPor || '');
   nuevos.getRange(nuevaFila, 10).setValue(contacto || '');
 
+  // Marcar como procesado en Lista de Espera
   sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#d4edda');
+  sheetOrigen.getRange(fila, 12).clearContent(); // Limpiar la celda de acción
+
+  SpreadsheetApp.flush(); // Forzar actualización
   ss.toast('✅ ' + nombreLimpio + '\nMovido a Nuevos Ingresos', 'Enviado', 3);
 }
 
@@ -501,19 +560,24 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
   const genero = datos[2];
   const tipoAtencion = datos[5];
 
-  if (!nombre || nombre.toString().trim() === '') return;
+  if (!nombre || nombre.toString().trim() === '') {
+    ss.toast('⚠️ Debe ingresar un nombre primero', 'Error', 2);
+    return;
+  }
 
   const nombreLimpio = nombre.toString().trim();
 
+  // Verificar duplicados en Terapias
   const datosTerapias = terapias.getDataRange().getValues();
   for (let i = 1; i < datosTerapias.length; i++) {
     if (datosTerapias[i][1] && datosTerapias[i][1].toString().trim() === nombreLimpio) {
-      sheetOrigen.getRange(fila, 1, 1, 11).setBackground('#d4edda');
+      sheetOrigen.getRange(fila, 1, 1, 11).setBackground('#fff3cd');
       ss.toast(nombreLimpio + ' ya está en Terapias', 'Ya Asignado', 2);
       return;
     }
   }
 
+  // Crear registro en Terapias
   const nuevaFila = terapias.getLastRow() + 1;
   const registro = [
     terapeuta,
@@ -521,14 +585,18 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
     creemosId || '',
     genero || '',
     tipoAtencion || 'Individual',
-    '1',
+    1,
     'En proceso',
     ''
   ];
 
   terapias.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
+
+  // Marcar como procesado
   sheetOrigen.getRange(fila, 1, 1, 11).setBackground('#d4edda');
-  ss.toast('✅ ' + nombreLimpio + '\n→ ' + terapeuta, 'Asignado a Terapias', 3);
+
+  SpreadsheetApp.flush(); // Forzar actualización
+  ss.toast('✅ ' + nombreLimpio + '\n→ ' + terapeuta + '\nCaso creado en Terapias', 'Asignado', 3);
 }
 
 function finalizarTerapia(sheetOrigen, fila) {
@@ -689,8 +757,56 @@ function copiarAGestion(participante, terapeuta, creemosId, tipo, motivo) {
 // =====================================================================
 
 function actualizarReportes() {
-  SpreadsheetApp.flush();
-  Logger.log('📊 Reportes actualizados automáticamente');
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const reporte = ss.getSheetByName('Reporte');
+
+    if (reporte) {
+      // Forzar recalculo de la celda de última actualización
+      const ahora = reporte.getRange('B2');
+      ahora.setValue(new Date());
+
+      // Forzar flush para actualizar todas las fórmulas
+      SpreadsheetApp.flush();
+    }
+
+    Logger.log('📊 Reportes actualizados: ' + new Date());
+  } catch (error) {
+    Logger.log('Error actualizando reportes: ' + error.message);
+  }
+}
+
+function instalarTriggerTiempo() {
+  try {
+    // Eliminar triggers de tiempo existentes
+    const triggers = ScriptApp.getProjectTriggers();
+    triggers.forEach(trigger => {
+      if (trigger.getHandlerFunction() === 'actualizarReportes') {
+        ScriptApp.deleteTrigger(trigger);
+      }
+    });
+
+    // Crear nuevo trigger que se ejecute cada hora
+    ScriptApp.newTrigger('actualizarReportes')
+      .timeBased()
+      .everyHours(1)
+      .create();
+
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      '✅ Trigger instalado correctamente\n\nLos reportes se actualizarán automáticamente cada hora',
+      'Trigger de Tiempo',
+      5
+    );
+
+    Logger.log('Trigger de tiempo instalado correctamente');
+  } catch (error) {
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      '❌ Error: ' + error.message,
+      'Error',
+      5
+    );
+    Logger.log('Error instalando trigger: ' + error.message);
+  }
 }
 
 function guardarReporteMensual() {
