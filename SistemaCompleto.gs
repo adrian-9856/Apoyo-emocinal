@@ -15,6 +15,14 @@
  * 7. (Opcional) Menú → ⏰ Instalar Trigger de Tiempo
  *    - Actualiza reportes cada hora automáticamente
  *
+ * CÓMO PROBAR EL SISTEMA:
+ * 1. Menú → 🧪 Crear Datos de Prueba
+ * 2. Ir a Lista de Espera → Columna L → Seleccionar "Enviar"
+ * 3. Los datos se moverán automáticamente a Nuevos Ingresos
+ * 4. En Nuevos Ingresos → Columna K → Asignar terapeuta
+ * 5. El caso se creará en Terapias
+ * 6. Cuando termine: Menú → 🧹 Limpiar Todos los Datos
+ *
  * MEJORAS EN ESTA VERSIÓN:
  * - ✅ Fórmulas de fecha corregidas (TODAY/ROW en inglés)
  * - ✅ Envío de datos completo con limpieza automática
@@ -22,6 +30,8 @@
  * - ✅ Validaciones mejoradas en todas las hojas
  * - ✅ Mensajes de error más claros
  * - ✅ Prevención de duplicados mejorada
+ * - ✅ Sistema de pruebas integrado
+ * - ✅ Función de limpieza completa
  *
  * =====================================================================
  */
@@ -40,6 +50,9 @@ function onOpen() {
     .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
     .addSeparator()
     .addItem('⏰ Instalar Trigger de Tiempo', 'instalarTriggerTiempo')
+    .addSeparator()
+    .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
+    .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos')
     .addToUi();
 }
 
@@ -449,15 +462,8 @@ function configurarFormatos() {
 }
 
 function crearEjemplos() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const nuevos = ss.getSheetByName('Nuevos Ingresos');
-
-  const ejemplos = [
-    ['María González', 'MG001', 'Mujer', '26 a 30', 'Ansiedad', 'Individual', 'Centro Salud', 'Juan Pérez - 12345678'],
-    ['Carlos López', 'CL002', 'Hombre', '31 a 40', 'Depresión', 'Individual', 'Derivación', 'Ana López - 87654321']
-  ];
-
-  nuevos.getRange(2, 3, ejemplos.length, 8).setValues(ejemplos);
+  // No crear ejemplos automáticamente
+  // Los usuarios pueden usar crearDatosPrueba() desde el menú
 }
 
 // =====================================================================
@@ -865,5 +871,147 @@ function guardarReporteMensual() {
       'Error',
       5
     );
+  }
+}
+
+// =====================================================================
+// FUNCIONES DE PRUEBA Y LIMPIEZA
+// =====================================================================
+
+function crearDatosPrueba() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const respuesta = ui.alert(
+    'Crear Datos de Prueba',
+    '¿Desea crear datos de prueba en Lista de Espera?\n\n' +
+    'Se crearán 3 casos de ejemplo que puede usar para probar el sistema.',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) {
+    return;
+  }
+
+  const espera = ss.getSheetByName('Lista de Espera');
+
+  const datosPrueba = [
+    ['Ana Martínez', 'AM001', 'Mujer', '26 a 30', 'Ansiedad', 'Centro Salud', 'Pedro Martínez', '555-0001', 'Primera consulta'],
+    ['Juan Pérez', 'JP002', 'Hombre', '31 a 40', 'Depresión', 'Derivación', 'María Pérez', '555-0002', 'Urgente'],
+    ['Laura Gómez', 'LG003', 'Mujer', '18 a 25', 'Estrés', 'Autogestión', 'Carlos Gómez', '555-0003', 'Estudiante']
+  ];
+
+  // Agregar datos en filas 2, 3 y 4
+  espera.getRange(2, 3, datosPrueba.length, 9).setValues(datosPrueba);
+
+  ss.toast(
+    '✅ 3 DATOS DE PRUEBA CREADOS\n\n' +
+    'Ubicación: Lista de Espera (filas 2-4)\n\n' +
+    'CÓMO PROBAR EL SISTEMA:\n' +
+    '1. En columna L (Acción) seleccione "Enviar"\n' +
+    '2. El dato se moverá a Nuevos Ingresos\n' +
+    '3. En Nuevos Ingresos, asigne un terapeuta\n' +
+    '4. El caso se creará en Terapias\n\n' +
+    'Use el menú "Limpiar Todos los Datos" cuando termine.',
+    'Datos de Prueba',
+    -1
+  );
+}
+
+function limpiarTodosLosDatos() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const respuesta = ui.alert(
+    '⚠️ CONFIRMAR LIMPIEZA',
+    '¿Está SEGURO de eliminar TODOS los datos?\n\n' +
+    'Esta acción NO se puede deshacer.\n\n' +
+    'Se limpiarán todas las hojas:\n' +
+    '- Lista de Espera\n' +
+    '- Nuevos Ingresos\n' +
+    '- Terapias\n' +
+    '- Procesos Culminados\n' +
+    '- Deserciones\n' +
+    '- Gestión de Casos\n' +
+    '- Reportes Mensuales',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) {
+    ss.toast('❌ Limpieza cancelada', 'Cancelado', 2);
+    return;
+  }
+
+  try {
+    // Limpiar Lista de Espera (desde fila 2)
+    const espera = ss.getSheetByName('Lista de Espera');
+    if (espera.getLastRow() > 1) {
+      espera.getRange(2, 1, espera.getLastRow() - 1, 12).clearContent();
+      espera.getRange(2, 1, espera.getLastRow() - 1, 12).setBackground(null);
+      // Restaurar fórmulas
+      for (let i = 2; i <= 100; i++) {
+        espera.getRange('A' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
+        espera.getRange('B' + i).setFormula('=IF(C' + i + '<>"",ROW()-1,"")');
+      }
+    }
+
+    // Limpiar Nuevos Ingresos (desde fila 2)
+    const nuevos = ss.getSheetByName('Nuevos Ingresos');
+    if (nuevos.getLastRow() > 1) {
+      nuevos.getRange(2, 1, nuevos.getLastRow() - 1, 11).clearContent();
+      nuevos.getRange(2, 1, nuevos.getLastRow() - 1, 11).setBackground(null);
+      // Restaurar fórmulas
+      for (let i = 2; i <= 100; i++) {
+        nuevos.getRange('A' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
+        nuevos.getRange('B' + i).setFormula('=IF(C' + i + '<>"",ROW()-1,"")');
+      }
+    }
+
+    // Limpiar Terapias (desde fila 2)
+    const terapias = ss.getSheetByName('Terapias');
+    if (terapias.getLastRow() > 1) {
+      terapias.getRange(2, 1, terapias.getLastRow() - 1, 8).clearContent();
+      terapias.getRange(2, 1, terapias.getLastRow() - 1, 8).setBackground(null);
+    }
+
+    // Limpiar Procesos Culminados (desde fila 2)
+    const culminados = ss.getSheetByName('Procesos Culminados');
+    if (culminados.getLastRow() > 1) {
+      culminados.getRange(2, 1, culminados.getLastRow() - 1, 6).clearContent();
+    }
+
+    // Limpiar Deserciones (desde fila 2)
+    const deserciones = ss.getSheetByName('Deserciones');
+    if (deserciones.getLastRow() > 1) {
+      deserciones.getRange(2, 1, deserciones.getLastRow() - 1, 6).clearContent();
+    }
+
+    // Limpiar Gestión de Casos (desde fila 2)
+    const gestion = ss.getSheetByName('Gestión de Casos');
+    if (gestion.getLastRow() > 1) {
+      gestion.getRange(2, 1, gestion.getLastRow() - 1, 6).clearContent();
+    }
+
+    // Limpiar Reportes Mensuales (desde fila 2)
+    const mensuales = ss.getSheetByName('Reportes Mensuales');
+    if (mensuales.getLastRow() > 1) {
+      mensuales.getRange(2, 1, mensuales.getLastRow() - 1, 12).clearContent();
+    }
+
+    // Actualizar reportes
+    actualizarReportes();
+
+    ss.toast(
+      '✅ LIMPIEZA COMPLETA\n\n' +
+      'Todas las hojas han sido limpiadas.\n' +
+      'Las fórmulas y validaciones se mantienen intactas.\n\n' +
+      'El sistema está listo para usar.',
+      'Limpieza Exitosa',
+      5
+    );
+
+  } catch (error) {
+    ss.toast('❌ Error: ' + error.message, 'Error en Limpieza', 5);
+    Logger.log('Error limpiando datos: ' + error.message);
   }
 }
