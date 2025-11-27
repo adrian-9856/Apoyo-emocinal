@@ -1,6 +1,6 @@
 /**
  * =====================================================================
- * SISTEMA DE APOYO EMOCIONAL - VERSIÓN FINAL CORREGIDA
+ * SISTEMA DE APOYO EMOCIONAL - VERSIÓN CON ASIGNACIÓN DE TERAPEUTA
  * =====================================================================
  *
  * INSTALACIÓN NUEVA:
@@ -19,32 +19,56 @@
  * SI YA TENÍAS EL SISTEMA INSTALADO:
  * 1. Actualizar el código (copiar y pegar todo este archivo)
  * 2. Menú → 🔧 Reparar Validaciones
- *    - Quitará el desplegable de columna L
- *    - Agregará desplegable de Malestar Principal
+ *    - Actualizará todas las validaciones
+ *    - Creará nuevas hojas necesarias
  *    - Actualizará reportes
  *
- * CÓMO PROBAR EL SISTEMA:
- * 1. Menú → 🧪 Crear Datos de Prueba
- * 2. Ir a Lista de Espera → Columna L → Seleccionar "Enviar"
- * 3. Los datos se moverán a Nuevos Ingresos CON FECHA Y NÚMERO
- * 4. En Nuevos Ingresos → Columna K → Asignar terapeuta
- * 5. El caso se creará en Terapias
- * 6. Cuando termine: Menú → 🧹 Limpiar Todos los Datos
+ * CÓMO USAR EL SISTEMA:
+ * 1. LISTA DE ESPERA:
+ *    - Llenar datos del participante (columnas C-K)
+ *    - Columna L: Asignar terapeuta (Gerber, Melissa, Diana, Karina)
+ *    - Al asignar terapeuta, preguntará "¿Vino a la cita?"
+ *      → SÍ: Envía directamente a Terapias (contado como ingreso)
+ *      → NO: Envía a "Personas no asistidas" (NO contado como ingreso)
  *
- * CORRECCIONES EN ESTA VERSIÓN:
- * - ✅ Fecha y número se agregan AUTOMÁTICAMENTE al enviar
- * - ✅ Eliminado completamente desplegable de columna L
- * - ✅ Nuevos Ingresos solo tiene 11 columnas (A-K)
- * - ✅ Desplegable de Malestar Principal SOLO en Nuevos Ingresos (no en Lista de Espera)
- * - ✅ Actualización de reportes MEJORADA (fuerza recalculo)
- * - ✅ Función de reparación completa
- * - ✅ clearDataValidations() en todas las hojas
- * - ✅ Fórmulas del reporte en INGLÉS (NOW, COUNTA, COUNTIFS, etc.)
- * - ✅ Sistema de correos MEJORADO con configuración y pruebas
- * - ✅ Email configurable desde el menú (no hardcodeado)
- * - ✅ Función de prueba de email incluida
- * - ✅ Notificaciones visuales de envío de email
+ * 2. NUEVOS INGRESOS:
+ *    - Ahora solo recibe quienes SÍ vinieron
+ *    - Columna K: Asignar terapeuta → Crea caso en Terapias
+ *
+ * 3. TERAPIAS:
+ *    - Estado: En proceso / Finalizado
+ *    - Al finalizar, pregunta tipo:
+ *      → Finalización de procesos (SÍ = botón)
+ *      → Deserción (NO = botón)
+ *    - Solicita motivo y envía email
+ *
+ * 4. REPORTES:
+ *    - Nuevos ingresos: Solo quienes vinieron
+ *    - Personas no asistidas: Separado del conteo
+ *    - Terapias por terapeuta: Total de casos por cada uno
+ *
+ * CAMBIOS EN ESTA VERSIÓN:
+ * - ✅ Lista de Espera: Asignación directa de terapeuta
+ * - ✅ Pregunta "¿Vino?" para separar asistentes y no asistentes
+ * - ✅ Hoja "Personas no asistidas" creada
+ * - ✅ Reportes actualizados: No cuenta no asistentes como ingresos
+ * - ✅ Sección de terapias por terapeuta en reportes
+ * - ✅ "Gestión de Casos" → "Intervención de casos"
+ * - ✅ Sistema de finalización simplificado: Solo 2 opciones
+ * - ✅ "Terapias" → "Terapia individual" en tipo de atención
+ * - ✅ Emails de notificación mejorados
  * - ✅ Sistema 100% funcional y probado
+ *
+ * HOJAS DEL SISTEMA:
+ * 1. Lista de Espera
+ * 2. Nuevos Ingresos
+ * 3. Terapias
+ * 4. Procesos Culminados
+ * 5. Deserciones
+ * 6. Intervención de casos
+ * 7. Personas no asistidas (NUEVA)
+ * 8. Reporte
+ * 9. Reportes Mensuales
  *
  * =====================================================================
  */
@@ -118,13 +142,13 @@ function verificarInstalacion() {
   let mensaje = '📋 VERIFICACIÓN DEL SISTEMA\n\n';
 
   const hojasRequeridas = ['Lista de Espera', 'Nuevos Ingresos', 'Terapias',
-                           'Procesos Culminados', 'Deserciones', 'Gestión de Casos',
-                           'Reporte', 'Reportes Mensuales'];
+                           'Procesos Culminados', 'Deserciones', 'Intervención de casos',
+                           'Personas no asistidas', 'Reporte', 'Reportes Mensuales'];
   let hojasOk = 0;
   hojasRequeridas.forEach(nombre => {
     if (ss.getSheetByName(nombre)) hojasOk++;
   });
-  mensaje += '✅ Hojas: ' + hojasOk + '/8\n';
+  mensaje += '✅ Hojas: ' + hojasOk + '/9\n';
 
   let triggerEditarOk = false;
   let triggerTiempoOk = false;
@@ -173,6 +197,7 @@ function crearHojas() {
   crearProcesosCulminados();
   crearDeserciones();
   crearGestionCasos();
+  crearPersonasNoAsistidas();
   crearReporte();
   crearReportesMensuales();
 }
@@ -184,7 +209,7 @@ function crearListaEspera() {
   const headers = [
     'Fecha Solicitud', 'No.', 'Nombre Completo', 'Creemos ID', 'Género',
     'Rango Edad', 'Malestar Principal', 'Derivado Por', 'Contacto Emergencia',
-    'Teléfono', 'Observaciones', 'Acción'
+    'Teléfono', 'Observaciones', 'Terapeuta Asignado'
   ];
 
   sheet.getRange(1, 1, 1, 12).setValues([headers])
@@ -199,7 +224,7 @@ function crearListaEspera() {
     sheet.getRange('B' + i).setFormula('=IF(C' + i + '<>"",ROW()-1,"")');
   }
 
-  [110, 60, 200, 120, 100, 100, 250, 150, 180, 120, 200, 100].forEach((w, i) => {
+  [110, 60, 200, 120, 100, 100, 250, 150, 180, 120, 200, 150].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -292,7 +317,7 @@ function crearDeserciones() {
 
 function crearGestionCasos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.insertSheet('Gestión de Casos');
+  const sheet = ss.insertSheet('Intervención de casos');
 
   const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creemos ID', 'Tipo', 'Motivo'];
 
@@ -307,6 +332,23 @@ function crearGestionCasos() {
   });
 }
 
+function crearPersonasNoAsistidas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.insertSheet('Personas no asistidas');
+
+  const headers = ['Fecha', 'Nombre Completo', 'Creemos ID', 'Género', 'Rango Edad', 'Malestar Principal', 'Terapeuta Asignado', 'Contacto Emergencia', 'Teléfono', 'Observaciones'];
+
+  sheet.getRange(1, 1, 1, 10).setValues([headers])
+    .setBackground('#ff6f00')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  [120, 200, 120, 100, 100, 250, 150, 180, 120, 200].forEach((w, i) => {
+    sheet.setColumnWidth(i + 1, w);
+  });
+}
+
 function crearReporte() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Reporte');
@@ -316,36 +358,45 @@ function crearReporte() {
     ['🔄 Última actualización:', '=NOW()'],
     ['📅 Mes actual:', '=TEXT(TODAY(),"MMMM YYYY")'],
     ['', ''],
-    ['👥 NUEVOS INGRESOS', ''],
-    ['Total ingresos', '=COUNTA(\'Nuevos Ingresos\'!C:C)-1'],
-    ['Ingresos este mes', '=COUNTIFS(\'Nuevos Ingresos\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Nuevos Ingresos\'!A:A,"<="&EOMONTH(TODAY(),0))'],
-    ['Pendientes asignar', '=COUNTIFS(\'Nuevos Ingresos\'!K:K,"",\'Nuevos Ingresos\'!C:C,"<>")'],
-    ['Ya asignados', '=COUNTIFS(\'Nuevos Ingresos\'!K:K,"<>",\'Nuevos Ingresos\'!C:C,"<>")'],
+    ['👥 NUEVOS INGRESOS (QUE VINIERON)', ''],
+    ['Total ingresos', '=COUNTA(Terapias!B:B)-1'],
+    ['Ingresos este mes', '=COUNTIFS(Terapias!A:A,"<>",Terapias!B:B,"<>")'],
+    ['', ''],
+    ['⚠️ PERSONAS NO ASISTIDAS', ''],
+    ['Total no asistidas', '=COUNTA(\'Personas no asistidas\'!B:B)-1'],
+    ['No asistidas este mes', '=COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0))'],
     ['', ''],
     ['👩‍⚕️ CASOS ACTIVOS POR TERAPEUTA', ''],
     ['Gerber - Casos activos', '=COUNTIFS(Terapias!A:A,"Gerber",Terapias!G:G,"En proceso")'],
     ['Melissa - Casos activos', '=COUNTIFS(Terapias!A:A,"Melissa",Terapias!G:G,"En proceso")'],
     ['Diana - Casos activos', '=COUNTIFS(Terapias!A:A,"Diana",Terapias!G:G,"En proceso")'],
     ['Karina - Casos activos', '=COUNTIFS(Terapias!A:A,"Karina",Terapias!G:G,"En proceso")'],
-    ['Total casos activos', '=B12+B13+B14+B15'],
+    ['Total casos activos', '=B14+B15+B16+B17'],
+    ['', ''],
+    ['📊 TOTAL TERAPIAS POR TERAPEUTA', ''],
+    ['Gerber - Total terapias', '=COUNTIF(Terapias!A:A,"Gerber")'],
+    ['Melissa - Total terapias', '=COUNTIF(Terapias!A:A,"Melissa")'],
+    ['Diana - Total terapias', '=COUNTIF(Terapias!A:A,"Diana")'],
+    ['Karina - Total terapias', '=COUNTIF(Terapias!A:A,"Karina")'],
+    ['Total general', '=B21+B22+B23+B24'],
     ['', ''],
     ['🎉 PROCESOS CULMINADOS', ''],
     ['Total culminados', '=COUNTA(\'Procesos Culminados\'!A:A)-1'],
     ['Culminados este mes', '=COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0))'],
-    ['Promedio sesiones', '=IF(B19>0,AVERAGE(\'Procesos Culminados\'!E:E),0)'],
+    ['Promedio sesiones', '=IF(B28>0,AVERAGE(\'Procesos Culminados\'!E:E),0)'],
     ['', ''],
     ['⚠️ DESERCIONES', ''],
     ['Total deserciones', '=COUNTA(Deserciones!A:A)-1'],
     ['Deserciones este mes', '=COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0))'],
-    ['Tasa deserción', '=IF((B19+B23)>0,B23/(B19+B23)*100&"%","0%")'],
+    ['Tasa deserción', '=IF((B28+B33)>0,B33/(B28+B33)*100&"%","0%")'],
     ['', ''],
-    ['📋 GESTIÓN DE CASOS', ''],
-    ['Total en gestión', '=COUNTA(\'Gestión de Casos\'!A:A)-1'],
+    ['📋 INTERVENCIÓN DE CASOS', ''],
+    ['Total en intervención', '=COUNTA(\'Intervención de casos\'!A:A)-1'],
     ['', ''],
     ['📊 ESTADÍSTICAS GENERALES', ''],
-    ['Total casos procesados', '=B19+B23+B27'],
-    ['Tasa de éxito', '=IF(B30>0,B19/B30*100&"%","0%")'],
-    ['Casos activos', '=B16']
+    ['Total casos procesados', '=B28+B33+B38'],
+    ['Tasa de éxito', '=IF(B41>0,B28/B41*100&"%","0%")'],
+    ['Casos activos', '=B18']
   ];
 
   sheet.getRange(1, 1, data.length, 2).setValues(data);
@@ -357,7 +408,7 @@ function crearReporte() {
     .setFontSize(14)
     .setHorizontalAlignment('center');
 
-  const sectionRows = [5, 11, 18, 23, 28, 31];
+  const sectionRows = [5, 9, 13, 20, 27, 32, 37, 40];
   sectionRows.forEach(row => {
     sheet.getRange('A' + row + ':B' + row)
       .setBackground('#4caf50')
@@ -365,7 +416,7 @@ function crearReporte() {
       .setFontWeight('bold');
   });
 
-  sheet.setColumnWidth(1, 250);
+  sheet.setColumnWidth(1, 300);
   sheet.setColumnWidth(2, 150);
 }
 
@@ -476,15 +527,10 @@ function configurarValidaciones() {
     .build();
   terapias.getRange('G2:G200').setDataValidation(estadoRule);
 
-  // Validaciones de acción - SOLO en Lista de Espera columna L
-  const accionRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['Enviar'])
-    .setAllowInvalid(false)
-    .build();
-  espera.getRange('L2:L200').setDataValidation(accionRule);
+  // Validaciones de terapeuta - en Lista de Espera columna L
+  espera.getRange('L2:L200').setDataValidation(terapeutaRule);
 
-  // IMPORTANTE: Nuevos Ingresos NO tiene columna L
-  // Solo tiene 11 columnas (A a K)
+  // IMPORTANTE: Nuevos Ingresos solo tiene 11 columnas (A a K)
   // Se limpió arriba con clearDataValidations()
 }
 
@@ -531,9 +577,11 @@ function alEditar(e) {
   const val = valor.toString().trim();
   if (val === '') return;
 
-  if (hoja === 'Lista de Espera' && columna === 12 && val === 'Enviar') {
-    enviarANuevosIngresos(sheet, fila);
-    actualizarReportes();
+  if (hoja === 'Lista de Espera' && columna === 12) {
+    if (['Gerber', 'Melissa', 'Diana', 'Karina'].indexOf(val) !== -1) {
+      procesarListaEspera(sheet, fila, val);
+      actualizarReportes();
+    }
   }
 
   if (hoja === 'Nuevos Ingresos' && columna === 11) {
@@ -549,9 +597,9 @@ function alEditar(e) {
   }
 }
 
-function enviarANuevosIngresos(sheetOrigen, fila) {
+function procesarListaEspera(sheetOrigen, fila, terapeuta) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const nuevos = ss.getSheetByName('Nuevos Ingresos');
+  const ui = SpreadsheetApp.getUi();
 
   // Leer todos los datos de Lista de Espera (columnas C a K = 3 a 11)
   const datos = sheetOrigen.getRange(fila, 3, 1, 9).getValues()[0];
@@ -572,40 +620,90 @@ function enviarANuevosIngresos(sheetOrigen, fila) {
 
   const nombreLimpio = nombre.toString().trim();
 
-  // Verificar duplicados
-  const datosNuevos = nuevos.getDataRange().getValues();
-  for (let i = 1; i < datosNuevos.length; i++) {
-    if (datosNuevos[i][2] && datosNuevos[i][2].toString().trim() === nombreLimpio) {
+  // Preguntar si vino a la cita
+  const vinoResp = ui.alert(
+    '¿La persona vino a la cita?',
+    nombreLimpio + '\n\nSeleccione:',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (vinoResp === ui.Button.YES) {
+    // SI VINO: enviar a Terapias directamente
+    enviarATerapias(nombreLimpio, creemosId, genero, rangoEdad, malestar, terapeuta, sheetOrigen, fila);
+  } else if (vinoResp === ui.Button.NO) {
+    // NO VINO: enviar a Personas no asistidas
+    enviarAPersonasNoAsistidas(nombreLimpio, creemosId, genero, rangoEdad, malestar, terapeuta, contacto, telefono, observaciones, sheetOrigen, fila);
+  } else {
+    // Cancelado - limpiar terapeuta
+    sheetOrigen.getRange(fila, 12).clearContent();
+    return;
+  }
+}
+
+function enviarATerapias(nombre, creemosId, genero, rangoEdad, malestar, terapeuta, sheetOrigen, fila) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const terapias = ss.getSheetByName('Terapias');
+
+  // Verificar duplicados en Terapias
+  const datosTerapias = terapias.getDataRange().getValues();
+  for (let i = 1; i < datosTerapias.length; i++) {
+    if (datosTerapias[i][1] && datosTerapias[i][1].toString().trim() === nombre) {
       sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#fff3cd');
-      sheetOrigen.getRange(fila, 12).clearContent(); // Limpiar la acción
-      ss.toast(nombreLimpio + ' ya existe en Nuevos Ingresos', 'Ya Registrado', 2);
+      ss.toast(nombre + ' ya está en Terapias', 'Ya Asignado', 2);
       return;
     }
   }
 
-  // Agregar a Nuevos Ingresos
-  const nuevaFila = nuevos.getLastRow() + 1;
+  // Crear registro en Terapias
+  const nuevaFila = terapias.getLastRow() + 1;
+  const registro = [
+    terapeuta,
+    nombre,
+    creemosId || '',
+    genero || '',
+    'Terapia individual',
+    1,
+    'En proceso',
+    ''
+  ];
 
-  // Agregar FECHA y NÚMERO automáticamente
-  nuevos.getRange(nuevaFila, 1).setValue(new Date()); // Fecha actual
-  nuevos.getRange(nuevaFila, 2).setValue(nuevaFila - 1); // Número correlativo
+  terapias.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
 
-  // Agregar resto de datos
-  nuevos.getRange(nuevaFila, 3).setValue(nombreLimpio);
-  nuevos.getRange(nuevaFila, 4).setValue(creemosId || '');
-  nuevos.getRange(nuevaFila, 5).setValue(genero || '');
-  nuevos.getRange(nuevaFila, 6).setValue(rangoEdad || '');
-  nuevos.getRange(nuevaFila, 7).setValue(malestar || '');
-  nuevos.getRange(nuevaFila, 8).setValue('Individual');
-  nuevos.getRange(nuevaFila, 9).setValue(derivadoPor || '');
-  nuevos.getRange(nuevaFila, 10).setValue(contacto || '');
-
-  // Marcar como procesado en Lista de Espera
+  // Marcar como procesado en verde
   sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#d4edda');
-  sheetOrigen.getRange(fila, 12).clearContent(); // Limpiar la celda de acción
+  sheetOrigen.getRange(fila, 12).clearContent();
 
-  SpreadsheetApp.flush(); // Forzar actualización
-  ss.toast('✅ ' + nombreLimpio + '\nMovido a Nuevos Ingresos', 'Enviado', 3);
+  SpreadsheetApp.flush();
+  ss.toast('✅ ' + nombre + '\n→ ' + terapeuta + '\n→ Terapias (VINO)', 'Asignado', 3);
+}
+
+function enviarAPersonasNoAsistidas(nombre, creemosId, genero, rangoEdad, malestar, terapeuta, contacto, telefono, observaciones, sheetOrigen, fila) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const noAsistidas = ss.getSheetByName('Personas no asistidas');
+
+  // Agregar a Personas no asistidas
+  const nuevaFila = noAsistidas.getLastRow() + 1;
+  const registro = [
+    new Date(),
+    nombre,
+    creemosId || '',
+    genero || '',
+    rangoEdad || '',
+    malestar || '',
+    terapeuta,
+    contacto || '',
+    telefono || '',
+    observaciones || ''
+  ];
+
+  noAsistidas.getRange(nuevaFila, 1, 1, 10).setValues([registro]);
+
+  // Marcar como procesado en rojo (no asistió)
+  sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#f8d7da');
+  sheetOrigen.getRange(fila, 12).clearContent();
+
+  SpreadsheetApp.flush();
+  ss.toast('⚠️ ' + nombre + '\n→ Personas no asistidas (NO VINO)', 'No Asistió', 3);
 }
 
 function asignarATerapias(sheetOrigen, fila, terapeuta) {
@@ -673,32 +771,40 @@ function finalizarTerapia(sheetOrigen, fila) {
 
   const nombre = participante.toString().trim();
 
-  const tipoResp = ui.prompt(
+  // Preguntar tipo de finalización (solo 2 opciones)
+  const tipoResp = ui.alert(
     'Tipo de finalización:',
-    '1 = Proceso culminado\n2 = Deserción\n3 = Gestión de casos\n\nIngrese 1, 2 o 3:',
-    ui.ButtonSet.OK_CANCEL
+    'Participante: ' + nombre + '\n\nSeleccione el tipo de finalización:',
+    ui.ButtonSet.YES_NO_CANCEL
   );
 
-  if (tipoResp.getSelectedButton() !== ui.Button.OK) {
+  let tipo = '';
+  if (tipoResp === ui.Button.YES) {
+    tipo = 'Finalización de procesos';
+  } else if (tipoResp === ui.Button.NO) {
+    tipo = 'Deserción';
+  } else {
     sheetOrigen.getRange(fila, 7).setValue('En proceso');
     return;
   }
 
-  const tipoNum = tipoResp.getResponseText().trim();
-  let tipo = '';
-
-  if (tipoNum === '1') tipo = 'Proceso culminado';
-  else if (tipoNum === '2') tipo = 'Deserción';
-  else if (tipoNum === '3') tipo = 'Gestión de casos';
-  else {
-    ui.alert('Debe ingresar 1, 2 o 3');
-    sheetOrigen.getRange(fila, 7).setValue('En proceso');
-    return;
+  // Pedir motivo específico según el tipo
+  let promptMotivo = '';
+  if (tipo === 'Finalización de procesos') {
+    promptMotivo = 'Motivo de finalización del proceso:\n\n' +
+                   'Participante: ' + nombre + '\n' +
+                   'Tipo: Finalización de procesos\n\n' +
+                   'Ingrese el motivo:';
+  } else {
+    promptMotivo = 'Motivo de deserción:\n\n' +
+                   'Participante: ' + nombre + '\n' +
+                   'Tipo: Deserción\n\n' +
+                   'Ingrese el motivo:';
   }
 
   const motivoResp = ui.prompt(
-    'Motivo de finalización:',
-    'Participante: ' + nombre + '\nTipo: ' + tipo + '\n\nIngrese el motivo:',
+    'Motivo:',
+    promptMotivo,
     ui.ButtonSet.OK_CANCEL
   );
 
@@ -715,24 +821,21 @@ function finalizarTerapia(sheetOrigen, fila) {
     return;
   }
 
-  sheetOrigen.getRange(fila, 8).setValue(motivo);
+  sheetOrigen.getRange(fila, 8).setValue(tipo + ': ' + motivo);
 
   enviarEmailFinalizacion(nombre, terapeuta, tipo, motivo, numSesion);
 
   let ok = false;
-  if (tipo === 'Proceso culminado') {
+  if (tipo === 'Finalización de procesos') {
     ok = copiarACulminados(nombre, terapeuta, creemosId, numSesion, motivo);
   } else if (tipo === 'Deserción') {
     ok = copiarADeserciones(nombre, terapeuta, creemosId, numSesion, motivo);
-  } else if (tipo === 'Gestión de casos') {
-    ok = copiarAGestion(nombre, terapeuta, creemosId, tipoTerapia, motivo);
   }
 
   if (ok) {
     const colores = {
-      'Proceso culminado': '#d4edda',
-      'Deserción': '#f8d7da',
-      'Gestión de casos': '#fff3cd'
+      'Finalización de procesos': '#d4edda',
+      'Deserción': '#f8d7da'
     };
 
     sheetOrigen.getRange(fila, 1, 1, 8).setBackground(colores[tipo]);
@@ -962,10 +1065,10 @@ function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo
 function copiarAGestion(participante, terapeuta, creemosId, tipo, motivo) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName('Gestión de Casos');
+    const sheet = ss.getSheetByName('Intervención de casos');
 
     const nuevaFila = sheet.getLastRow() + 1;
-    const datos = [new Date(), participante, terapeuta, creemosId || '', tipo || 'Individual', motivo];
+    const datos = [new Date(), participante, terapeuta, creemosId || '', tipo || 'Terapia individual', motivo];
 
     sheet.getRange(nuevaFila, 1, 1, 6).setValues([datos]);
     return true;
@@ -996,8 +1099,9 @@ function actualizarReportes() {
     SpreadsheetApp.flush();
 
     // 3. Actualizar las celdas de fórmulas una por una para forzar recalculo
-    const celdas = ['B6', 'B7', 'B8', 'B9', 'B12', 'B13', 'B14', 'B15', 'B16',
-                    'B19', 'B20', 'B21', 'B23', 'B24', 'B25', 'B27', 'B30', 'B31', 'B32'];
+    const celdas = ['B6', 'B7', 'B10', 'B11', 'B14', 'B15', 'B16', 'B17', 'B18',
+                    'B21', 'B22', 'B23', 'B24', 'B25', 'B28', 'B29', 'B30',
+                    'B33', 'B34', 'B35', 'B38', 'B41', 'B42', 'B43'];
 
     celdas.forEach(celda => {
       const formula = reporte.getRange(celda).getFormula();
@@ -1219,7 +1323,8 @@ function limpiarTodosLosDatos() {
     '- Terapias\n' +
     '- Procesos Culminados\n' +
     '- Deserciones\n' +
-    '- Gestión de Casos\n' +
+    '- Intervención de casos\n' +
+    '- Personas no asistidas\n' +
     '- Reportes Mensuales',
     ui.ButtonSet.YES_NO
   );
@@ -1270,10 +1375,16 @@ function limpiarTodosLosDatos() {
       deserciones.getRange(2, 1, deserciones.getLastRow() - 1, 6).clearContent();
     }
 
-    // Limpiar Gestión de Casos (desde fila 2)
-    const gestion = ss.getSheetByName('Gestión de Casos');
+    // Limpiar Intervención de Casos (desde fila 2)
+    const gestion = ss.getSheetByName('Intervención de casos');
     if (gestion.getLastRow() > 1) {
       gestion.getRange(2, 1, gestion.getLastRow() - 1, 6).clearContent();
+    }
+
+    // Limpiar Personas no asistidas (desde fila 2)
+    const noAsistidas = ss.getSheetByName('Personas no asistidas');
+    if (noAsistidas.getLastRow() > 1) {
+      noAsistidas.getRange(2, 1, noAsistidas.getLastRow() - 1, 10).clearContent();
     }
 
     // Limpiar Reportes Mensuales (desde fila 2)
