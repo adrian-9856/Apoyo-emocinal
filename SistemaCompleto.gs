@@ -1287,7 +1287,8 @@ function repararValidaciones() {
     hojas.forEach(nombreHoja => {
       const hoja = ss.getSheetByName(nombreHoja);
       if (hoja) {
-        hoja.clearDataValidations();
+        // clearDataValidations() debe llamarse en un rango, no en la hoja
+        hoja.getRange('A1:Z1000').clearDataValidations();
         Logger.log('Validaciones limpiadas de: ' + nombreHoja);
       }
     });
