@@ -464,20 +464,22 @@ function configurarValidaciones() {
   terapias.getRange('A1:Z200').clearDataValidations();
 
   // Validaciones de género
+  // SOLO en hojas donde el usuario EDITA manualmente
+  // NO en Nuevos Ingresos - se llena automáticamente
   const generoRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Hombre', 'Mujer', 'Trans hombre', 'No binario', 'Otro'])
     .setAllowInvalid(false)
     .build();
-  nuevos.getRange('E2:E200').setDataValidation(generoRule);
   espera.getRange('E2:E200').setDataValidation(generoRule);
   terapias.getRange('D2:D200').setDataValidation(generoRule);
 
   // Validaciones de rango de edad
+  // SOLO en hojas donde el usuario EDITA manualmente
+  // NO en Nuevos Ingresos - se llena automáticamente
   const rangoEdadRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['13 a 17', '18 a 25', '26 a 30', '31 a 40', '41 a 50', '51 a 60', '61+'])
     .setAllowInvalid(false)
     .build();
-  nuevos.getRange('F2:F200').setDataValidation(rangoEdadRule);
   espera.getRange('F2:F200').setDataValidation(rangoEdadRule);
 
   // Validaciones de MALESTAR PRINCIPAL - ELIMINADAS de Nuevos Ingresos
@@ -489,11 +491,12 @@ function configurarValidaciones() {
   // NO aplicar validación de Malestar en Lista de Espera - el usuario escribe libremente
 
   // Validaciones de tipo de atención
+  // SOLO aplicar en Terapias (columna E) - donde el usuario puede editar manualmente
+  // NO aplicar en Nuevos Ingresos (columna H) - se llena automáticamente desde el código
   const tipoRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Individual', 'Grupal', 'Familiar', 'Pareja'])
     .setAllowInvalid(false)
     .build();
-  nuevos.getRange('H2:H200').setDataValidation(tipoRule);
   terapias.getRange('E2:E200').setDataValidation(tipoRule);
 
   // Validaciones de terapeuta
@@ -524,8 +527,26 @@ function configurarValidaciones() {
   // Validaciones de terapeuta - en Lista de Espera columna L
   espera.getRange('L2:L200').setDataValidation(terapeutaRule);
 
-  // IMPORTANTE: Nuevos Ingresos solo tiene 11 columnas (A a K)
-  // Se limpió arriba con clearDataValidations()
+  // =====================================================================
+  // RESUMEN DE VALIDACIONES POR HOJA:
+  // =====================================================================
+  //
+  // NUEVOS INGRESOS:
+  //   - SIN validaciones (se llena automáticamente desde código)
+  //
+  // LISTA DE ESPERA:
+  //   - Género (E)
+  //   - Rango Edad (F)
+  //   - Terapeuta Asignado (L)
+  //
+  // TERAPIAS:
+  //   - Terapeuta (A)
+  //   - Género (D)
+  //   - Tipo Terapia (E)
+  //   - No. Sesión (F)
+  //   - Estado (G)
+  //
+  // =====================================================================
 }
 
 function configurarFormatos() {
