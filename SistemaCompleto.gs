@@ -253,17 +253,16 @@ function crearNuevosIngresos() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  // Fórmulas para fecha y número automáticos
-  for (let i = 2; i <= 100; i++) {
-    sheet.getRange('A' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
-    sheet.getRange('B' + i).setFormula('=IF(C' + i + '<>"",ROW()-1,"")');
-  }
+  // NO usar fórmulas en columnas A y B
+  // La fecha y número se agregarán desde el código JavaScript
+  // cuando se agregue cada registro
+  // Esto evita que las fechas se actualicen constantemente con TODAY()
 
   [110, 60, 200, 120, 100, 100, 250, 120, 150].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
-  // Proteger solo las columnas de fecha y número cuando tengan datos
+  // Proteger solo las columnas de fecha y número
   sheet.getRange('A2:A100').protect().setWarningOnly(true);
   sheet.getRange('B2:B100').protect().setWarningOnly(true);
 }
@@ -732,16 +731,21 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, rangoEdad, ma
 
     // 1. Agregar a Nuevos Ingresos (documentación)
     const nuevaFilaNuevos = nuevos.getLastRow() + 1;
+    const numeroIngreso = nuevaFilaNuevos - 1; // Restar 1 porque fila 1 es header
+    const fechaIngreso = new Date();
+
     const registroNuevos = [
-      nombre,
-      creemosId || '',
-      genero || '',
-      rangoEdad || '',
-      malestar || '',
-      'Individual',
-      derivadoPor || ''
+      fechaIngreso,        // Columna A: Fecha (valor, no fórmula)
+      numeroIngreso,       // Columna B: Número (valor, no fórmula)
+      nombre,              // Columna C
+      creemosId || '',     // Columna D
+      genero || '',        // Columna E
+      rangoEdad || '',     // Columna F
+      malestar || '',      // Columna G
+      'Individual',        // Columna H
+      derivadoPor || ''    // Columna I
     ];
-    nuevos.getRange(nuevaFilaNuevos, 3, 1, 7).setValues([registroNuevos]);
+    nuevos.getRange(nuevaFilaNuevos, 1, 1, 9).setValues([registroNuevos]);
     Logger.log('✅ Agregado a Nuevos Ingresos en fila: ' + nuevaFilaNuevos);
 
     // 2. Crear registro en Terapias
@@ -1475,11 +1479,7 @@ function limpiarTodosLosDatos() {
     if (nuevos.getLastRow() > 1) {
       nuevos.getRange(2, 1, nuevos.getLastRow() - 1, 9).clearContent();
       nuevos.getRange(2, 1, nuevos.getLastRow() - 1, 9).setBackground(null);
-      // Restaurar fórmulas automáticas
-      for (let i = 2; i <= 100; i++) {
-        nuevos.getRange('A' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
-        nuevos.getRange('B' + i).setFormula('=IF(C' + i + '<>"",ROW()-1,"")');
-      }
+      // NO restaurar fórmulas - los valores se agregan directamente desde el código
     }
 
     // Limpiar Terapias (desde fila 2)
