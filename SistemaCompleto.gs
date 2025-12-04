@@ -600,122 +600,153 @@ function procesarListaEspera(sheetOrigen, fila, terapeuta) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
-  // Leer todos los datos de Lista de Espera (columnas C a K = 3 a 11)
-  const datos = sheetOrigen.getRange(fila, 3, 1, 9).getValues()[0];
-  const nombre = datos[0];
-  const creemosId = datos[1];
-  const genero = datos[2];
-  const rangoEdad = datos[3];
-  const malestar = datos[4];
-  const derivadoPor = datos[5];
-  const contacto = datos[6];
-  const telefono = datos[7];
-  const observaciones = datos[8];
+  try {
+    // Leer todos los datos de Lista de Espera (columnas C a K = 3 a 11)
+    const datos = sheetOrigen.getRange(fila, 3, 1, 9).getValues()[0];
+    const nombre = datos[0];
+    const creemosId = datos[1];
+    const genero = datos[2];
+    const rangoEdad = datos[3];
+    const malestar = datos[4];
+    const derivadoPor = datos[5];
+    const contacto = datos[6];
+    const telefono = datos[7];
+    const observaciones = datos[8];
 
-  if (!nombre || nombre.toString().trim() === '') {
-    ss.toast('⚠️ Debe ingresar un nombre', 'Error', 2);
-    return;
-  }
+    Logger.log('Procesando: ' + nombre + ' - Terapeuta: ' + terapeuta);
 
-  const nombreLimpio = nombre.toString().trim();
+    if (!nombre || nombre.toString().trim() === '') {
+      ss.toast('⚠️ Debe ingresar un nombre primero', 'Error', 3);
+      sheetOrigen.getRange(fila, 12).clearContent();
+      return;
+    }
 
-  // Preguntar si vino a la cita
-  const vinoResp = ui.alert(
-    '¿La persona vino a la cita?',
-    nombreLimpio + '\n\nSeleccione:',
-    ui.ButtonSet.YES_NO
-  );
+    const nombreLimpio = nombre.toString().trim();
 
-  if (vinoResp === ui.Button.YES) {
-    // SI VINO: enviar a AMBOS - Nuevos Ingresos (documentación) Y Terapias
-    enviarANuevosIngresosYTerapias(nombreLimpio, creemosId, genero, rangoEdad, malestar, derivadoPor, terapeuta, sheetOrigen, fila);
-  } else if (vinoResp === ui.Button.NO) {
-    // NO VINO: enviar a Personas no asistidas
-    enviarAPersonasNoAsistidas(nombreLimpio, creemosId, genero, rangoEdad, malestar, terapeuta, observaciones, sheetOrigen, fila);
-  } else {
-    // Cancelado - limpiar terapeuta
+    // Preguntar si vino a la cita
+    const vinoResp = ui.alert(
+      '¿La persona vino a la cita?',
+      '👤 ' + nombreLimpio + '\n👨‍⚕️ ' + terapeuta + '\n\n¿Vino a la cita?',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (vinoResp === ui.Button.YES) {
+      // SI VINO: enviar a AMBOS - Nuevos Ingresos (documentación) Y Terapias
+      Logger.log('Enviando a Nuevos Ingresos y Terapias: ' + nombreLimpio);
+      enviarANuevosIngresosYTerapias(nombreLimpio, creemosId, genero, rangoEdad, malestar, derivadoPor, terapeuta, sheetOrigen, fila);
+    } else if (vinoResp === ui.Button.NO) {
+      // NO VINO: enviar a Personas no asistidas
+      Logger.log('Enviando a Personas no asistidas: ' + nombreLimpio);
+      enviarAPersonasNoAsistidas(nombreLimpio, creemosId, genero, rangoEdad, malestar, terapeuta, observaciones, sheetOrigen, fila);
+    } else {
+      // Cancelado - limpiar terapeuta
+      Logger.log('Cancelado por el usuario');
+      sheetOrigen.getRange(fila, 12).clearContent();
+      return;
+    }
+  } catch (error) {
+    Logger.log('❌ ERROR en procesarListaEspera: ' + error.toString());
+    ss.toast('❌ Error: ' + error.message, 'Error', 5);
     sheetOrigen.getRange(fila, 12).clearContent();
-    return;
   }
 }
 
 function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, rangoEdad, malestar, derivadoPor, terapeuta, sheetOrigen, fila) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const nuevos = ss.getSheetByName('Nuevos Ingresos');
-  const terapias = ss.getSheetByName('Terapias');
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const nuevos = ss.getSheetByName('Nuevos Ingresos');
+    const terapias = ss.getSheetByName('Terapias');
 
-  // Verificar duplicados en Terapias
-  const datosTerapias = terapias.getDataRange().getValues();
-  for (let i = 1; i < datosTerapias.length; i++) {
-    if (datosTerapias[i][1] && datosTerapias[i][1].toString().trim() === nombre) {
-      sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#fff3cd');
-      ss.toast(nombre + ' ya está en Terapias', 'Ya Asignado', 2);
-      return;
+    Logger.log('Iniciando envío a Nuevos Ingresos y Terapias...');
+
+    // Verificar duplicados en Terapias
+    const datosTerapias = terapias.getDataRange().getValues();
+    for (let i = 1; i < datosTerapias.length; i++) {
+      if (datosTerapias[i][1] && datosTerapias[i][1].toString().trim() === nombre) {
+        sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#fff3cd');
+        sheetOrigen.getRange(fila, 12).clearContent();
+        ss.toast('⚠️ ' + nombre + ' ya está en Terapias', 'Ya Asignado', 3);
+        Logger.log('Duplicado encontrado: ' + nombre);
+        return;
+      }
     }
+
+    // 1. Agregar a Nuevos Ingresos (documentación)
+    const nuevaFilaNuevos = nuevos.getLastRow() + 1;
+    const registroNuevos = [
+      nombre,
+      creemosId || '',
+      genero || '',
+      rangoEdad || '',
+      malestar || '',
+      'Terapia individual',
+      derivadoPor || ''
+    ];
+    nuevos.getRange(nuevaFilaNuevos, 3, 1, 7).setValues([registroNuevos]);
+    Logger.log('✅ Agregado a Nuevos Ingresos en fila: ' + nuevaFilaNuevos);
+
+    // 2. Crear registro en Terapias
+    const nuevaFilaTerapias = terapias.getLastRow() + 1;
+    const registroTerapias = [
+      terapeuta,
+      nombre,
+      creemosId || '',
+      genero || '',
+      'Terapia individual',
+      1,
+      'En proceso',
+      ''
+    ];
+    terapias.getRange(nuevaFilaTerapias, 1, 1, 8).setValues([registroTerapias]);
+    Logger.log('✅ Agregado a Terapias en fila: ' + nuevaFilaTerapias);
+
+    // Marcar como procesado en verde
+    sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#d4edda');
+    sheetOrigen.getRange(fila, 12).clearContent();
+
+    SpreadsheetApp.flush();
+    ss.toast('✅ ' + nombre + '\n→ Nuevos Ingresos (documentación)\n→ Terapias con ' + terapeuta + ' (VINO)', 'Asignado', 4);
+    Logger.log('✅ Proceso completado exitosamente');
+  } catch (error) {
+    Logger.log('❌ ERROR en enviarANuevosIngresosYTerapias: ' + error.toString());
+    SpreadsheetApp.getActiveSpreadsheet().toast('❌ Error: ' + error.message, 'Error', 5);
   }
-
-  // 1. Agregar a Nuevos Ingresos (documentación)
-  const nuevaFilaNuevos = nuevos.getLastRow() + 1;
-  const registroNuevos = [
-    '', // Fecha (automática con fórmula)
-    '', // No. (automático con fórmula)
-    nombre,
-    creemosId || '',
-    genero || '',
-    rangoEdad || '',
-    malestar || '',
-    'Terapia individual',
-    derivadoPor || ''
-  ];
-  nuevos.getRange(nuevaFilaNuevos, 3, 1, 7).setValues([registroNuevos.slice(2)]);
-
-  // 2. Crear registro en Terapias
-  const nuevaFilaTerapias = terapias.getLastRow() + 1;
-  const registroTerapias = [
-    terapeuta,
-    nombre,
-    creemosId || '',
-    genero || '',
-    'Terapia individual',
-    1,
-    'En proceso',
-    ''
-  ];
-  terapias.getRange(nuevaFilaTerapias, 1, 1, 8).setValues([registroTerapias]);
-
-  // Marcar como procesado en verde
-  sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#d4edda');
-  sheetOrigen.getRange(fila, 12).clearContent();
-
-  SpreadsheetApp.flush();
-  ss.toast('✅ ' + nombre + '\n→ Nuevos Ingresos (documentación)\n→ Terapias con ' + terapeuta + ' (VINO)', 'Asignado', 4);
 }
 
 function enviarAPersonasNoAsistidas(nombre, creemosId, genero, rangoEdad, malestar, terapeuta, observaciones, sheetOrigen, fila) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const noAsistidas = ss.getSheetByName('Personas no asistidas');
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const noAsistidas = ss.getSheetByName('Personas no asistidas');
 
-  // Agregar a Personas no asistidas
-  const nuevaFila = noAsistidas.getLastRow() + 1;
-  const registro = [
-    new Date(),
-    nombre,
-    creemosId || '',
-    genero || '',
-    rangoEdad || '',
-    malestar || '',
-    terapeuta,
-    observaciones || ''
-  ];
+    Logger.log('Iniciando envío a Personas no asistidas...');
 
-  noAsistidas.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
+    // Agregar a Personas no asistidas
+    const nuevaFila = noAsistidas.getLastRow() + 1;
+    const registro = [
+      new Date(),
+      nombre,
+      creemosId || '',
+      genero || '',
+      rangoEdad || '',
+      malestar || '',
+      terapeuta,
+      observaciones || ''
+    ];
 
-  // Marcar como procesado en rojo (no asistió)
-  sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#f8d7da');
-  sheetOrigen.getRange(fila, 12).clearContent();
+    noAsistidas.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
+    Logger.log('✅ Agregado a Personas no asistidas en fila: ' + nuevaFila);
 
-  SpreadsheetApp.flush();
-  ss.toast('⚠️ ' + nombre + '\n→ Personas no asistidas (NO VINO)', 'No Asistió', 3);
+    // Marcar como procesado en rojo (no asistió)
+    sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#f8d7da');
+    sheetOrigen.getRange(fila, 12).clearContent();
+
+    SpreadsheetApp.flush();
+    ss.toast('⚠️ ' + nombre + '\n→ Personas no asistidas (NO VINO)', 'No Asistió', 3);
+    Logger.log('✅ Proceso de no asistencia completado');
+  } catch (error) {
+    Logger.log('❌ ERROR en enviarAPersonasNoAsistidas: ' + error.toString());
+    SpreadsheetApp.getActiveSpreadsheet().toast('❌ Error: ' + error.message, 'Error', 5);
+  }
 }
 
 function asignarATerapias(sheetOrigen, fila, terapeuta) {
