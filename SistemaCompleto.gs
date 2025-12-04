@@ -94,6 +94,9 @@ function onOpen() {
     .addItem('📧 Configurar Email', 'configurarEmail')
     .addItem('✉️ Probar Envío de Email', 'probarEmail')
     .addSeparator()
+    .addItem('📋 Conectar Hoja de Asistencia', 'configurarAsistencia')
+    .addItem('🔄 Probar Conexión Asistencia', 'probarAsistencia')
+    .addSeparator()
     .addItem('⏰ Instalar Trigger de Tiempo', 'instalarTriggerTiempo')
     .addSeparator()
     .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
@@ -372,37 +375,42 @@ function crearReporte() {
     ['Total no asistidas', '=COUNTA(\'Personas no asistidas\'!B:B)-1'],
     ['No asistidas este mes', '=COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0))'],
     ['', ''],
+    ['✅ ASISTENCIAS (HOJA EXTERNA)', ''],
+    ['Total asistencias registradas', 0],
+    ['Asistencias hoy', 0],
+    ['Estado conexión', 'No configurado'],
+    ['', ''],
     ['👩‍⚕️ CASOS ACTIVOS POR TERAPEUTA', ''],
     ['Gerber - Casos activos', '=COUNTIFS(Terapias!A:A,"Gerber",Terapias!G:G,"En proceso")'],
     ['Melissa - Casos activos', '=COUNTIFS(Terapias!A:A,"Melissa",Terapias!G:G,"En proceso")'],
     ['Diana - Casos activos', '=COUNTIFS(Terapias!A:A,"Diana",Terapias!G:G,"En proceso")'],
     ['Karina - Casos activos', '=COUNTIFS(Terapias!A:A,"Karina",Terapias!G:G,"En proceso")'],
-    ['Total casos activos', '=B14+B15+B16+B17'],
+    ['Total casos activos', '=B19+B20+B21+B22'],
     ['', ''],
     ['📊 TOTAL TERAPIAS POR TERAPEUTA', ''],
     ['Gerber - Total terapias', '=COUNTIF(Terapias!A2:A,"Gerber")'],
     ['Melissa - Total terapias', '=COUNTIF(Terapias!A2:A,"Melissa")'],
     ['Diana - Total terapias', '=COUNTIF(Terapias!A2:A,"Diana")'],
     ['Karina - Total terapias', '=COUNTIF(Terapias!A2:A,"Karina")'],
-    ['Total general', '=B21+B22+B23+B24'],
+    ['Total general', '=B25+B26+B27+B28'],
     ['', ''],
     ['🎉 PROCESOS CULMINADOS', ''],
     ['Total culminados', '=COUNTA(\'Procesos Culminados\'!A:A)-1'],
     ['Culminados este mes', '=COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0))'],
-    ['Promedio sesiones', '=IF(B28>0,AVERAGE(\'Procesos Culminados\'!E:E),0)'],
+    ['Promedio sesiones', '=IF(B32>0,AVERAGE(\'Procesos Culminados\'!E:E),0)'],
     ['', ''],
     ['⚠️ DESERCIONES', ''],
     ['Total deserciones', '=COUNTA(Deserciones!A:A)-1'],
     ['Deserciones este mes', '=COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0))'],
-    ['Tasa deserción', '=IF((B28+B33)>0,B33/(B28+B33)*100&"%","0%")'],
+    ['Tasa deserción', '=IF((B32+B37)>0,B37/(B32+B37)*100&"%","0%")'],
     ['', ''],
     ['📋 INTERVENCIÓN DE CASOS', ''],
     ['Total en intervención', '=COUNTA(\'Intervención de casos\'!A:A)-1'],
     ['', ''],
     ['📊 ESTADÍSTICAS GENERALES', ''],
-    ['Total casos procesados', '=B28+B33+B38'],
-    ['Tasa de éxito', '=IF(B41>0,B28/B41*100&"%","0%")'],
-    ['Casos activos', '=B18']
+    ['Total casos procesados', '=B32+B37+B42'],
+    ['Tasa de éxito', '=IF(B45>0,B32/B45*100&"%","0%")'],
+    ['Casos activos', '=B23']
   ];
 
   sheet.getRange(1, 1, data.length, 2).setValues(data);
@@ -414,7 +422,7 @@ function crearReporte() {
     .setFontSize(14)
     .setHorizontalAlignment('center');
 
-  const sectionRows = [5, 9, 13, 20, 27, 32, 37, 40];
+  const sectionRows = [5, 9, 13, 18, 24, 31, 36, 41, 44];
   sectionRows.forEach(row => {
     sheet.getRange('A' + row + ':B' + row)
       .setBackground('#4caf50')
@@ -1185,6 +1193,250 @@ function copiarAGestion(participante, terapeuta, creemosId, tipo, motivo) {
 }
 
 // =====================================================================
+// CONEXIÓN CON HOJA DE ASISTENCIA EXTERNA
+// =====================================================================
+
+/**
+ * Cuenta cuántas personas vinieron según los checkboxes marcados
+ * en la hoja de asistencia externa
+ */
+function contarAsistencias() {
+  try {
+    // Obtener el ID del documento de asistencia
+    const props = PropertiesService.getDocumentProperties();
+    const idDoc = props.getProperty('ID_ASISTENCIA');
+
+    if (!idDoc) {
+      Logger.log('⚠️ ID de documento de asistencia no configurado');
+      return {
+        totalAsistencias: 0,
+        asistenciasHoy: 0,
+        error: 'No configurado'
+      };
+    }
+
+    // Conectar con el documento externo
+    const docAsistencia = SpreadsheetApp.openById(idDoc);
+    const hojaAsistencia = docAsistencia.getSheetByName('Tabla_1');
+
+    if (!hojaAsistencia) {
+      Logger.log('⚠️ No se encontró la hoja "Tabla_1" en el documento de asistencia');
+      return {
+        totalAsistencias: 0,
+        asistenciasHoy: 0,
+        error: 'Hoja no encontrada'
+      };
+    }
+
+    // Obtener todos los datos de la hoja
+    const datos = hojaAsistencia.getDataRange().getValues();
+
+    if (datos.length <= 1) {
+      return {
+        totalAsistencias: 0,
+        asistenciasHoy: 0,
+        error: 'Sin datos'
+      };
+    }
+
+    // Las fechas están en la fila 1, desde la columna C (índice 2) en adelante
+    const filaFechas = datos[0];
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    let totalCheckboxes = 0;
+    let checkboxesHoy = 0;
+
+    // Recorrer todas las filas (desde fila 2, índice 1)
+    for (let fila = 1; fila < datos.length; fila++) {
+      // Recorrer todas las columnas desde C (índice 2) en adelante
+      for (let col = 2; col < datos[fila].length; col++) {
+        const valor = datos[fila][col];
+
+        // Si es un checkbox marcado (true)
+        if (valor === true) {
+          totalCheckboxes++;
+
+          // Verificar si es de hoy
+          const fechaColumna = filaFechas[col];
+          if (fechaColumna instanceof Date) {
+            const fechaCol = new Date(fechaColumna);
+            fechaCol.setHours(0, 0, 0, 0);
+
+            if (fechaCol.getTime() === hoy.getTime()) {
+              checkboxesHoy++;
+            }
+          }
+        }
+      }
+    }
+
+    Logger.log('✅ Asistencias contadas: Total=' + totalCheckboxes + ', Hoy=' + checkboxesHoy);
+
+    return {
+      totalAsistencias: totalCheckboxes,
+      asistenciasHoy: checkboxesHoy,
+      error: null
+    };
+
+  } catch (error) {
+    Logger.log('❌ Error contando asistencias: ' + error.toString());
+    return {
+      totalAsistencias: 0,
+      asistenciasHoy: 0,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Obtiene el total de asistencias para mostrar en el reporte
+ */
+function obtenerTotalAsistencias() {
+  const resultado = contarAsistencias();
+  return resultado.totalAsistencias || 0;
+}
+
+/**
+ * Obtiene las asistencias de hoy para mostrar en el reporte
+ */
+function obtenerAsistenciasHoy() {
+  const resultado = contarAsistencias();
+  return resultado.asistenciasHoy || 0;
+}
+
+/**
+ * Configura el ID del documento de asistencia
+ */
+function configurarAsistencia() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+  const idActual = props.getProperty('ID_ASISTENCIA') || 'No configurado';
+
+  const respuesta = ui.prompt(
+    '📋 Conectar Hoja de Asistencia',
+    'Ingresa la URL completa o el ID del documento de asistencia:\n\n' +
+    'Ejemplo URL:\n' +
+    'https://docs.google.com/spreadsheets/d/ABC123.../edit\n\n' +
+    'O solo el ID:\n' +
+    'ABC123...\n\n' +
+    'ID actual: ' + idActual,
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (respuesta.getSelectedButton() === ui.Button.OK) {
+    let input = respuesta.getResponseText().trim();
+
+    // Extraer el ID si es una URL completa
+    if (input.includes('docs.google.com/spreadsheets/d/')) {
+      const match = input.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      if (match) {
+        input = match[1];
+      }
+    }
+
+    if (!input || input.length < 20) {
+      ui.alert('❌ ID inválido', 'El ID debe tener al menos 20 caracteres.', ui.ButtonSet.OK);
+      return;
+    }
+
+    // Guardar el ID
+    props.setProperty('ID_ASISTENCIA', input);
+
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      '✅ Documento de asistencia conectado\n\n' +
+      'ID: ' + input + '\n\n' +
+      'Usa "🔄 Probar Conexión Asistencia" para verificar.',
+      'Conexión Configurada',
+      8
+    );
+
+    Logger.log('✅ ID de asistencia configurado: ' + input);
+  }
+}
+
+/**
+ * Prueba la conexión con el documento de asistencia
+ */
+function probarAsistencia() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+  const idDoc = props.getProperty('ID_ASISTENCIA');
+
+  if (!idDoc) {
+    ui.alert(
+      '⚠️ No Configurado',
+      'Primero debes configurar la conexión:\n\n' +
+      'Menú → 📋 Conectar Hoja de Asistencia',
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  try {
+    SpreadsheetApp.getActiveSpreadsheet().toast('🔄 Conectando...', 'Prueba', 2);
+
+    // Intentar conectar
+    const docAsistencia = SpreadsheetApp.openById(idDoc);
+    const hojaAsistencia = docAsistencia.getSheetByName('Tabla_1');
+
+    if (!hojaAsistencia) {
+      ui.alert(
+        '❌ Hoja No Encontrada',
+        'El documento existe pero no tiene una hoja llamada "Tabla_1".\n\n' +
+        'Verifica que el nombre de la hoja sea exactamente: Tabla_1',
+        ui.ButtonSet.OK
+      );
+      return;
+    }
+
+    // Contar asistencias
+    const resultado = contarAsistencias();
+
+    if (resultado.error) {
+      ui.alert(
+        '❌ Error',
+        'Error al contar asistencias:\n\n' + resultado.error,
+        ui.ButtonSet.OK
+      );
+      return;
+    }
+
+    ui.alert(
+      '✅ CONEXIÓN EXITOSA',
+      '📋 Documento: ' + docAsistencia.getName() + '\n' +
+      '📄 Hoja: Tabla_1\n\n' +
+      '📊 ASISTENCIAS CONTADAS:\n' +
+      '• Total: ' + resultado.totalAsistencias + ' checkboxes marcados\n' +
+      '• Hoy: ' + resultado.asistenciasHoy + ' checkboxes\n\n' +
+      'El reporte se actualizará automáticamente con estos datos.',
+      ui.ButtonSet.OK
+    );
+
+  } catch (error) {
+    ui.alert(
+      '❌ Error de Conexión',
+      'No se pudo conectar con el documento:\n\n' +
+      error.message + '\n\n' +
+      'Verifica:\n' +
+      '1. El ID es correcto\n' +
+      '2. Tienes permisos para acceder al documento\n' +
+      '3. El documento no fue eliminado',
+      ui.ButtonSet.OK
+    );
+    Logger.log('❌ Error probando asistencia: ' + error.toString());
+  }
+}
+
+/**
+ * Obtiene el ID del documento de asistencia
+ */
+function obtenerIDAsistencia() {
+  const props = PropertiesService.getDocumentProperties();
+  return props.getProperty('ID_ASISTENCIA');
+}
+
+// =====================================================================
 // FUNCIONES DE REPORTES
 // =====================================================================
 
@@ -1201,13 +1453,32 @@ function actualizarReportes() {
     // 1. Actualizar fecha y hora
     reporte.getRange('B2').setValue(new Date());
 
-    // 2. Forzar recalculo - método más robusto
+    // 2. Actualizar asistencias desde hoja externa
+    try {
+      const resultado = contarAsistencias();
+      reporte.getRange('B14').setValue(resultado.totalAsistencias);
+      reporte.getRange('B15').setValue(resultado.asistenciasHoy);
+
+      if (resultado.error) {
+        reporte.getRange('B16').setValue('Error: ' + resultado.error);
+      } else {
+        reporte.getRange('B16').setValue('✅ Conectado');
+      }
+    } catch (e) {
+      reporte.getRange('B14').setValue(0);
+      reporte.getRange('B15').setValue(0);
+      reporte.getRange('B16').setValue('No configurado');
+    }
+
+    // 3. Forzar recalculo - método más robusto
     SpreadsheetApp.flush();
 
-    // 3. Actualizar las celdas de fórmulas una por una para forzar recalculo
-    const celdas = ['B6', 'B7', 'B10', 'B11', 'B14', 'B15', 'B16', 'B17', 'B18',
-                    'B21', 'B22', 'B23', 'B24', 'B25', 'B28', 'B29', 'B30',
-                    'B33', 'B34', 'B35', 'B38', 'B41', 'B42', 'B43'];
+    // 4. Actualizar las celdas de fórmulas una por una para forzar recalculo
+    const celdas = ['B6', 'B7', 'B10', 'B11',
+                    'B19', 'B20', 'B21', 'B22', 'B23',
+                    'B25', 'B26', 'B27', 'B28', 'B29',
+                    'B32', 'B33', 'B34',
+                    'B37', 'B38', 'B39', 'B42', 'B45', 'B46', 'B47'];
 
     celdas.forEach(celda => {
       const formula = reporte.getRange(celda).getFormula();
@@ -1217,7 +1488,7 @@ function actualizarReportes() {
       }
     });
 
-    // 4. Flush final
+    // 5. Flush final
     SpreadsheetApp.flush();
 
     // Toast de confirmación
