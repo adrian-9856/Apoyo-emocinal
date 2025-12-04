@@ -569,7 +569,10 @@ function crearEjemplos() {
 // =====================================================================
 
 function alEditar(e) {
-  if (!e || !e.range) return;
+  if (!e || !e.range) {
+    Logger.log('❌ ERROR: No hay evento o rango');
+    return;
+  }
 
   const sheet = e.range.getSheet();
   const hoja = sheet.getName();
@@ -577,22 +580,69 @@ function alEditar(e) {
   const columna = e.range.getColumn();
   const valor = e.range.getValue();
 
-  if (fila <= 1) return;
-  if (!valor) return;
+  // LOG: Registrar TODA edición
+  Logger.log('═══════════════════════════════════════');
+  Logger.log('🔍 EDICIÓN DETECTADA:');
+  Logger.log('   Hoja: ' + hoja);
+  Logger.log('   Fila: ' + fila);
+  Logger.log('   Columna: ' + columna);
+  Logger.log('   Valor: "' + valor + '"');
+  Logger.log('═══════════════════════════════════════');
+
+  if (fila <= 1) {
+    Logger.log('⚠️ Fila es header, ignorando');
+    return;
+  }
+
+  if (!valor) {
+    Logger.log('⚠️ Valor vacío, ignorando');
+    return;
+  }
 
   const val = valor.toString().trim();
-  if (val === '') return;
+  if (val === '') {
+    Logger.log('⚠️ Valor vacío después de trim, ignorando');
+    return;
+  }
 
+  // CASO 1: Lista de Espera - Asignación de Terapeuta
   if (hoja === 'Lista de Espera' && columna === 12) {
+    Logger.log('✅ Detectada edición en Lista de Espera, columna L (12)');
+    Logger.log('   Valor ingresado: "' + val + '"');
+
     if (['Gerber', 'Melissa', 'Diana', 'Karina'].indexOf(val) !== -1) {
-      procesarListaEspera(sheet, fila, val);
-      actualizarReportes();
+      Logger.log('✅ Terapeuta válido detectado: ' + val);
+      Logger.log('▶️ EJECUTANDO procesarListaEspera...');
+
+      try {
+        procesarListaEspera(sheet, fila, val);
+        Logger.log('✅ procesarListaEspera completado');
+        actualizarReportes();
+        Logger.log('✅ Reportes actualizados');
+      } catch (error) {
+        Logger.log('❌ ERROR en procesarListaEspera: ' + error.toString());
+        Logger.log('   Stack: ' + error.stack);
+      }
+    } else {
+      Logger.log('⚠️ Valor NO es un terapeuta válido');
+      Logger.log('   Esperado: Gerber, Melissa, Diana, Karina');
+      Logger.log('   Recibido: "' + val + '"');
     }
   }
 
+  // CASO 2: Terapias - Finalización
   if (hoja === 'Terapias' && columna === 7 && val === 'Finalizado') {
-    finalizarTerapia(sheet, fila);
-    actualizarReportes();
+    Logger.log('✅ Detectada finalización en Terapias');
+    Logger.log('▶️ EJECUTANDO finalizarTerapia...');
+
+    try {
+      finalizarTerapia(sheet, fila);
+      Logger.log('✅ finalizarTerapia completado');
+      actualizarReportes();
+      Logger.log('✅ Reportes actualizados');
+    } catch (error) {
+      Logger.log('❌ ERROR en finalizarTerapia: ' + error.toString());
+    }
   }
 }
 
