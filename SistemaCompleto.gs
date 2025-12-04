@@ -91,7 +91,8 @@ function onOpen() {
     .addItem('📊 Actualizar Reportes', 'actualizarReportes')
     .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
     .addSeparator()
-    .addItem('📧 Configurar Email', 'configurarEmail')
+    .addItem('📧 Configurar Email Director', 'configurarEmail')
+    .addItem('👥 Configurar Emails Terapeutas', 'configurarEmailsTerapeutas')
     .addItem('✉️ Probar Envío de Email', 'probarEmail')
     .addSeparator()
     .addItem('➕ Agregar Grupo de Asistencia', 'configurarAsistencia')
@@ -218,10 +219,10 @@ function crearListaEspera() {
   const headers = [
     'Fecha Solicitud', 'No.', 'Nombre Completo', 'Creemos ID', 'Género',
     'Rango Edad', 'Malestar Principal', 'Derivado Por', 'Contacto Emergencia',
-    'Teléfono', 'Observaciones', 'Terapeuta Asignado'
+    'Teléfono', 'Observaciones', 'Terapeuta Asignado', 'Asistió a Cita'
   ];
 
-  sheet.getRange(1, 1, 1, 12).setValues([headers])
+  sheet.getRange(1, 1, 1, 13).setValues([headers])
     .setBackground('#e91e63')
     .setFontColor('white')
     .setFontWeight('bold')
@@ -233,7 +234,7 @@ function crearListaEspera() {
     sheet.getRange('B' + i).setFormula('=IF(C' + i + '<>"",ROW()-1,"")');
   }
 
-  [110, 60, 200, 120, 100, 100, 250, 150, 180, 120, 200, 150].forEach((w, i) => {
+  [110, 60, 200, 120, 100, 100, 250, 150, 180, 120, 200, 150, 120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -535,6 +536,13 @@ function configurarValidaciones() {
   // Validaciones de terapeuta - en Lista de Espera columna L
   espera.getRange('L2:L200').setDataValidation(terapeutaRule);
 
+  // Validaciones de asistencia - en Lista de Espera columna M
+  const asistenciaRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Vino', 'No vino', 'Pendiente'])
+    .setAllowInvalid(false)
+    .build();
+  espera.getRange('M2:M200').setDataValidation(asistenciaRule);
+
   // =====================================================================
   // RESUMEN DE VALIDACIONES POR HOJA:
   // =====================================================================
@@ -546,6 +554,7 @@ function configurarValidaciones() {
   //   - Género (E)
   //   - Rango Edad (F)
   //   - Terapeuta Asignado (L)
+  //   - Asistió a Cita (M)
   //
   // TERAPIAS:
   //   - Terapeuta (A)
@@ -622,27 +631,50 @@ function alEditar(e) {
     return;
   }
 
-  // CASO 1: Lista de Espera - Asignación de Terapeuta
+  // CASO 1: Lista de Espera - Asignación de Terapeuta (columna L)
   if (hoja === 'Lista de Espera' && columna === 12) {
     Logger.log('✅ Detectada edición en Lista de Espera, columna L (12)');
     Logger.log('   Valor ingresado: "' + val + '"');
 
     if (['Gerber', 'Melissa', 'Diana', 'Karina'].indexOf(val) !== -1) {
       Logger.log('✅ Terapeuta válido detectado: ' + val);
-      Logger.log('▶️ EJECUTANDO procesarListaEspera...');
+      Logger.log('▶️ EJECUTANDO asignarTerapeuta...');
 
       try {
-        procesarListaEspera(sheet, fila, val);
-        Logger.log('✅ procesarListaEspera completado');
-        actualizarReportes();
-        Logger.log('✅ Reportes actualizados');
+        asignarTerapeuta(sheet, fila, val);
+        Logger.log('✅ asignarTerapeuta completado');
       } catch (error) {
-        Logger.log('❌ ERROR en procesarListaEspera: ' + error.toString());
+        Logger.log('❌ ERROR en asignarTerapeuta: ' + error.toString());
         Logger.log('   Stack: ' + error.stack);
       }
     } else {
       Logger.log('⚠️ Valor NO es un terapeuta válido');
       Logger.log('   Esperado: Gerber, Melissa, Diana, Karina');
+      Logger.log('   Recibido: "' + val + '"');
+    }
+  }
+
+  // CASO 2: Lista de Espera - Confirmación de Asistencia (columna M)
+  if (hoja === 'Lista de Espera' && columna === 13) {
+    Logger.log('✅ Detectada edición en Lista de Espera, columna M (13)');
+    Logger.log('   Valor ingresado: "' + val + '"');
+
+    if (val === 'Vino' || val === 'No vino') {
+      Logger.log('✅ Confirmación de asistencia detectada: ' + val);
+      Logger.log('▶️ EJECUTANDO procesarConfirmacionAsistencia...');
+
+      try {
+        procesarConfirmacionAsistencia(sheet, fila, val);
+        Logger.log('✅ procesarConfirmacionAsistencia completado');
+        actualizarReportes();
+        Logger.log('✅ Reportes actualizados');
+      } catch (error) {
+        Logger.log('❌ ERROR en procesarConfirmacionAsistencia: ' + error.toString());
+        Logger.log('   Stack: ' + error.stack);
+      }
+    } else {
+      Logger.log('⚠️ Valor NO es válido');
+      Logger.log('   Esperado: Vino, No vino');
       Logger.log('   Recibido: "' + val + '"');
     }
   }
@@ -663,24 +695,15 @@ function alEditar(e) {
   }
 }
 
-function procesarListaEspera(sheetOrigen, fila, terapeuta) {
+/**
+ * Asigna un terapeuta y envía email al terapeuta para confirmar asistencia
+ */
+function asignarTerapeuta(sheetOrigen, fila, terapeuta) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
 
   try {
-    // Leer todos los datos de Lista de Espera (columnas C a K = 3 a 11)
-    const datos = sheetOrigen.getRange(fila, 3, 1, 9).getValues()[0];
-    const nombre = datos[0];
-    const creemosId = datos[1];
-    const genero = datos[2];
-    const rangoEdad = datos[3];
-    const malestar = datos[4];
-    const derivadoPor = datos[5];
-    const contacto = datos[6];
-    const telefono = datos[7];
-    const observaciones = datos[8];
-
-    Logger.log('Procesando: ' + nombre + ' - Terapeuta: ' + terapeuta);
+    // Leer datos básicos
+    const nombre = sheetOrigen.getRange(fila, 3).getValue();
 
     if (!nombre || nombre.toString().trim() === '') {
       ss.toast('⚠️ Debe ingresar un nombre primero', 'Error', 3);
@@ -690,31 +713,90 @@ function procesarListaEspera(sheetOrigen, fila, terapeuta) {
 
     const nombreLimpio = nombre.toString().trim();
 
-    // Preguntar si vino a la cita
-    const vinoResp = ui.alert(
-      '¿La persona vino a la cita?',
-      '👤 ' + nombreLimpio + '\n👨‍⚕️ ' + terapeuta + '\n\n¿Vino a la cita?',
-      ui.ButtonSet.YES_NO
-    );
+    Logger.log('Asignando ' + nombreLimpio + ' a ' + terapeuta);
 
-    if (vinoResp === ui.Button.YES) {
-      // SI VINO: enviar a AMBOS - Nuevos Ingresos (documentación) Y Terapias
-      Logger.log('Enviando a Nuevos Ingresos y Terapias: ' + nombreLimpio);
-      enviarANuevosIngresosYTerapias(nombreLimpio, creemosId, genero, rangoEdad, malestar, derivadoPor, terapeuta, sheetOrigen, fila);
-    } else if (vinoResp === ui.Button.NO) {
-      // NO VINO: enviar a Personas no asistidas
-      Logger.log('Enviando a Personas no asistidas: ' + nombreLimpio);
-      enviarAPersonasNoAsistidas(nombreLimpio, creemosId, genero, rangoEdad, malestar, terapeuta, observaciones, sheetOrigen, fila);
+    // 1. Poner estado "Pendiente" en columna M
+    sheetOrigen.getRange(fila, 13).setValue('Pendiente');
+
+    // 2. Enviar email al terapeuta
+    const emailEnviado = enviarEmailAsignacionTerapeuta(terapeuta, nombreLimpio, fila);
+
+    // 3. Notificar al usuario
+    if (emailEnviado) {
+      ss.toast(
+        '✅ Caso asignado a ' + terapeuta + '\n\n' +
+        '📧 Email enviado al terapeuta\n\n' +
+        'El terapeuta debe confirmar si la persona vino.',
+        'Asignación Pendiente',
+        5
+      );
     } else {
-      // Cancelado - limpiar terapeuta
-      Logger.log('Cancelado por el usuario');
-      sheetOrigen.getRange(fila, 12).clearContent();
-      return;
+      ss.toast(
+        '⚠️ Caso asignado a ' + terapeuta + '\n\n' +
+        '❌ No se pudo enviar el email\n\n' +
+        'El terapeuta debe ir al sheet y confirmar manualmente.',
+        'Asignado Sin Email',
+        5
+      );
     }
+
+    // 4. Marcar fila en amarillo (pendiente)
+    sheetOrigen.getRange(fila, 1, 1, 13).setBackground('#fff3cd');
+
   } catch (error) {
-    Logger.log('❌ ERROR en procesarListaEspera: ' + error.toString());
+    Logger.log('❌ ERROR en asignarTerapeuta: ' + error.toString());
     ss.toast('❌ Error: ' + error.message, 'Error', 5);
     sheetOrigen.getRange(fila, 12).clearContent();
+  }
+}
+
+/**
+ * Procesa la confirmación de asistencia por el terapeuta
+ */
+function procesarConfirmacionAsistencia(sheetOrigen, fila, confirmacion) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    // Leer todos los datos necesarios
+    const datos = sheetOrigen.getRange(fila, 3, 1, 11).getValues()[0];
+    const nombre = datos[0];
+    const creemosId = datos[1];
+    const genero = datos[2];
+    const rangoEdad = datos[3];
+    const malestar = datos[4];
+    const derivadoPor = datos[5];
+    const contacto = datos[6];
+    const telefono = datos[7];
+    const observaciones = datos[8];
+    const terapeuta = datos[9]; // columna L
+
+    if (!nombre || nombre.toString().trim() === '') {
+      ss.toast('⚠️ Error: No hay nombre en esta fila', 'Error', 3);
+      return;
+    }
+
+    if (!terapeuta || terapeuta.toString().trim() === '') {
+      ss.toast('⚠️ Error: No hay terapeuta asignado en esta fila', 'Error', 3);
+      return;
+    }
+
+    const nombreLimpio = nombre.toString().trim();
+    const terapeutaNombre = terapeuta.toString().trim();
+
+    Logger.log('Procesando confirmación: ' + nombreLimpio + ' - ' + confirmacion);
+
+    if (confirmacion === 'Vino') {
+      // SI VINO: enviar a AMBOS - Nuevos Ingresos (documentación) Y Terapias
+      Logger.log('Enviando a Nuevos Ingresos y Terapias: ' + nombreLimpio);
+      enviarANuevosIngresosYTerapias(nombreLimpio, creemosId, genero, rangoEdad, malestar, derivadoPor, terapeutaNombre, sheetOrigen, fila);
+    } else if (confirmacion === 'No vino') {
+      // NO VINO: enviar a Personas no asistidas
+      Logger.log('Enviando a Personas no asistidas: ' + nombreLimpio);
+      enviarAPersonasNoAsistidas(nombreLimpio, creemosId, genero, rangoEdad, malestar, terapeutaNombre, observaciones, sheetOrigen, fila);
+    }
+  } catch (error) {
+    Logger.log('❌ ERROR en procesarConfirmacionAsistencia: ' + error.toString());
+    ss.toast('❌ Error: ' + error.message, 'Error', 5);
   }
 }
 
@@ -773,8 +855,9 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, rangoEdad, ma
     Logger.log('✅ Agregado a Terapias en fila: ' + nuevaFilaTerapias);
 
     // Marcar como procesado en verde
-    sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#d4edda');
-    sheetOrigen.getRange(fila, 12).clearContent();
+    sheetOrigen.getRange(fila, 1, 1, 13).setBackground('#d4edda');
+    sheetOrigen.getRange(fila, 12).clearContent(); // Limpiar terapeuta
+    sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar asistió
 
     SpreadsheetApp.flush();
     ss.toast('✅ ' + nombre + '\n→ Nuevos Ingresos (documentación)\n→ Terapias con ' + terapeuta + ' (VINO)', 'Asignado', 4);
@@ -809,8 +892,9 @@ function enviarAPersonasNoAsistidas(nombre, creemosId, genero, rangoEdad, malest
     Logger.log('✅ Agregado a Personas no asistidas en fila: ' + nuevaFila);
 
     // Marcar como procesado en rojo (no asistió)
-    sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#f8d7da');
-    sheetOrigen.getRange(fila, 12).clearContent();
+    sheetOrigen.getRange(fila, 1, 1, 13).setBackground('#f8d7da');
+    sheetOrigen.getRange(fila, 12).clearContent(); // Limpiar terapeuta
+    sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar asistió
 
     SpreadsheetApp.flush();
     ss.toast('⚠️ ' + nombre + '\n→ Personas no asistidas (NO VINO)', 'No Asistió', 3);
@@ -959,7 +1043,7 @@ function finalizarTerapia(sheetOrigen, fila) {
 }
 
 // =====================================================================
-// SISTEMA DE CORREOS MEJORADO
+// SISTEMA DE CORREOS MEJORADO + EMAILS DE TERAPEUTAS
 // =====================================================================
 
 function obtenerEmailConfiguracion() {
@@ -973,6 +1057,121 @@ function obtenerEmailConfiguracion() {
   }
 
   return email;
+}
+
+/**
+ * Obtiene el email de un terapeuta específico
+ */
+function obtenerEmailTerapeuta(nombreTerapeuta) {
+  const props = PropertiesService.getDocumentProperties();
+  return props.getProperty('EMAIL_' + nombreTerapeuta.toUpperCase());
+}
+
+/**
+ * Configura los emails de todos los terapeutas
+ */
+function configurarEmailsTerapeutas() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+
+  const terapeutas = ['Gerber', 'Melissa', 'Diana', 'Karina'];
+  let mensaje = '📧 CONFIGURAR EMAILS DE TERAPEUTAS\n\n';
+  mensaje += 'Ingresa los emails de cada terapeuta:\n\n';
+
+  const emails = {};
+
+  for (const terapeuta of terapeutas) {
+    const emailActual = props.getProperty('EMAIL_' + terapeuta.toUpperCase()) || 'No configurado';
+
+    const respuesta = ui.prompt(
+      'Email de ' + terapeuta,
+      'Email actual: ' + emailActual + '\n\n' +
+      'Ingresa el email de ' + terapeuta + ':',
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    if (respuesta.getSelectedButton() !== ui.Button.OK) {
+      ui.alert('❌ Cancelado', 'Configuración de emails cancelada.', ui.ButtonSet.OK);
+      return;
+    }
+
+    const email = respuesta.getResponseText().trim();
+
+    if (!email || !email.includes('@') || !email.includes('.')) {
+      ui.alert('❌ Email Inválido', 'Por favor ingresa un email válido.', ui.ButtonSet.OK);
+      return;
+    }
+
+    emails[terapeuta] = email;
+    props.setProperty('EMAIL_' + terapeuta.toUpperCase(), email);
+  }
+
+  let resumen = '✅ EMAILS CONFIGURADOS:\n\n';
+  for (const [terapeuta, email] of Object.entries(emails)) {
+    resumen += '• ' + terapeuta + ': ' + email + '\n';
+  }
+
+  ui.alert('Configuración Completa', resumen, ui.ButtonSet.OK);
+  Logger.log('✅ Emails de terapeutas configurados');
+}
+
+/**
+ * Envía email al terapeuta cuando se le asigna un nuevo caso
+ */
+function enviarEmailAsignacionTerapeuta(terapeuta, nombreParticipante, fila) {
+  try {
+    const emailTerapeuta = obtenerEmailTerapeuta(terapeuta);
+
+    if (!emailTerapeuta) {
+      Logger.log('⚠️ No hay email configurado para ' + terapeuta);
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        '⚠️ Email no configurado para ' + terapeuta + '\n\n' +
+        'Usa "📧 Configurar Emails Terapeutas" para configurar.',
+        'Sin Email',
+        5
+      );
+      return false;
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const urlSheet = ss.getUrl();
+
+    const asunto = '🔔 Nuevo Caso Asignado: ' + nombreParticipante;
+    const cuerpo =
+      'Hola ' + terapeuta + ',\n\n' +
+      'Se te ha asignado un nuevo caso:\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+      '👤 Participante: ' + nombreParticipante + '\n' +
+      '👨‍⚕️ Terapeuta asignado: ' + terapeuta + '\n' +
+      '📋 Fila en Lista de Espera: ' + fila + '\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      '📌 ACCIÓN REQUERIDA:\n\n' +
+      '1. Abre el Google Sheet:\n' +
+      '   ' + urlSheet + '\n\n' +
+      '2. Ve a la hoja "Lista de Espera"\n\n' +
+      '3. Busca la fila ' + fila + ' (' + nombreParticipante + ')\n\n' +
+      '4. En la columna "Asistió a Cita" (columna M), selecciona:\n' +
+      '   • "Vino" - Si la persona asistió a la cita\n' +
+      '   • "No vino" - Si la persona NO asistió\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      '⚠️ IMPORTANTE:\n' +
+      'Una vez que selecciones "Vino" o "No vino", el sistema\n' +
+      'automáticamente moverá el caso a la hoja correspondiente:\n' +
+      '• Si VINO → Nuevos Ingresos + Terapias (trabajo activo)\n' +
+      '• Si NO VINO → Personas no asistidas (sin registro)\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      'Sistema de Apoyo Emocional\n' +
+      'Notificación automática';
+
+    MailApp.sendEmail(emailTerapeuta, asunto, cuerpo);
+
+    Logger.log('✅ Email enviado a ' + terapeuta + ' (' + emailTerapeuta + ')');
+    return true;
+
+  } catch (error) {
+    Logger.log('❌ Error enviando email a terapeuta: ' + error.message);
+    return false;
+  }
 }
 
 function configurarEmail() {
@@ -1897,8 +2096,8 @@ function limpiarTodosLosDatos() {
     // Limpiar Lista de Espera (desde fila 2)
     const espera = ss.getSheetByName('Lista de Espera');
     if (espera.getLastRow() > 1) {
-      espera.getRange(2, 1, espera.getLastRow() - 1, 12).clearContent();
-      espera.getRange(2, 1, espera.getLastRow() - 1, 12).setBackground(null);
+      espera.getRange(2, 1, espera.getLastRow() - 1, 13).clearContent();
+      espera.getRange(2, 1, espera.getLastRow() - 1, 13).setBackground(null);
       // Restaurar fórmulas
       for (let i = 2; i <= 100; i++) {
         espera.getRange('A' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
