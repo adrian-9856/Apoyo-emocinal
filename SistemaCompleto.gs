@@ -366,8 +366,8 @@ function crearReporte() {
     ['📅 Mes actual:', '=TEXT(TODAY(),"MMMM YYYY")'],
     ['', ''],
     ['👥 NUEVOS INGRESOS (QUE VINIERON)', ''],
-    ['Total ingresos', '=COUNTA(Terapias!B:B)-1'],
-    ['Ingresos este mes', '=COUNTIFS(Terapias!A:A,"<>",Terapias!B:B,"<>")'],
+    ['Total ingresos', '=COUNTA(\'Nuevos Ingresos\'!C:C)-1'],
+    ['Ingresos este mes', '=COUNTIFS(\'Nuevos Ingresos\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Nuevos Ingresos\'!A:A,"<="&EOMONTH(TODAY(),0))'],
     ['', ''],
     ['⚠️ PERSONAS NO ASISTIDAS', ''],
     ['Total no asistidas', '=COUNTA(\'Personas no asistidas\'!B:B)-1'],
@@ -381,10 +381,10 @@ function crearReporte() {
     ['Total casos activos', '=B14+B15+B16+B17'],
     ['', ''],
     ['📊 TOTAL TERAPIAS POR TERAPEUTA', ''],
-    ['Gerber - Total terapias', '=COUNTIF(Terapias!A:A,"Gerber")'],
-    ['Melissa - Total terapias', '=COUNTIF(Terapias!A:A,"Melissa")'],
-    ['Diana - Total terapias', '=COUNTIF(Terapias!A:A,"Diana")'],
-    ['Karina - Total terapias', '=COUNTIF(Terapias!A:A,"Karina")'],
+    ['Gerber - Total terapias', '=COUNTIF(Terapias!A2:A,"Gerber")'],
+    ['Melissa - Total terapias', '=COUNTIF(Terapias!A2:A,"Melissa")'],
+    ['Diana - Total terapias', '=COUNTIF(Terapias!A2:A,"Diana")'],
+    ['Karina - Total terapias', '=COUNTIF(Terapias!A2:A,"Karina")'],
     ['Total general', '=B21+B22+B23+B24'],
     ['', ''],
     ['🎉 PROCESOS CULMINADOS', ''],
@@ -1279,20 +1279,40 @@ function repararValidaciones() {
   try {
     ss.toast('🔧 Reparando sistema...', 'Reparación', 2);
 
-    // 1. Reconfigurar todas las validaciones
+    // 1. Limpiar TODAS las validaciones de datos de todas las hojas
+    const hojas = ['Lista de Espera', 'Nuevos Ingresos', 'Terapias',
+                   'Procesos Culminados', 'Deserciones', 'Intervención de casos',
+                   'Personas no asistidas'];
+
+    hojas.forEach(nombreHoja => {
+      const hoja = ss.getSheetByName(nombreHoja);
+      if (hoja) {
+        hoja.clearDataValidations();
+        Logger.log('Validaciones limpiadas de: ' + nombreHoja);
+      }
+    });
+
+    // 2. Reconfigurar todas las validaciones
     configurarValidaciones();
 
-    // 2. Actualizar reportes
+    // 3. Recrear hoja de Reporte con fórmulas corregidas
+    const reporteViejo = ss.getSheetByName('Reporte');
+    if (reporteViejo) {
+      ss.deleteSheet(reporteViejo);
+    }
+    crearReporte();
+
+    // 4. Actualizar reportes
     actualizarReportes();
 
     ss.toast(
       '✅ REPARACIÓN COMPLETA\n\n' +
       '✓ Validaciones limpiadas y reconfiguradas\n' +
-      '✓ Columna L eliminada de Nuevos Ingresos\n' +
+      '✓ Fórmulas de reportes corregidas\n' +
       '✓ Desplegables configurados correctamente:\n' +
       '  - Género\n' +
       '  - Rango de Edad\n' +
-      '  - Malestar Principal ⭐ NUEVO\n' +
+      '  - Malestar Principal\n' +
       '  - Tipo de Atención\n' +
       '  - Terapeuta\n' +
       '✓ Reportes actualizados\n\n' +
