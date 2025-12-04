@@ -94,7 +94,8 @@ function onOpen() {
     .addItem('📧 Configurar Email', 'configurarEmail')
     .addItem('✉️ Probar Envío de Email', 'probarEmail')
     .addSeparator()
-    .addItem('📋 Conectar Hoja de Asistencia', 'configurarAsistencia')
+    .addItem('➕ Agregar Grupo de Asistencia', 'configurarAsistencia')
+    .addItem('📋 Ver/Gestionar Grupos', 'verGruposAsistencia')
     .addItem('🔄 Probar Conexión Asistencia', 'probarAsistencia')
     .addSeparator()
     .addItem('⏰ Instalar Trigger de Tiempo', 'instalarTriggerTiempo')
@@ -375,10 +376,10 @@ function crearReporte() {
     ['Total no asistidas', '=COUNTA(\'Personas no asistidas\'!B:B)-1'],
     ['No asistidas este mes', '=COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0))'],
     ['', ''],
-    ['✅ ASISTENCIAS (HOJA EXTERNA)', ''],
-    ['Total asistencias registradas', 0],
-    ['Asistencias hoy', 0],
+    ['✅ ASISTENCIAS (HOJAS EXTERNAS)', ''],
     ['Estado conexión', 'No configurado'],
+    ['Total asistencias (todas)', 0],
+    ['Asistencias este mes (todas)', 0],
     ['', ''],
     ['👩‍⚕️ CASOS ACTIVOS POR TERAPEUTA', ''],
     ['Gerber - Casos activos', '=COUNTIFS(Terapias!A:A,"Gerber",Terapias!G:G,"En proceso")'],
@@ -1193,37 +1194,53 @@ function copiarAGestion(participante, terapeuta, creemosId, tipo, motivo) {
 }
 
 // =====================================================================
-// CONEXIÓN CON HOJA DE ASISTENCIA EXTERNA
+// CONEXIÓN CON HOJAS DE ASISTENCIA EXTERNAS (MÚLTIPLES GRUPOS)
 // =====================================================================
 
 /**
- * Cuenta cuántas personas vinieron según los checkboxes marcados
- * en la hoja de asistencia externa
+ * Obtiene todos los grupos configurados
+ * Retorna un objeto con estructura: {nombreGrupo: idDocumento}
  */
-function contarAsistencias() {
+function obtenerGruposAsistencia() {
+  const props = PropertiesService.getDocumentProperties();
+  const gruposJSON = props.getProperty('GRUPOS_ASISTENCIA');
+
+  if (!gruposJSON) {
+    return {};
+  }
+
   try {
-    // Obtener el ID del documento de asistencia
-    const props = PropertiesService.getDocumentProperties();
-    const idDoc = props.getProperty('ID_ASISTENCIA');
+    return JSON.parse(gruposJSON);
+  } catch (e) {
+    Logger.log('⚠️ Error parseando grupos: ' + e.toString());
+    return {};
+  }
+}
 
-    if (!idDoc) {
-      Logger.log('⚠️ ID de documento de asistencia no configurado');
-      return {
-        totalAsistencias: 0,
-        asistenciasHoy: 0,
-        error: 'No configurado'
-      };
-    }
+/**
+ * Guarda los grupos configurados
+ */
+function guardarGruposAsistencia(grupos) {
+  const props = PropertiesService.getDocumentProperties();
+  props.setProperty('GRUPOS_ASISTENCIA', JSON.stringify(grupos));
+}
 
+/**
+ * Cuenta asistencias para un grupo específico
+ */
+function contarAsistenciasGrupo(nombreGrupo, idDoc) {
+  try {
     // Conectar con el documento externo
     const docAsistencia = SpreadsheetApp.openById(idDoc);
     const hojaAsistencia = docAsistencia.getSheetByName('Tabla_1');
 
     if (!hojaAsistencia) {
-      Logger.log('⚠️ No se encontró la hoja "Tabla_1" en el documento de asistencia');
+      Logger.log('⚠️ [' + nombreGrupo + '] No se encontró la hoja "Tabla_1"');
       return {
+        grupo: nombreGrupo,
         totalAsistencias: 0,
         asistenciasHoy: 0,
+        asistenciasMes: 0,
         error: 'Hoja no encontrada'
       };
     }
@@ -1233,8 +1250,10 @@ function contarAsistencias() {
 
     if (datos.length <= 1) {
       return {
+        grupo: nombreGrupo,
         totalAsistencias: 0,
         asistenciasHoy: 0,
+        asistenciasMes: 0,
         error: 'Sin datos'
       };
     }
@@ -1244,8 +1263,15 @@ function contarAsistencias() {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
+    // Calcular rango del mes actual
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    const finMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+    inicioMes.setHours(0, 0, 0, 0);
+    finMes.setHours(23, 59, 59, 999);
+
     let totalCheckboxes = 0;
     let checkboxesHoy = 0;
+    let checkboxesMes = 0;
 
     // Recorrer todas las filas (desde fila 2, índice 1)
     for (let fila = 1; fila < datos.length; fila++) {
@@ -1257,183 +1283,280 @@ function contarAsistencias() {
         if (valor === true) {
           totalCheckboxes++;
 
-          // Verificar si es de hoy
+          // Verificar fecha de la columna
           const fechaColumna = filaFechas[col];
           if (fechaColumna instanceof Date) {
             const fechaCol = new Date(fechaColumna);
             fechaCol.setHours(0, 0, 0, 0);
 
+            // ¿Es hoy?
             if (fechaCol.getTime() === hoy.getTime()) {
               checkboxesHoy++;
+            }
+
+            // ¿Es este mes?
+            if (fechaCol >= inicioMes && fechaCol <= finMes) {
+              checkboxesMes++;
             }
           }
         }
       }
     }
 
-    Logger.log('✅ Asistencias contadas: Total=' + totalCheckboxes + ', Hoy=' + checkboxesHoy);
+    Logger.log('✅ [' + nombreGrupo + '] Asistencias: Total=' + totalCheckboxes + ', Hoy=' + checkboxesHoy + ', Mes=' + checkboxesMes);
 
     return {
+      grupo: nombreGrupo,
       totalAsistencias: totalCheckboxes,
       asistenciasHoy: checkboxesHoy,
+      asistenciasMes: checkboxesMes,
       error: null
     };
 
   } catch (error) {
-    Logger.log('❌ Error contando asistencias: ' + error.toString());
+    Logger.log('❌ [' + nombreGrupo + '] Error: ' + error.toString());
     return {
+      grupo: nombreGrupo,
       totalAsistencias: 0,
       asistenciasHoy: 0,
+      asistenciasMes: 0,
       error: error.message
     };
   }
 }
 
 /**
- * Obtiene el total de asistencias para mostrar en el reporte
+ * Cuenta asistencias de TODOS los grupos configurados
  */
-function obtenerTotalAsistencias() {
-  const resultado = contarAsistencias();
-  return resultado.totalAsistencias || 0;
+function contarAsistenciasTodosGrupos() {
+  const grupos = obtenerGruposAsistencia();
+  const resultados = [];
+
+  for (const [nombreGrupo, idDoc] of Object.entries(grupos)) {
+    const resultado = contarAsistenciasGrupo(nombreGrupo, idDoc);
+    resultados.push(resultado);
+  }
+
+  return resultados;
 }
 
 /**
- * Obtiene las asistencias de hoy para mostrar en el reporte
- */
-function obtenerAsistenciasHoy() {
-  const resultado = contarAsistencias();
-  return resultado.asistenciasHoy || 0;
-}
-
-/**
- * Configura el ID del documento de asistencia
+ * Agrega un nuevo grupo de asistencia
  */
 function configurarAsistencia() {
   const ui = SpreadsheetApp.getUi();
-  const props = PropertiesService.getDocumentProperties();
-  const idActual = props.getProperty('ID_ASISTENCIA') || 'No configurado';
+  const grupos = obtenerGruposAsistencia();
 
-  const respuesta = ui.prompt(
-    '📋 Conectar Hoja de Asistencia',
-    'Ingresa la URL completa o el ID del documento de asistencia:\n\n' +
+  // Mostrar grupos actuales
+  let mensajeGrupos = '';
+  const numGrupos = Object.keys(grupos).length;
+
+  if (numGrupos > 0) {
+    mensajeGrupos = '📋 GRUPOS ACTUALES (' + numGrupos + '):\n';
+    for (const [nombre, id] of Object.entries(grupos)) {
+      mensajeGrupos += '• ' + nombre + '\n';
+    }
+    mensajeGrupos += '\n';
+  }
+
+  // Pedir nombre del grupo
+  const respNombre = ui.prompt(
+    '📋 Agregar Grupo de Asistencia',
+    mensajeGrupos +
+    'Ingresa el NOMBRE del grupo:\n' +
+    '(Ejemplo: "Grupo A", "Mañana", "Terapia Grupal", etc.)',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (respNombre.getSelectedButton() !== ui.Button.OK) {
+    return;
+  }
+
+  const nombreGrupo = respNombre.getResponseText().trim();
+
+  if (!nombreGrupo || nombreGrupo === '') {
+    ui.alert('❌ Nombre vacío', 'Debes ingresar un nombre para el grupo.', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Pedir URL/ID del documento
+  const respURL = ui.prompt(
+    '📋 Documento de Asistencia - ' + nombreGrupo,
+    'Ingresa la URL completa o el ID del documento:\n\n' +
     'Ejemplo URL:\n' +
     'https://docs.google.com/spreadsheets/d/ABC123.../edit\n\n' +
     'O solo el ID:\n' +
-    'ABC123...\n\n' +
-    'ID actual: ' + idActual,
+    'ABC123...',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (respURL.getSelectedButton() !== ui.Button.OK) {
+    return;
+  }
+
+  let idDoc = respURL.getResponseText().trim();
+
+  // Extraer el ID si es una URL completa
+  if (idDoc.includes('docs.google.com/spreadsheets/d/')) {
+    const match = idDoc.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (match) {
+      idDoc = match[1];
+    }
+  }
+
+  if (!idDoc || idDoc.length < 20) {
+    ui.alert('❌ ID inválido', 'El ID debe tener al menos 20 caracteres.', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Guardar el grupo
+  grupos[nombreGrupo] = idDoc;
+  guardarGruposAsistencia(grupos);
+
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    '✅ Grupo agregado correctamente\n\n' +
+    'Grupo: ' + nombreGrupo + '\n' +
+    'ID: ' + idDoc + '\n\n' +
+    'Total de grupos: ' + Object.keys(grupos).length + '\n\n' +
+    'Usa "🔄 Probar Conexión Asistencia" para verificar.',
+    'Grupo Agregado',
+    8
+  );
+
+  Logger.log('✅ Grupo agregado: ' + nombreGrupo + ' = ' + idDoc);
+}
+
+/**
+ * Ver y gestionar grupos configurados
+ */
+function verGruposAsistencia() {
+  const ui = SpreadsheetApp.getUi();
+  const grupos = obtenerGruposAsistencia();
+
+  if (Object.keys(grupos).length === 0) {
+    ui.alert(
+      '⚠️ Sin Grupos',
+      'No hay grupos configurados.\n\n' +
+      'Usa "📋 Conectar Hoja de Asistencia" para agregar grupos.',
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  let mensaje = '📋 GRUPOS CONFIGURADOS (' + Object.keys(grupos).length + '):\n\n';
+  let contador = 1;
+
+  for (const [nombre, id] of Object.entries(grupos)) {
+    mensaje += contador + '. ' + nombre + '\n';
+    mensaje += '   ID: ' + id.substring(0, 20) + '...\n\n';
+    contador++;
+  }
+
+  mensaje += '¿Deseas ELIMINAR un grupo?\n' +
+             'Ingresa el número (o cancela para salir):';
+
+  const respuesta = ui.prompt(
+    'Gestionar Grupos',
+    mensaje,
     ui.ButtonSet.OK_CANCEL
   );
 
   if (respuesta.getSelectedButton() === ui.Button.OK) {
-    let input = respuesta.getResponseText().trim();
+    const num = parseInt(respuesta.getResponseText().trim());
 
-    // Extraer el ID si es una URL completa
-    if (input.includes('docs.google.com/spreadsheets/d/')) {
-      const match = input.match(/\/d\/([a-zA-Z0-9-_]+)/);
-      if (match) {
-        input = match[1];
-      }
-    }
-
-    if (!input || input.length < 20) {
-      ui.alert('❌ ID inválido', 'El ID debe tener al menos 20 caracteres.', ui.ButtonSet.OK);
+    if (isNaN(num) || num < 1 || num > Object.keys(grupos).length) {
+      ui.alert('❌ Número inválido', 'Ingresa un número válido.', ui.ButtonSet.OK);
       return;
     }
 
-    // Guardar el ID
-    props.setProperty('ID_ASISTENCIA', input);
+    const nombreEliminar = Object.keys(grupos)[num - 1];
 
-    SpreadsheetApp.getActiveSpreadsheet().toast(
-      '✅ Documento de asistencia conectado\n\n' +
-      'ID: ' + input + '\n\n' +
-      'Usa "🔄 Probar Conexión Asistencia" para verificar.',
-      'Conexión Configurada',
-      8
+    const confirmar = ui.alert(
+      '⚠️ Confirmar Eliminación',
+      '¿Eliminar el grupo "' + nombreEliminar + '"?',
+      ui.ButtonSet.YES_NO
     );
 
-    Logger.log('✅ ID de asistencia configurado: ' + input);
+    if (confirmar === ui.Button.YES) {
+      delete grupos[nombreEliminar];
+      guardarGruposAsistencia(grupos);
+
+      ui.alert(
+        '✅ Eliminado',
+        'Grupo "' + nombreEliminar + '" eliminado correctamente.',
+        ui.ButtonSet.OK
+      );
+    }
   }
 }
 
 /**
- * Prueba la conexión con el documento de asistencia
+ * Prueba la conexión con TODOS los documentos de asistencia
  */
 function probarAsistencia() {
   const ui = SpreadsheetApp.getUi();
-  const props = PropertiesService.getDocumentProperties();
-  const idDoc = props.getProperty('ID_ASISTENCIA');
+  const grupos = obtenerGruposAsistencia();
 
-  if (!idDoc) {
+  if (Object.keys(grupos).length === 0) {
     ui.alert(
-      '⚠️ No Configurado',
-      'Primero debes configurar la conexión:\n\n' +
-      'Menú → 📋 Conectar Hoja de Asistencia',
+      '⚠️ Sin Grupos',
+      'No hay grupos configurados.\n\n' +
+      'Usa "➕ Agregar Grupo de Asistencia" para configurar.',
       ui.ButtonSet.OK
     );
     return;
   }
 
   try {
-    SpreadsheetApp.getActiveSpreadsheet().toast('🔄 Conectando...', 'Prueba', 2);
+    SpreadsheetApp.getActiveSpreadsheet().toast('🔄 Probando ' + Object.keys(grupos).length + ' grupos...', 'Prueba', 2);
 
-    // Intentar conectar
-    const docAsistencia = SpreadsheetApp.openById(idDoc);
-    const hojaAsistencia = docAsistencia.getSheetByName('Tabla_1');
+    // Contar asistencias de todos los grupos
+    const resultados = contarAsistenciasTodosGrupos();
 
-    if (!hojaAsistencia) {
-      ui.alert(
-        '❌ Hoja No Encontrada',
-        'El documento existe pero no tiene una hoja llamada "Tabla_1".\n\n' +
-        'Verifica que el nombre de la hoja sea exactamente: Tabla_1',
-        ui.ButtonSet.OK
-      );
-      return;
+    let mensaje = '✅ PRUEBA COMPLETADA\n\n';
+    mensaje += 'Grupos configurados: ' + resultados.length + '\n\n';
+
+    let totalGeneral = 0;
+    let totalMes = 0;
+    let errores = 0;
+
+    resultados.forEach(resultado => {
+      mensaje += '━━━━━━━━━━━━━━━━━━━\n';
+      mensaje += '📋 ' + resultado.grupo + '\n';
+
+      if (resultado.error) {
+        mensaje += '❌ Error: ' + resultado.error + '\n';
+        errores++;
+      } else {
+        mensaje += '• Total: ' + resultado.totalAsistencias + '\n';
+        mensaje += '• Este mes: ' + resultado.asistenciasMes + '\n';
+        mensaje += '• Hoy: ' + resultado.asistenciasHoy + '\n';
+
+        totalGeneral += resultado.totalAsistencias;
+        totalMes += resultado.asistenciasMes;
+      }
+    });
+
+    mensaje += '━━━━━━━━━━━━━━━━━━━\n';
+    mensaje += '📊 TOTALES:\n';
+    mensaje += '• Total general: ' + totalGeneral + '\n';
+    mensaje += '• Total este mes: ' + totalMes + '\n';
+
+    if (errores > 0) {
+      mensaje += '\n⚠️ ' + errores + ' grupo(s) con errores';
     }
 
-    // Contar asistencias
-    const resultado = contarAsistencias();
-
-    if (resultado.error) {
-      ui.alert(
-        '❌ Error',
-        'Error al contar asistencias:\n\n' + resultado.error,
-        ui.ButtonSet.OK
-      );
-      return;
-    }
-
-    ui.alert(
-      '✅ CONEXIÓN EXITOSA',
-      '📋 Documento: ' + docAsistencia.getName() + '\n' +
-      '📄 Hoja: Tabla_1\n\n' +
-      '📊 ASISTENCIAS CONTADAS:\n' +
-      '• Total: ' + resultado.totalAsistencias + ' checkboxes marcados\n' +
-      '• Hoy: ' + resultado.asistenciasHoy + ' checkboxes\n\n' +
-      'El reporte se actualizará automáticamente con estos datos.',
-      ui.ButtonSet.OK
-    );
+    ui.alert('Resultados de Prueba', mensaje, ui.ButtonSet.OK);
 
   } catch (error) {
     ui.alert(
-      '❌ Error de Conexión',
-      'No se pudo conectar con el documento:\n\n' +
-      error.message + '\n\n' +
-      'Verifica:\n' +
-      '1. El ID es correcto\n' +
-      '2. Tienes permisos para acceder al documento\n' +
-      '3. El documento no fue eliminado',
+      '❌ Error',
+      'Error al probar conexiones:\n\n' +
+      error.message,
       ui.ButtonSet.OK
     );
-    Logger.log('❌ Error probando asistencia: ' + error.toString());
+    Logger.log('❌ Error probando asistencias: ' + error.toString());
   }
-}
-
-/**
- * Obtiene el ID del documento de asistencia
- */
-function obtenerIDAsistencia() {
-  const props = PropertiesService.getDocumentProperties();
-  return props.getProperty('ID_ASISTENCIA');
 }
 
 // =====================================================================
@@ -1453,21 +1576,59 @@ function actualizarReportes() {
     // 1. Actualizar fecha y hora
     reporte.getRange('B2').setValue(new Date());
 
-    // 2. Actualizar asistencias desde hoja externa
+    // 2. Actualizar asistencias desde hojas externas (múltiples grupos)
     try {
-      const resultado = contarAsistencias();
-      reporte.getRange('B14').setValue(resultado.totalAsistencias);
-      reporte.getRange('B15').setValue(resultado.asistenciasHoy);
+      const resultados = contarAsistenciasTodosGrupos();
 
-      if (resultado.error) {
-        reporte.getRange('B16').setValue('Error: ' + resultado.error);
+      if (resultados.length === 0) {
+        reporte.getRange('B14').setValue('No configurado');
+        reporte.getRange('B15').setValue(0);
+        reporte.getRange('B16').setValue(0);
       } else {
-        reporte.getRange('B16').setValue('✅ Conectado');
+        // Calcular totales
+        let totalGeneral = 0;
+        let totalMes = 0;
+        let gruposConError = 0;
+
+        resultados.forEach(resultado => {
+          if (!resultado.error) {
+            totalGeneral += resultado.totalAsistencias;
+            totalMes += resultado.asistenciasMes;
+          } else {
+            gruposConError++;
+          }
+        });
+
+        // Actualizar celdas
+        reporte.getRange('B14').setValue(resultados.length + ' grupos conectados');
+        reporte.getRange('B15').setValue(totalGeneral);
+        reporte.getRange('B16').setValue(totalMes);
+
+        // Mostrar asistencias por grupo en filas adicionales (a partir de fila 17)
+        let filaActual = 17;
+        resultados.forEach(resultado => {
+          if (filaActual <= 50) {  // Límite de seguridad
+            reporte.getRange('A' + filaActual).setValue('  • ' + resultado.grupo);
+            if (resultado.error) {
+              reporte.getRange('B' + filaActual).setValue('Error');
+            } else {
+              reporte.getRange('B' + filaActual).setValue(resultado.asistenciasMes);
+            }
+            filaActual++;
+          }
+        });
+
+        // Limpiar filas sobrantes
+        for (let i = filaActual; i <= 50; i++) {
+          reporte.getRange('A' + i).clearContent();
+          reporte.getRange('B' + i).clearContent();
+        }
       }
     } catch (e) {
-      reporte.getRange('B14').setValue(0);
+      reporte.getRange('B14').setValue('Error');
       reporte.getRange('B15').setValue(0);
-      reporte.getRange('B16').setValue('No configurado');
+      reporte.getRange('B16').setValue(0);
+      Logger.log('⚠️ Error actualizando asistencias: ' + e.toString());
     }
 
     // 3. Forzar recalculo - método más robusto
