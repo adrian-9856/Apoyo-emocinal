@@ -480,25 +480,13 @@ function configurarValidaciones() {
   nuevos.getRange('F2:F200').setDataValidation(rangoEdadRule);
   espera.getRange('F2:F200').setDataValidation(rangoEdadRule);
 
-  // Validaciones de MALESTAR PRINCIPAL - SOLO en Nuevos Ingresos
-  const malestarRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList([
-      'Ansiedad',
-      'Depresión',
-      'Estrés',
-      'Duelo',
-      'Trauma',
-      'Problemas de pareja',
-      'Conflictos familiares',
-      'Baja autoestima',
-      'Adicciones',
-      'Violencia',
-      'Otro'
-    ])
-    .setAllowInvalid(false)
-    .build();
-  nuevos.getRange('G2:G200').setDataValidation(malestarRule);
-  // NO agregar en Lista de Espera - el usuario puede escribir libremente
+  // Validaciones de MALESTAR PRINCIPAL - ELIMINADAS de Nuevos Ingresos
+  // Nuevos Ingresos se llena automáticamente desde Lista de Espera
+  // donde el usuario puede escribir libremente, por lo tanto NO debe tener validación
+  // Si ponemos validación aquí, causará errores cuando el texto no coincida exactamente
+
+  // NO aplicar validación de Malestar en Nuevos Ingresos
+  // NO aplicar validación de Malestar en Lista de Espera - el usuario escribe libremente
 
   // Validaciones de tipo de atención
   const tipoRule = SpreadsheetApp.newDataValidation()
@@ -729,7 +717,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, rangoEdad, ma
       genero || '',
       rangoEdad || '',
       malestar || '',
-      'Terapia individual',
+      'Individual',
       derivadoPor || ''
     ];
     nuevos.getRange(nuevaFilaNuevos, 3, 1, 7).setValues([registroNuevos]);
@@ -742,7 +730,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, rangoEdad, ma
       nombre,
       creemosId || '',
       genero || '',
-      'Terapia individual',
+      'Individual',
       1,
       'En proceso',
       ''
@@ -1161,7 +1149,7 @@ function copiarAGestion(participante, terapeuta, creemosId, tipo, motivo) {
     const sheet = ss.getSheetByName('Intervención de casos');
 
     const nuevaFila = sheet.getLastRow() + 1;
-    const datos = [new Date(), participante, terapeuta, creemosId || '', tipo || 'Terapia individual', motivo];
+    const datos = [new Date(), participante, terapeuta, creemosId || '', tipo || 'Individual', motivo];
 
     sheet.getRange(nuevaFila, 1, 1, 6).setValues([datos]);
     return true;
