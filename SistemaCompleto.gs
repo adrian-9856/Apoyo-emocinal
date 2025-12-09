@@ -842,7 +842,18 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, rangoEdad, ma
     }
 
     // 1. Agregar a Nuevos Ingresos (documentación)
-    const nuevaFilaNuevos = nuevos.getLastRow() + 1;
+    // Buscar la primera fila vacía en Nuevos Ingresos
+    let nuevaFilaNuevos = 2;
+    const maxFilasNuevos = 200;
+
+    for (let i = 2; i <= maxFilasNuevos; i++) {
+      const nombreExistente = nuevos.getRange(i, 3).getValue(); // Columna C: Nombre
+      if (!nombreExistente || nombreExistente.toString().trim() === '') {
+        nuevaFilaNuevos = i;
+        break;
+      }
+    }
+
     const numeroIngreso = nuevaFilaNuevos - 1; // Restar 1 porque fila 1 es header
     const fechaIngreso = new Date();
 
@@ -861,7 +872,18 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, rangoEdad, ma
     Logger.log('✅ Agregado a Nuevos Ingresos en fila: ' + nuevaFilaNuevos);
 
     // 2. Crear registro en Terapias
-    const nuevaFilaTerapias = terapias.getLastRow() + 1;
+    // Buscar la primera fila vacía en Terapias
+    let nuevaFilaTerapias = 2;
+    const maxFilasTerapias = 200;
+
+    for (let i = 2; i <= maxFilasTerapias; i++) {
+      const participanteExistente = terapias.getRange(i, 2).getValue(); // Columna B: Participante
+      if (!participanteExistente || participanteExistente.toString().trim() === '') {
+        nuevaFilaTerapias = i;
+        break;
+      }
+    }
+
     const registroTerapias = [
       terapeuta,
       nombre,
@@ -870,9 +892,10 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, rangoEdad, ma
       'Individual',
       1,
       'En proceso',
-      ''
+      '',
+      0  // Sesiones Mes Anterior (inicializa en 0)
     ];
-    terapias.getRange(nuevaFilaTerapias, 1, 1, 8).setValues([registroTerapias]);
+    terapias.getRange(nuevaFilaTerapias, 1, 1, 9).setValues([registroTerapias]);
     Logger.log('✅ Agregado a Terapias en fila: ' + nuevaFilaTerapias);
 
     // Marcar como procesado en verde
@@ -896,8 +919,18 @@ function enviarAPersonasNoAsistidas(nombre, creemosId, genero, rangoEdad, malest
 
     Logger.log('Iniciando envío a Personas no asistidas...');
 
-    // Agregar a Personas no asistidas
-    const nuevaFila = noAsistidas.getLastRow() + 1;
+    // Buscar la primera fila vacía
+    let nuevaFila = 2;
+    const maxFilas = 200;
+
+    for (let i = 2; i <= maxFilas; i++) {
+      const nombreExistente = noAsistidas.getRange(i, 2).getValue(); // Columna B: Nombre
+      if (!nombreExistente || nombreExistente.toString().trim() === '') {
+        nuevaFila = i;
+        break;
+      }
+    }
+
     const registro = [
       new Date(),
       nombre,
@@ -954,7 +987,18 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
   }
 
   // Crear registro en Terapias
-  const nuevaFila = terapias.getLastRow() + 1;
+  // Buscar la primera fila vacía (columna B debe estar vacía)
+  let nuevaFila = 2; // Empezar después del header
+  const maxFilas = 200;
+
+  for (let i = 2; i <= maxFilas; i++) {
+    const participanteExistente = terapias.getRange(i, 2).getValue(); // Columna B: Participante
+    if (!participanteExistente || participanteExistente.toString().trim() === '') {
+      nuevaFila = i;
+      break;
+    }
+  }
+
   const registro = [
     terapeuta,
     nombreLimpio,
@@ -1366,7 +1410,18 @@ function copiarACulminados(participante, terapeuta, creemosId, sesiones, motivo)
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Procesos Culminados');
 
-    const nuevaFila = sheet.getLastRow() + 1;
+    // Buscar la primera fila vacía
+    let nuevaFila = 2;
+    const maxFilas = 200;
+
+    for (let i = 2; i <= maxFilas; i++) {
+      const participanteExistente = sheet.getRange(i, 2).getValue(); // Columna B: Participante
+      if (!participanteExistente || participanteExistente.toString().trim() === '') {
+        nuevaFila = i;
+        break;
+      }
+    }
+
     const datos = [new Date(), participante, terapeuta, creemosId || '', parseInt(sesiones) || 1, motivo];
 
     sheet.getRange(nuevaFila, 1, 1, 6).setValues([datos]);
@@ -1382,7 +1437,18 @@ function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Deserciones');
 
-    const nuevaFila = sheet.getLastRow() + 1;
+    // Buscar la primera fila vacía
+    let nuevaFila = 2;
+    const maxFilas = 200;
+
+    for (let i = 2; i <= maxFilas; i++) {
+      const participanteExistente = sheet.getRange(i, 2).getValue(); // Columna B: Participante
+      if (!participanteExistente || participanteExistente.toString().trim() === '') {
+        nuevaFila = i;
+        break;
+      }
+    }
+
     const datos = [new Date(), participante, terapeuta, creemosId || '', parseInt(sesiones) || 1, motivo];
 
     sheet.getRange(nuevaFila, 1, 1, 6).setValues([datos]);
@@ -1398,7 +1464,18 @@ function copiarAGestion(participante, terapeuta, creemosId, tipo, motivo) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Intervención de casos');
 
-    const nuevaFila = sheet.getLastRow() + 1;
+    // Buscar la primera fila vacía
+    let nuevaFila = 2;
+    const maxFilas = 200;
+
+    for (let i = 2; i <= maxFilas; i++) {
+      const participanteExistente = sheet.getRange(i, 2).getValue(); // Columna B: Participante
+      if (!participanteExistente || participanteExistente.toString().trim() === '') {
+        nuevaFila = i;
+        break;
+      }
+    }
+
     const datos = [new Date(), participante, terapeuta, creemosId || '', tipo || 'Individual', motivo];
 
     sheet.getRange(nuevaFila, 1, 1, 6).setValues([datos]);
