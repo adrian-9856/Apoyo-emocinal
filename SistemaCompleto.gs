@@ -100,6 +100,7 @@ function onOpen() {
     .addItem('🔄 Probar Conexión Asistencia', 'probarAsistencia')
     .addSeparator()
     .addItem('⏰ Instalar Trigger de Tiempo', 'instalarTriggerTiempo')
+    .addItem('📅 Instalar Recordatorio Mensual', 'instalarTriggerRecordatorioMensual')
     .addSeparator()
     .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
     .addSeparator()
@@ -528,7 +529,7 @@ function configurarValidaciones() {
 
   // Validaciones de estado
   const estadoRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['En proceso', 'Finalizado'])
+    .requireValueInList(['En proceso', 'Finalizado', 'Proceso culminado', 'deserciones'])
     .setAllowInvalid(false)
     .build();
   terapias.getRange('G2:G200').setDataValidation(estadoRule);
@@ -679,18 +680,20 @@ function alEditar(e) {
     }
   }
 
-  // CASO 2: Terapias - Finalización
-  if (hoja === 'Terapias' && columna === 7 && val === 'Finalizado') {
-    Logger.log('✅ Detectada finalización en Terapias');
-    Logger.log('▶️ EJECUTANDO finalizarTerapia...');
+  // CASO 3: Terapias - Cambio de Estado
+  if (hoja === 'Terapias' && columna === 7) {
+    if (val === 'Proceso culminado' || val === 'deserciones') {
+      Logger.log('✅ Detectado cambio de estado en Terapias: ' + val);
+      Logger.log('▶️ EJECUTANDO procesarFinalizacionTerapia...');
 
-    try {
-      finalizarTerapia(sheet, fila);
-      Logger.log('✅ finalizarTerapia completado');
-      actualizarReportes();
-      Logger.log('✅ Reportes actualizados');
-    } catch (error) {
-      Logger.log('❌ ERROR en finalizarTerapia: ' + error.toString());
+      try {
+        procesarFinalizacionTerapia(sheet, fila, val);
+        Logger.log('✅ procesarFinalizacionTerapia completado');
+        actualizarReportes();
+        Logger.log('✅ Reportes actualizados');
+      } catch (error) {
+        Logger.log('❌ ERROR en procesarFinalizacionTerapia: ' + error.toString());
+      }
     }
   }
 }
@@ -954,7 +957,10 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
   ss.toast('✅ ' + nombreLimpio + '\n→ ' + terapeuta + '\nCaso creado en Terapias', 'Asignado', 3);
 }
 
-function finalizarTerapia(sheetOrigen, fila) {
+/**
+ * Procesa la finalización de terapia (Proceso culminado o deserciones)
+ */
+function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
@@ -966,43 +972,31 @@ function finalizarTerapia(sheetOrigen, fila) {
   const tipoTerapia = datos[4];
   const numSesion = datos[5];
 
-  if (!participante || participante.toString().trim() === '') return;
-
-  const nombre = participante.toString().trim();
-
-  // Preguntar tipo de finalización (solo 2 opciones)
-  const tipoResp = ui.alert(
-    'Tipo de finalización:',
-    'Participante: ' + nombre + '\n\nSeleccione el tipo de finalización:',
-    ui.ButtonSet.YES_NO_CANCEL
-  );
-
-  let tipo = '';
-  if (tipoResp === ui.Button.YES) {
-    tipo = 'Finalización de procesos';
-  } else if (tipoResp === ui.Button.NO) {
-    tipo = 'Deserción';
-  } else {
-    sheetOrigen.getRange(fila, 7).setValue('En proceso');
+  if (!participante || participante.toString().trim() === '') {
+    ss.toast('⚠️ Error: No hay participante en esta fila', 'Error', 3);
     return;
   }
 
-  // Pedir motivo específico según el tipo
+  const nombre = participante.toString().trim();
+
+  // Pedir motivo según el tipo
   let promptMotivo = '';
-  if (tipo === 'Finalización de procesos') {
+  if (tipoFinal === 'Proceso culminado') {
     promptMotivo = 'Motivo de finalización del proceso:\n\n' +
                    'Participante: ' + nombre + '\n' +
-                   'Tipo: Finalización de procesos\n\n' +
+                   'Terapeuta: ' + terapeuta + '\n' +
+                   'Sesiones: ' + numSesion + '\n\n' +
                    'Ingrese el motivo:';
-  } else {
+  } else if (tipoFinal === 'deserciones') {
     promptMotivo = 'Motivo de deserción:\n\n' +
                    'Participante: ' + nombre + '\n' +
-                   'Tipo: Deserción\n\n' +
+                   'Terapeuta: ' + terapeuta + '\n' +
+                   'Sesiones: ' + numSesion + '\n\n' +
                    'Ingrese el motivo:';
   }
 
   const motivoResp = ui.prompt(
-    'Motivo:',
+    'Motivo - ' + tipoFinal,
     promptMotivo,
     ui.ButtonSet.OK_CANCEL
   );
@@ -1015,30 +1009,34 @@ function finalizarTerapia(sheetOrigen, fila) {
   const motivo = motivoResp.getResponseText().trim();
 
   if (!motivo || motivo === '') {
-    ui.alert('Debe ingresar un motivo');
+    ui.alert('❌ Error', 'Debe ingresar un motivo', ui.ButtonSet.OK);
     sheetOrigen.getRange(fila, 7).setValue('En proceso');
     return;
   }
 
-  sheetOrigen.getRange(fila, 8).setValue(tipo + ': ' + motivo);
+  // Guardar motivo en columna H
+  sheetOrigen.getRange(fila, 8).setValue(tipoFinal + ': ' + motivo);
 
-  enviarEmailFinalizacion(nombre, terapeuta, tipo, motivo, numSesion);
+  // Enviar email a la directora
+  enviarEmailFinalizacion(nombre, terapeuta, tipoFinal, motivo, numSesion);
 
+  // Copiar a la hoja correspondiente
   let ok = false;
-  if (tipo === 'Finalización de procesos') {
+  if (tipoFinal === 'Proceso culminado') {
     ok = copiarACulminados(nombre, terapeuta, creemosId, numSesion, motivo);
-  } else if (tipo === 'Deserción') {
+  } else if (tipoFinal === 'deserciones') {
     ok = copiarADeserciones(nombre, terapeuta, creemosId, numSesion, motivo);
   }
 
   if (ok) {
+    // Colores según el tipo
     const colores = {
-      'Finalización de procesos': '#d4edda',
-      'Deserción': '#f8d7da'
+      'Proceso culminado': '#d4edda',
+      'deserciones': '#f8d7da'
     };
 
-    sheetOrigen.getRange(fila, 1, 1, 8).setBackground(colores[tipo]);
-    ss.toast('✅ ' + nombre + '\n' + tipo + '\nSesiones: ' + numSesion, 'Finalizado', 4);
+    sheetOrigen.getRange(fila, 1, 1, 8).setBackground(colores[tipoFinal]);
+    ss.toast('✅ ' + nombre + '\n' + tipoFinal + '\nSesiones: ' + numSesion, 'Procesado', 4);
   }
 }
 
@@ -1904,6 +1902,156 @@ function instalarTriggerTiempo() {
   }
 }
 
+/**
+ * Verifica si hoy es el penúltimo día del mes y envía recordatorio
+ * Esta función debe ejecutarse diariamente mediante trigger
+ */
+function verificarYEnviarRecordatorioReporteMensual() {
+  try {
+    const hoy = new Date();
+    const manana = new Date(hoy);
+    manana.setDate(hoy.getDate() + 1);
+
+    // Verificar si mañana es el último día del mes
+    // Si el día de mañana es mayor que el de pasado mañana, significa que mañana es el último día
+    const pasadoManana = new Date(manana);
+    pasadoManana.setDate(manana.getDate() + 1);
+
+    // Si el mes de pasado mañana es diferente al de mañana, entonces mañana es el último día
+    // Por lo tanto, HOY es el penúltimo día
+    if (pasadoManana.getMonth() !== manana.getMonth()) {
+      // Hoy es el penúltimo día del mes, enviar recordatorio
+      enviarRecordatorioReporteMensual();
+      Logger.log('✅ Recordatorio de reporte mensual enviado');
+    } else {
+      Logger.log('ℹ️ Hoy no es el penúltimo día del mes. No se envía recordatorio.');
+    }
+  } catch (error) {
+    Logger.log('❌ Error verificando fecha para recordatorio: ' + error.message);
+  }
+}
+
+/**
+ * Envía email a la directora recordando generar el reporte mensual
+ */
+function enviarRecordatorioReporteMensual() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const emailDirectora = props.getProperty('EMAIL_DIRECTORA');
+
+    if (!emailDirectora || emailDirectora === '') {
+      Logger.log('⚠️ Email de directora no configurado');
+      return;
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const nombreHoja = ss.getName();
+    const urlHoja = ss.getUrl();
+    const mesActual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM yyyy');
+    const fechaHoy = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+
+    const asunto = '⏰ Recordatorio: Generar Reporte Mensual - ' + mesActual;
+
+    const cuerpo = '<!DOCTYPE html>' +
+      '<html>' +
+      '<head>' +
+      '<style>' +
+      'body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }' +
+      '.container { max-width: 600px; margin: 0 auto; padding: 20px; }' +
+      '.header { background-color: #ff9800; color: white; padding: 20px; border-radius: 5px 5px 0 0; }' +
+      '.content { background-color: #fff; padding: 20px; border: 1px solid #ddd; }' +
+      '.footer { background-color: #f5f5f5; padding: 15px; border-radius: 0 0 5px 5px; text-align: center; font-size: 12px; }' +
+      '.button { display: inline-block; padding: 12px 24px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin: 10px 0; }' +
+      '.warning { background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; }' +
+      '.info { background-color: #e3f2fd; border-left: 4px solid #2196F3; padding: 15px; margin: 15px 0; }' +
+      '</style>' +
+      '</head>' +
+      '<body>' +
+      '<div class="container">' +
+      '<div class="header">' +
+      '<h2>⏰ Recordatorio: Reporte Mensual</h2>' +
+      '</div>' +
+      '<div class="content">' +
+      '<p><strong>Fecha:</strong> ' + fechaHoy + '</p>' +
+      '<div class="warning">' +
+      '<h3>🗓️ Mañana es el último día del mes</h3>' +
+      '<p>Este es un recordatorio para que genere el <strong>Reporte Mensual de ' + mesActual + '</strong> antes de que termine el mes.</p>' +
+      '</div>' +
+      '<div class="info">' +
+      '<h4>📋 Pasos para generar el reporte:</h4>' +
+      '<ol>' +
+      '<li>Abra la hoja de cálculo</li>' +
+      '<li>Vaya al menú <strong>📊 Sistema Apoyo Emocional</strong></li>' +
+      '<li>Seleccione <strong>💾 Guardar Reporte Mensual</strong></li>' +
+      '<li>Confirme si desea resetear los datos para el nuevo mes</li>' +
+      '</ol>' +
+      '</div>' +
+      '<p style="text-align: center; margin: 20px 0;">' +
+      '<a href="' + urlHoja + '" class="button">📊 Abrir Hoja de Cálculo</a>' +
+      '</p>' +
+      '<p><strong>Sistema:</strong> ' + nombreHoja + '</p>' +
+      '<p style="color: #666; font-size: 14px;">💡 <strong>Nota:</strong> Al guardar el reporte, puede elegir resetear todos los datos a cero para empezar el nuevo mes con el sistema limpio.</p>' +
+      '</div>' +
+      '<div class="footer">' +
+      '<p>Este es un mensaje automático del Sistema de Apoyo Emocional</p>' +
+      '<p>No responda a este correo</p>' +
+      '</div>' +
+      '</div>' +
+      '</body>' +
+      '</html>';
+
+    MailApp.sendEmail({
+      to: emailDirectora,
+      subject: asunto,
+      htmlBody: cuerpo
+    });
+
+    Logger.log('✅ Email de recordatorio enviado a: ' + emailDirectora);
+
+  } catch (error) {
+    Logger.log('❌ Error enviando recordatorio de reporte mensual: ' + error.message);
+  }
+}
+
+/**
+ * Instala el trigger diario para verificar y enviar recordatorio de reporte mensual
+ */
+function instalarTriggerRecordatorioMensual() {
+  try {
+    // Eliminar triggers existentes para esta función
+    const triggers = ScriptApp.getProjectTriggers();
+    triggers.forEach(trigger => {
+      if (trigger.getHandlerFunction() === 'verificarYEnviarRecordatorioReporteMensual') {
+        ScriptApp.deleteTrigger(trigger);
+      }
+    });
+
+    // Crear nuevo trigger diario a las 9:00 AM
+    ScriptApp.newTrigger('verificarYEnviarRecordatorioReporteMensual')
+      .timeBased()
+      .atHour(9)
+      .everyDays(1)
+      .create();
+
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      '✅ Trigger de recordatorio mensual instalado correctamente\n\n' +
+      'Se verificará diariamente a las 9:00 AM si es el penúltimo día del mes\n' +
+      'y se enviará un recordatorio a la directora para generar el reporte.',
+      'Recordatorio Mensual',
+      6
+    );
+
+    Logger.log('✅ Trigger de recordatorio mensual instalado correctamente');
+  } catch (error) {
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      '❌ Error: ' + error.message,
+      'Error',
+      5
+    );
+    Logger.log('❌ Error instalando trigger de recordatorio mensual: ' + error.message);
+  }
+}
+
 function guardarReporteMensual() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1945,13 +2093,39 @@ function guardarReporteMensual() {
 
     mensuales.getRange(nuevaFila, 1, 1, 12).setValues([datos]);
 
-    ss.toast(
-      '✅ REPORTE MENSUAL GUARDADO\n\n' +
+    // RESETEAR DATOS: Limpiar todas las hojas después de guardar
+    const ui = SpreadsheetApp.getUi();
+    const confirmar = ui.alert(
+      '✅ REPORTE GUARDADO\n\n' +
       'Mes: ' + mesActual + '\n' +
-      'Guardado en fila: ' + nuevaFila,
-      'Reporte Guardado',
-      5
+      'Fila: ' + nuevaFila + '\n\n' +
+      '¿RESETEAR DATOS A CERO?\n\n' +
+      'Esto limpiará:\n' +
+      '• Nuevos Ingresos\n' +
+      '• Terapias\n' +
+      '• Procesos Culminados\n' +
+      '• Deserciones\n' +
+      '• Intervención de casos\n' +
+      '• Personas no asistidas',
+      ui.ButtonSet.YES_NO
     );
+
+    if (confirmar === ui.Button.YES) {
+      resetearDatosParaNuevoMes();
+      ss.toast(
+        '✅ DATOS RESETEADOS\n\n' +
+        'El sistema está listo para el nuevo mes.',
+        'Reset Completo',
+        5
+      );
+    } else {
+      ss.toast(
+        '✅ Reporte guardado\n\n' +
+        'Datos NO reseteados.',
+        'Guardado',
+        3
+      );
+    }
 
   } catch (error) {
     Logger.log('❌ Error guardando reporte: ' + error.toString());
@@ -1960,6 +2134,61 @@ function guardarReporteMensual() {
       'Error',
       5
     );
+  }
+}
+
+/**
+ * Resetea todos los datos para empezar un nuevo mes
+ */
+function resetearDatosParaNuevoMes() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    // Limpiar Nuevos Ingresos (mantener headers)
+    const nuevos = ss.getSheetByName('Nuevos Ingresos');
+    if (nuevos && nuevos.getLastRow() > 1) {
+      nuevos.getRange(2, 1, nuevos.getLastRow() - 1, 9).clearContent();
+      nuevos.getRange(2, 1, nuevos.getLastRow() - 1, 9).setBackground(null);
+    }
+
+    // Limpiar Terapias (mantener headers)
+    const terapias = ss.getSheetByName('Terapias');
+    if (terapias && terapias.getLastRow() > 1) {
+      terapias.getRange(2, 1, terapias.getLastRow() - 1, 8).clearContent();
+      terapias.getRange(2, 1, terapias.getLastRow() - 1, 8).setBackground(null);
+    }
+
+    // Limpiar Procesos Culminados (mantener headers)
+    const culminados = ss.getSheetByName('Procesos Culminados');
+    if (culminados && culminados.getLastRow() > 1) {
+      culminados.getRange(2, 1, culminados.getLastRow() - 1, 6).clearContent();
+    }
+
+    // Limpiar Deserciones (mantener headers)
+    const deserciones = ss.getSheetByName('Deserciones');
+    if (deserciones && deserciones.getLastRow() > 1) {
+      deserciones.getRange(2, 1, deserciones.getLastRow() - 1, 6).clearContent();
+    }
+
+    // Limpiar Intervención de casos (mantener headers)
+    const gestion = ss.getSheetByName('Intervención de casos');
+    if (gestion && gestion.getLastRow() > 1) {
+      gestion.getRange(2, 1, gestion.getLastRow() - 1, 6).clearContent();
+    }
+
+    // Limpiar Personas no asistidas (mantener headers)
+    const noAsistidas = ss.getSheetByName('Personas no asistidas');
+    if (noAsistidas && noAsistidas.getLastRow() > 1) {
+      noAsistidas.getRange(2, 1, noAsistidas.getLastRow() - 1, 8).clearContent();
+    }
+
+    // Actualizar reportes
+    actualizarReportes();
+
+    Logger.log('✅ Datos reseteados para nuevo mes');
+  } catch (error) {
+    Logger.log('❌ Error reseteando datos: ' + error.toString());
+    throw error;
   }
 }
 
