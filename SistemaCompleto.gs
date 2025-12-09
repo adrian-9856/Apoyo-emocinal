@@ -279,18 +279,23 @@ function crearTerapias() {
 
   const headers = [
     'Terapeuta', 'Participante', 'Creemos ID', 'Género',
-    'Tipo Terapia', 'No. Sesión', 'Estado', 'Motivo Finalización'
+    'Tipo Terapia', 'No. Sesión', 'Estado', 'Motivo Finalización', 'Sesiones Mes Anterior'
   ];
 
-  sheet.getRange(1, 1, 1, 8).setValues([headers])
+  sheet.getRange(1, 1, 1, 9).setValues([headers])
     .setBackground('#2e7d32')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 200, 120, 80, 120, 80, 120, 300].forEach((w, i) => {
+  [120, 200, 120, 80, 120, 80, 120, 300, 120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
+
+  // Inicializar columna I con 0
+  for (let i = 2; i <= 200; i++) {
+    sheet.getRange('I' + i).setValue(0);
+  }
 }
 
 function crearProcesosCulminados() {
@@ -390,12 +395,12 @@ function crearReporte() {
     ['Karina - Casos activos', '=COUNTIFS(Terapias!A:A,"Karina",Terapias!G:G,"En proceso")'],
     ['Total casos activos', '=B19+B20+B21+B22'],
     ['', ''],
-    ['📊 TOTAL TERAPIAS POR TERAPEUTA', ''],
-    ['Gerber - Total terapias', '=COUNTIF(Terapias!A2:A,"Gerber")'],
-    ['Melissa - Total terapias', '=COUNTIF(Terapias!A2:A,"Melissa")'],
-    ['Diana - Total terapias', '=COUNTIF(Terapias!A2:A,"Diana")'],
-    ['Karina - Total terapias', '=COUNTIF(Terapias!A2:A,"Karina")'],
-    ['Total general', '=B25+B26+B27+B28'],
+    ['📊 SESIONES DEL MES POR TERAPEUTA', ''],
+    ['Gerber - Sesiones este mes', '=SUMPRODUCT((Terapias!A2:A200="Gerber")*(Terapias!F2:F200-Terapias!I2:I200))'],
+    ['Melissa - Sesiones este mes', '=SUMPRODUCT((Terapias!A2:A200="Melissa")*(Terapias!F2:F200-Terapias!I2:I200))'],
+    ['Diana - Sesiones este mes', '=SUMPRODUCT((Terapias!A2:A200="Diana")*(Terapias!F2:F200-Terapias!I2:I200))'],
+    ['Karina - Sesiones este mes', '=SUMPRODUCT((Terapias!A2:A200="Karina")*(Terapias!F2:F200-Terapias!I2:I200))'],
+    ['Total sesiones este mes', '=B25+B26+B27+B28'],
     ['', ''],
     ['🎉 PROCESOS CULMINADOS', ''],
     ['Total culminados', '=COUNTA(\'Procesos Culminados\'!A:A)-1'],
@@ -680,7 +685,20 @@ function alEditar(e) {
     }
   }
 
-  // CASO 3: Terapias - Cambio de Estado
+  // CASO 3: Terapias - Cambio de Número de Sesión
+  if (hoja === 'Terapias' && columna === 6) {
+    Logger.log('✅ Detectado cambio en No. Sesión en Terapias');
+    Logger.log('   Fila: ' + fila + ', Nuevo valor: ' + val);
+
+    try {
+      actualizarReportes();
+      Logger.log('✅ Reportes actualizados');
+    } catch (error) {
+      Logger.log('❌ ERROR actualizando reportes: ' + error.toString());
+    }
+  }
+
+  // CASO 4: Terapias - Cambio de Estado
   if (hoja === 'Terapias' && columna === 7) {
     if (val === 'Proceso culminado' || val === 'deserciones') {
       Logger.log('✅ Detectado cambio de estado en Terapias: ' + val);
@@ -945,10 +963,11 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
     tipoAtencion || 'Individual',
     1,
     'En proceso',
-    ''
+    '',
+    0  // Sesiones Mes Anterior (inicializa en 0)
   ];
 
-  terapias.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
+  terapias.getRange(nuevaFila, 1, 1, 9).setValues([registro]);
 
   // Marcar como procesado
   sheetOrigen.getRange(fila, 1, 1, 11).setBackground('#d4edda');
@@ -2065,15 +2084,15 @@ function guardarReporteMensual() {
 
     const mesActual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM yyyy');
     const nuevosIngresos = reporte.getRange('B7').getValue();
-    const culminados = reporte.getRange('B20').getValue();
-    const deserciones = reporte.getRange('B24').getValue();
-    const gestion = reporte.getRange('B28').getValue();
-    const activos = reporte.getRange('B16').getValue();
-    const tasaExito = reporte.getRange('B31').getValue();
-    const gerber = reporte.getRange('B12').getValue();
-    const melissa = reporte.getRange('B13').getValue();
-    const diana = reporte.getRange('B14').getValue();
-    const karina = reporte.getRange('B15').getValue();
+    const culminados = reporte.getRange('B34').getValue(); // Culminados este mes
+    const deserciones = reporte.getRange('B39').getValue(); // Deserciones este mes
+    const gestion = reporte.getRange('B43').getValue(); // Total en intervención
+    const activos = reporte.getRange('B23').getValue(); // Total casos activos
+    const tasaExito = reporte.getRange('B47').getValue(); // Tasa de éxito
+    const gerber = reporte.getRange('B26').getValue(); // Sesiones este mes
+    const melissa = reporte.getRange('B27').getValue(); // Sesiones este mes
+    const diana = reporte.getRange('B28').getValue(); // Sesiones este mes
+    const karina = reporte.getRange('B29').getValue(); // Sesiones este mes
 
     const nuevaFila = mensuales.getLastRow() + 1;
     const datos = [
@@ -2151,11 +2170,25 @@ function resetearDatosParaNuevoMes() {
       nuevos.getRange(2, 1, nuevos.getLastRow() - 1, 9).setBackground(null);
     }
 
-    // Limpiar Terapias (mantener headers)
+    // NO limpiar Terapias, solo actualizar "Sesiones Mes Anterior"
+    // Copiar el valor actual de "No. Sesión" (columna F) a "Sesiones Mes Anterior" (columna I)
     const terapias = ss.getSheetByName('Terapias');
     if (terapias && terapias.getLastRow() > 1) {
-      terapias.getRange(2, 1, terapias.getLastRow() - 1, 8).clearContent();
-      terapias.getRange(2, 1, terapias.getLastRow() - 1, 8).setBackground(null);
+      const ultimaFila = terapias.getLastRow();
+
+      // Recorrer cada fila y copiar No. Sesión a Sesiones Mes Anterior
+      for (let fila = 2; fila <= ultimaFila; fila++) {
+        const participante = terapias.getRange(fila, 2).getValue(); // Columna B: Participante
+        const numSesion = terapias.getRange(fila, 6).getValue(); // Columna F: No. Sesión
+
+        // Solo actualizar si hay un participante (fila tiene datos)
+        if (participante && participante.toString().trim() !== '') {
+          // Copiar el número actual de sesiones a "Sesiones Mes Anterior"
+          terapias.getRange(fila, 9).setValue(numSesion || 0); // Columna I
+        }
+      }
+
+      Logger.log('✅ Terapias: Sesiones del mes anterior actualizadas');
     }
 
     // Limpiar Procesos Culminados (mantener headers)
