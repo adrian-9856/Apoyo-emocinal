@@ -2097,14 +2097,13 @@ function enviarRecordatorioReporteMensual() {
       '<li>Abra la hoja de cálculo</li>' +
       '<li>Vaya al menú <strong>📊 Sistema Apoyo Emocional</strong></li>' +
       '<li>Seleccione <strong>💾 Guardar Reporte Mensual</strong></li>' +
-      '<li>Confirme si desea resetear los datos para el nuevo mes</li>' +
       '</ol>' +
       '</div>' +
       '<p style="text-align: center; margin: 20px 0;">' +
       '<a href="' + urlHoja + '" class="button">📊 Abrir Hoja de Cálculo</a>' +
       '</p>' +
       '<p><strong>Sistema:</strong> ' + nombreHoja + '</p>' +
-      '<p style="color: #666; font-size: 14px;">💡 <strong>Nota:</strong> Al guardar el reporte, puede elegir resetear todos los datos a cero para empezar el nuevo mes con el sistema limpio.</p>' +
+      '<p style="color: #666; font-size: 14px;">💡 <strong>Nota:</strong> Al guardar el reporte, el sistema actualizará automáticamente el conteo de sesiones para el nuevo mes. No se borrarán datos.</p>' +
       '</div>' +
       '<div class="footer">' +
       '<p>Este es un mensaje automático del Sistema de Apoyo Emocional</p>' +
@@ -2207,39 +2206,18 @@ function guardarReporteMensual() {
 
     mensuales.getRange(nuevaFila, 1, 1, 12).setValues([datos]);
 
-    // RESETEAR DATOS: Limpiar todas las hojas después de guardar
-    const ui = SpreadsheetApp.getUi();
-    const confirmar = ui.alert(
-      '✅ REPORTE GUARDADO\n\n' +
-      'Mes: ' + mesActual + '\n' +
-      'Fila: ' + nuevaFila + '\n\n' +
-      '¿RESETEAR DATOS A CERO?\n\n' +
-      'Esto limpiará:\n' +
-      '• Nuevos Ingresos\n' +
-      '• Terapias\n' +
-      '• Procesos Culminados\n' +
-      '• Deserciones\n' +
-      '• Intervención de casos\n' +
-      '• Personas no asistidas',
-      ui.ButtonSet.YES_NO
-    );
+    // Actualizar "Sesiones Mes Anterior" para el próximo mes
+    // Copiar el valor actual de "No. Sesión" a "Sesiones Mes Anterior"
+    actualizarSesionesMesAnterior();
 
-    if (confirmar === ui.Button.YES) {
-      resetearDatosParaNuevoMes();
-      ss.toast(
-        '✅ DATOS RESETEADOS\n\n' +
-        'El sistema está listo para el nuevo mes.',
-        'Reset Completo',
-        5
-      );
-    } else {
-      ss.toast(
-        '✅ Reporte guardado\n\n' +
-        'Datos NO reseteados.',
-        'Guardado',
-        3
-      );
-    }
+    ss.toast(
+      '✅ REPORTE MENSUAL GUARDADO\n\n' +
+      'Mes: ' + mesActual + '\n' +
+      'Guardado en fila: ' + nuevaFila + '\n\n' +
+      'Las sesiones del próximo mes se contarán desde cero.',
+      'Reporte Guardado',
+      5
+    );
 
   } catch (error) {
     Logger.log('❌ Error guardando reporte: ' + error.toString());
@@ -2252,20 +2230,14 @@ function guardarReporteMensual() {
 }
 
 /**
- * Resetea todos los datos para empezar un nuevo mes
+ * Actualiza "Sesiones Mes Anterior" para empezar el conteo del nuevo mes
+ * NO borra ningún dato, solo actualiza la columna de tracking
  */
-function resetearDatosParaNuevoMes() {
+function actualizarSesionesMesAnterior() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   try {
-    // Limpiar Nuevos Ingresos (mantener headers)
-    const nuevos = ss.getSheetByName('Nuevos Ingresos');
-    if (nuevos && nuevos.getLastRow() > 1) {
-      nuevos.getRange(2, 1, nuevos.getLastRow() - 1, 9).clearContent();
-      nuevos.getRange(2, 1, nuevos.getLastRow() - 1, 9).setBackground(null);
-    }
-
-    // NO limpiar Terapias, solo actualizar "Sesiones Mes Anterior"
+    // Actualizar "Sesiones Mes Anterior" en Terapias
     // Copiar el valor actual de "No. Sesión" (columna F) a "Sesiones Mes Anterior" (columna I)
     const terapias = ss.getSheetByName('Terapias');
     if (terapias && terapias.getLastRow() > 1) {
@@ -2286,36 +2258,12 @@ function resetearDatosParaNuevoMes() {
       Logger.log('✅ Terapias: Sesiones del mes anterior actualizadas');
     }
 
-    // Limpiar Procesos Culminados (mantener headers)
-    const culminados = ss.getSheetByName('Procesos Culminados');
-    if (culminados && culminados.getLastRow() > 1) {
-      culminados.getRange(2, 1, culminados.getLastRow() - 1, 6).clearContent();
-    }
-
-    // Limpiar Deserciones (mantener headers)
-    const deserciones = ss.getSheetByName('Deserciones');
-    if (deserciones && deserciones.getLastRow() > 1) {
-      deserciones.getRange(2, 1, deserciones.getLastRow() - 1, 6).clearContent();
-    }
-
-    // Limpiar Intervención de casos (mantener headers)
-    const gestion = ss.getSheetByName('Intervención de casos');
-    if (gestion && gestion.getLastRow() > 1) {
-      gestion.getRange(2, 1, gestion.getLastRow() - 1, 6).clearContent();
-    }
-
-    // Limpiar Personas no asistidas (mantener headers)
-    const noAsistidas = ss.getSheetByName('Personas no asistidas');
-    if (noAsistidas && noAsistidas.getLastRow() > 1) {
-      noAsistidas.getRange(2, 1, noAsistidas.getLastRow() - 1, 8).clearContent();
-    }
-
     // Actualizar reportes
     actualizarReportes();
 
-    Logger.log('✅ Datos reseteados para nuevo mes');
+    Logger.log('✅ Sesiones mes anterior actualizadas para nuevo mes');
   } catch (error) {
-    Logger.log('❌ Error reseteando datos: ' + error.toString());
+    Logger.log('❌ Error actualizando sesiones mes anterior: ' + error.toString());
     throw error;
   }
 }
