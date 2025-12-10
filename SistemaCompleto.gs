@@ -534,7 +534,7 @@ function configurarValidaciones() {
 
   // Validaciones de estado
   const estadoRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['En proceso', 'Finalizado', 'Proceso culminado', 'deserciones'])
+    .requireValueInList(['En proceso', 'Proceso culminado', 'deserciones'])
     .setAllowInvalid(false)
     .build();
   terapias.getRange('G2:G200').setDataValidation(estadoRule);
