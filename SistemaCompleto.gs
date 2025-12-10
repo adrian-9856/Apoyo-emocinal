@@ -497,13 +497,31 @@ function configurarValidaciones() {
     .build();
   espera.getRange('F2:F200').setDataValidation(rangoEdadRule);
 
-  // Validaciones de MALESTAR PRINCIPAL - ELIMINADAS de Nuevos Ingresos
-  // Nuevos Ingresos se llena automáticamente desde Lista de Espera
-  // donde el usuario puede escribir libremente, por lo tanto NO debe tener validación
-  // Si ponemos validación aquí, causará errores cuando el texto no coincida exactamente
-
-  // NO aplicar validación de Malestar en Nuevos Ingresos
-  // NO aplicar validación de Malestar en Lista de Espera - el usuario escribe libremente
+  // Validaciones de MALESTAR PRINCIPAL
+  // Aplicar en Lista de Espera (columna G) con opciones específicas
+  const malestarRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList([
+      'Duelo',
+      'Sintomatología depresiva',
+      'Sintomatología de ansiedad',
+      'Dinámica familiar disfuncional',
+      'Sintomatología o Trastorno de Personalidad',
+      'Requerimiento legal',
+      'Violencia de género',
+      'Separación de pareja',
+      'Dificultad en las relaciones interpersonales',
+      'Estrés',
+      'Consumo problemático de sustancias',
+      'Intento o ideación suicida',
+      'Sintomatología de TEA o TEPT',
+      'Problemas de la conducta alimentaria',
+      'Dificultad en la gestión emocional',
+      'Violencia intrafamiliar',
+      'Conducta adictiva'
+    ])
+    .setAllowInvalid(true) // Permitir otros valores para flexibilidad
+    .build();
+  espera.getRange('G2:G200').setDataValidation(malestarRule);
 
   // Validaciones de tipo de atención
   // SOLO aplicar en Terapias (columna E) - donde el usuario puede editar manualmente
