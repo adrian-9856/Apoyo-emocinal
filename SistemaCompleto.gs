@@ -384,6 +384,11 @@ function crearReporte() {
     ['Total no asistidas', '=COUNTA(\'Personas no asistidas\'!B:B)-1'],
     ['No asistidas este mes', '=COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0))'],
     ['', ''],
+    ['🔗 REFERENCIAS Y DERIVACIONES', ''],
+    ['Derivados de Programas Creamos', '=COUNTA(\'Lista de Espera\'!K:K)-1'],
+    ['Derivados de Organizaciones', '=COUNTA(\'Lista de Espera\'!L:L)-1'],
+    ['Total referencias externas', '=B13+B14'],
+    ['', ''],
     ['✅ ASISTENCIAS (HOJAS EXTERNAS)', ''],
     ['Estado conexión', 'No configurado'],
     ['Total asistencias (todas)', 0],
@@ -394,32 +399,32 @@ function crearReporte() {
     ['Melissa - Casos activos', '=COUNTIFS(Terapias!A:A,"Melissa",Terapias!F:F,"En proceso")'],
     ['Diana - Casos activos', '=COUNTIFS(Terapias!A:A,"Diana",Terapias!F:F,"En proceso")'],
     ['Karina - Casos activos', '=COUNTIFS(Terapias!A:A,"Karina",Terapias!F:F,"En proceso")'],
-    ['Total casos activos', '=B19+B20+B21+B22'],
+    ['Total casos activos', '=B23+B24+B25+B26'],
     ['', ''],
     ['📊 SESIONES DEL MES POR TERAPEUTA', ''],
     ['Gerber - Sesiones este mes', '=SUMPRODUCT((Terapias!A2:A200="Gerber")*(Terapias!E2:E200-Terapias!H2:H200))'],
     ['Melissa - Sesiones este mes', '=SUMPRODUCT((Terapias!A2:A200="Melissa")*(Terapias!E2:E200-Terapias!H2:H200))'],
     ['Diana - Sesiones este mes', '=SUMPRODUCT((Terapias!A2:A200="Diana")*(Terapias!E2:E200-Terapias!H2:H200))'],
     ['Karina - Sesiones este mes', '=SUMPRODUCT((Terapias!A2:A200="Karina")*(Terapias!E2:E200-Terapias!H2:H200))'],
-    ['Total sesiones este mes', '=B25+B26+B27+B28'],
+    ['Total sesiones este mes', '=B29+B30+B31+B32'],
     ['', ''],
     ['🎉 PROCESOS CULMINADOS', ''],
     ['Total culminados', '=COUNTA(\'Procesos Culminados\'!A:A)-1'],
     ['Culminados este mes', '=COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0))'],
-    ['Promedio sesiones', '=IF(B32>0,AVERAGE(\'Procesos Culminados\'!E:E),0)'],
+    ['Promedio sesiones', '=IF(B36>0,AVERAGE(\'Procesos Culminados\'!E:E),0)'],
     ['', ''],
     ['⚠️ DESERCIONES', ''],
     ['Total deserciones', '=COUNTA(Deserciones!A:A)-1'],
     ['Deserciones este mes', '=COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0))'],
-    ['Tasa deserción', '=IF((B32+B37)>0,B37/(B32+B37)*100&"%","0%")'],
+    ['Tasa deserción', '=IF((B36+B41)>0,B41/(B36+B41)*100&"%","0%")'],
     ['', ''],
     ['📋 INTERVENCIÓN DE CASOS', ''],
     ['Total en intervención', '=COUNTA(\'Intervención de casos\'!A:A)-1'],
     ['', ''],
     ['📊 ESTADÍSTICAS GENERALES', ''],
-    ['Total casos procesados', '=B32+B37+B42'],
-    ['Tasa de éxito', '=IF(B45>0,B32/B45*100&"%","0%")'],
-    ['Casos activos', '=B23']
+    ['Total casos procesados', '=B36+B41+B46'],
+    ['Tasa de éxito', '=IF(B49>0,B36/B49*100&"%","0%")'],
+    ['Casos activos', '=B27']
   ];
 
   sheet.getRange(1, 1, data.length, 2).setValues(data);
@@ -431,7 +436,7 @@ function crearReporte() {
     .setFontSize(14)
     .setHorizontalAlignment('center');
 
-  const sectionRows = [5, 9, 13, 18, 24, 31, 36, 41, 44];
+  const sectionRows = [5, 9, 13, 17, 22, 28, 35, 40, 45, 48];
   sectionRows.forEach(row => {
     sheet.getRange('A' + row + ':B' + row)
       .setBackground('#4caf50')
@@ -2164,38 +2169,17 @@ function guardarReporteMensual() {
 
     const mesActual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM yyyy');
     const nuevosIngresos = reporte.getRange('B7').getValue();
-    const culminados = reporte.getRange('B34').getValue(); // Culminados este mes
-    const deserciones = reporte.getRange('B39').getValue(); // Deserciones este mes
-    const gestion = reporte.getRange('B43').getValue(); // Total en intervención
-    const activos = reporte.getRange('B23').getValue(); // Total casos activos
-    const tasaExito = reporte.getRange('B47').getValue(); // Tasa de éxito
-    const gerber = reporte.getRange('B26').getValue(); // Sesiones este mes
-    const melissa = reporte.getRange('B27').getValue(); // Sesiones este mes
-    const diana = reporte.getRange('B28').getValue(); // Sesiones este mes
-    const karina = reporte.getRange('B29').getValue(); // Sesiones este mes
-
-    // Contar derivados de Programa Creamos y Organizaciones
-    const espera = ss.getSheetByName('Lista de Espera');
-    let derivadosPrograma = 0;
-    let derivadosOrganizacion = 0;
-
-    if (espera && espera.getLastRow() > 1) {
-      const datosEspera = espera.getRange(2, 1, espera.getLastRow() - 1, 15).getValues();
-      for (let i = 0; i < datosEspera.length; i++) {
-        const programaCreamos = datosEspera[i][10]; // Columna K (índice 10)
-        const organizacion = datosEspera[i][11]; // Columna L (índice 11)
-
-        // Solo contar si tiene valor en Programa Creamos
-        if (programaCreamos && programaCreamos.toString().trim() !== '') {
-          derivadosPrograma++;
-        }
-
-        // Solo contar si tiene valor en Organización
-        if (organizacion && organizacion.toString().trim() !== '') {
-          derivadosOrganizacion++;
-        }
-      }
-    }
+    const culminados = reporte.getRange('B36').getValue(); // Culminados este mes
+    const deserciones = reporte.getRange('B41').getValue(); // Deserciones este mes
+    const gestion = reporte.getRange('B46').getValue(); // Total en intervención
+    const activos = reporte.getRange('B27').getValue(); // Total casos activos
+    const tasaExito = reporte.getRange('B51').getValue(); // Tasa de éxito
+    const gerber = reporte.getRange('B29').getValue(); // Sesiones este mes
+    const melissa = reporte.getRange('B30').getValue(); // Sesiones este mes
+    const diana = reporte.getRange('B31').getValue(); // Sesiones este mes
+    const karina = reporte.getRange('B32').getValue(); // Sesiones este mes
+    const derivadosPrograma = reporte.getRange('B13').getValue(); // Derivados Programa Creamos
+    const derivadosOrganizacion = reporte.getRange('B14').getValue(); // Derivados Organizaciones
 
     const nuevaFila = mensuales.getLastRow() + 1;
     const datos = [
