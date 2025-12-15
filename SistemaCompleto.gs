@@ -478,12 +478,16 @@ function configurarValidaciones() {
   const nuevos = ss.getSheetByName('Nuevos Ingresos');
   const terapias = ss.getSheetByName('Terapias');
   const espera = ss.getSheetByName('Lista de Espera');
+  const intervencion = ss.getSheetByName('Intervención de casos');
 
   // LIMPIAR TODAS las validaciones existentes primero
   // clearDataValidations() debe llamarse sobre un rango, no sobre la hoja
   nuevos.getRange('A1:Z200').clearDataValidations();
   espera.getRange('A1:Z200').clearDataValidations();
   terapias.getRange('A1:Z200').clearDataValidations();
+  if (intervencion) {
+    intervencion.getRange('A1:Z200').clearDataValidations();
+  }
 
   // Validaciones de género
   // SOLO en hojas donde el usuario EDITA manualmente
@@ -564,6 +568,24 @@ function configurarValidaciones() {
     .setAllowInvalid(false)
     .build();
   espera.getRange('O2:O200').setDataValidation(asistenciaRule);
+
+  // Validaciones de Tipo de Intervención - en Intervención de casos columna E
+  if (intervencion) {
+    const tipoIntervencionRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList([
+        'Sintomatología de depresión',
+        'Crisis suicida',
+        'Consumo de sustancias',
+        'Sintomatología de ansiedad',
+        'Duelo reciente',
+        'Violencia comunitaria',
+        'VdG',
+        'Estrés'
+      ])
+      .setAllowInvalid(true)
+      .build();
+    intervencion.getRange('E2:E200').setDataValidation(tipoIntervencionRule);
+  }
 
   // =====================================================================
   // RESUMEN DE VALIDACIONES POR HOJA:
