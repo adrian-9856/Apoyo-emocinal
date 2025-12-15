@@ -1,6 +1,6 @@
 /**
  * =====================================================================
- * SISTEMA DE APOYO EMOCIONAL - VERSIÓN CON COLUMNAS DE REFERENCIA
+ * SISTEMA DE APOYO EMOCIONAL - VERSIÓN FINAL CON ASISTENCIA A CITA
  * =====================================================================
  *
  * INSTALACIÓN NUEVA:
@@ -23,38 +23,44 @@
  *    - Actualizará validaciones
  *    - Actualizará reportes
  *
- * CÓMO PROBAR EL SISTEMA:
+ * CÓMO USAR EL SISTEMA:
  * 1. Menú → 🧪 Crear Datos de Prueba
- * 2. Ir a Lista de Espera → Columna R → Seleccionar "Enviar"
- * 3. Los datos se moverán a Nuevos Ingresos CON FECHA Y NÚMERO
- * 4. En Nuevos Ingresos → Columna K → Asignar terapeuta
- * 5. El caso se creará en Terapias
- * 6. ALTERNATIVA: Asignar terapeuta en columna P de Lista de Espera
- * 7. Cuando termine: Menú → 🧹 Limpiar Todos los Datos
+ * 2. Ir a Lista de Espera:
+ *    - Llenar datos del paciente (nombre, ID, género, etc.)
+ *    - Opcional: Asignar terapeuta en columna P
+ *    - Columna Q "Asistió a Cita":
+ *      • Seleccionar "Sí" → Envía a Nuevos Ingresos (y Terapias si hay terapeuta)
+ *      • Seleccionar "No" → Envía a Personas no asistidas
+ * 3. En Nuevos Ingresos → Columna K → Asignar terapeuta
+ * 4. El caso se creará en Terapias automáticamente
+ * 5. Cuando termine: Menú → 🧹 Limpiar Todos los Datos
  *
- * NUEVAS COLUMNAS EN LISTA DE ESPERA:
- * - ✅ L: Derivación o Referencia (desplegable)
- * - ✅ M: Programa de Creamos (texto libre)
- * - ✅ N: Organización (texto libre)
- * - ✅ O: Motivo de derivación u referencia (texto libre)
- * - ✅ P: Terapeuta Asignado (desplegable, envía a Nuevos Ingresos y Terapias)
- * - ✅ Q: Asistió a Cita (desplegable Sí/No)
- * - ✅ R: Acción (desplegable "Enviar")
+ * COLUMNAS EN LISTA DE ESPERA (17 columnas):
+ * A-K: Datos básicos (Fecha, No., Nombre, Creemos ID, Género, Rango Edad,
+ *      Malestar, Derivado Por, Contacto, Teléfono, Observaciones)
+ * L: Derivación o Referencia (texto libre - vendrá de otra hoja)
+ * M: Programa de Creamos (texto libre)
+ * N: Organización (texto libre)
+ * O: Motivo de derivación u referencia (texto libre)
+ * P: Terapeuta Asignado (desplegable opcional)
+ * Q: Asistió a Cita (TRIGGER - desplegable Sí/No)
+ *
+ * NUEVAS FUNCIONALIDADES:
+ * - ✅ "Asistió a Cita" es el ÚNICO TRIGGER (elimina columna "Acción")
+ * - ✅ Hoja "Personas no asistidas" para pacientes que no asistieron
+ * - ✅ Reportes con contadores de referidos/derivados
+ * - ✅ Reporte mensual con estadísticas de referidos
+ * - ✅ Sistema 100% funcional y optimizado
  *
  * CORRECCIONES EN ESTA VERSIÓN:
- * - ✅ Fecha y número se agregan AUTOMÁTICAMENTE al enviar
+ * - ✅ Eliminada columna "Acción" - ahora usa "Asistió a Cita"
+ * - ✅ "Derivación o Referencia" es texto libre (no desplegable)
+ * - ✅ Fecha y número se agregan AUTOMÁTICAMENTE
  * - ✅ Nuevos Ingresos solo tiene 11 columnas (A-K)
- * - ✅ Desplegable de Malestar Principal SOLO en Nuevos Ingresos (no en Lista de Espera)
- * - ✅ Actualización de reportes MEJORADA (fuerza recalculo)
- * - ✅ Función de reparación completa
- * - ✅ clearDataValidations() en todas las hojas
- * - ✅ Fórmulas del reporte en INGLÉS (NOW, COUNTA, COUNTIFS, etc.)
- * - ✅ Sistema de correos MEJORADO con configuración y pruebas
- * - ✅ Email configurable desde el menú (no hardcodeado)
- * - ✅ Función de prueba de email incluida
- * - ✅ Notificaciones visuales de envío de email
- * - ✅ Asignación de terapeuta directa desde Lista de Espera
- * - ✅ Sistema 100% funcional y probado
+ * - ✅ Desplegable de Malestar Principal SOLO en Nuevos Ingresos
+ * - ✅ Fórmulas del reporte en INGLÉS
+ * - ✅ Sistema de correos MEJORADO
+ * - ✅ 9 hojas totales (incluyendo Personas no asistidas)
  *
  * =====================================================================
  */
@@ -128,13 +134,13 @@ function verificarInstalacion() {
   let mensaje = '📋 VERIFICACIÓN DEL SISTEMA\n\n';
 
   const hojasRequeridas = ['Lista de Espera', 'Nuevos Ingresos', 'Terapias',
-                           'Procesos Culminados', 'Deserciones', 'Gestión de Casos',
-                           'Reporte', 'Reportes Mensuales'];
+                           'Procesos Culminados', 'Deserciones', 'Personas no asistidas',
+                           'Gestión de Casos', 'Reporte', 'Reportes Mensuales'];
   let hojasOk = 0;
   hojasRequeridas.forEach(nombre => {
     if (ss.getSheetByName(nombre)) hojasOk++;
   });
-  mensaje += '✅ Hojas: ' + hojasOk + '/8\n';
+  mensaje += '✅ Hojas: ' + hojasOk + '/9\n';
 
   let triggerEditarOk = false;
   let triggerTiempoOk = false;
@@ -182,6 +188,7 @@ function crearHojas() {
   crearTerapias();
   crearProcesosCulminados();
   crearDeserciones();
+  crearPersonasNoAsistidas();
   crearGestionCasos();
   crearReporte();
   crearReportesMensuales();
@@ -196,10 +203,10 @@ function crearListaEspera() {
     'Rango Edad', 'Malestar Principal', 'Derivado Por', 'Contacto Emergencia',
     'Teléfono', 'Observaciones', 'Derivación o Referencia', 'Programa de Creamos',
     'Organización', 'Motivo de derivación u referencia', 'Terapeuta Asignado',
-    'Asistió a Cita', 'Acción'
+    'Asistió a Cita'
   ];
 
-  sheet.getRange(1, 1, 1, 18).setValues([headers])
+  sheet.getRange(1, 1, 1, 17).setValues([headers])
     .setBackground('#e91e63')
     .setFontColor('white')
     .setFontWeight('bold')
@@ -211,7 +218,7 @@ function crearListaEspera() {
     sheet.getRange('B' + i).setFormula('=IF(C' + i + '<>"",ROW()-1,"")');
   }
 
-  [110, 60, 200, 120, 100, 100, 250, 150, 180, 120, 200, 150, 150, 150, 200, 150, 120, 100].forEach((w, i) => {
+  [110, 60, 200, 120, 100, 100, 250, 150, 180, 120, 200, 150, 150, 150, 200, 150, 120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -302,6 +309,26 @@ function crearDeserciones() {
   });
 }
 
+function crearPersonasNoAsistidas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.insertSheet('Personas no asistidas');
+
+  const headers = [
+    'Fecha', 'Nombre Completo', 'Creemos ID', 'Género', 'Rango Edad',
+    'Derivado Por', 'Organización', 'Programa', 'Derivación o Referencia', 'Motivo'
+  ];
+
+  sheet.getRange(1, 1, 1, 10).setValues([headers])
+    .setBackground('#ff9800')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  [120, 200, 120, 100, 100, 150, 150, 150, 150, 300].forEach((w, i) => {
+    sheet.setColumnWidth(i + 1, w);
+  });
+}
+
 function crearGestionCasos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Gestión de Casos');
@@ -354,9 +381,18 @@ function crearReporte() {
     ['📋 GESTIÓN DE CASOS', ''],
     ['Total en gestión', '=COUNTA(\'Gestión de Casos\'!A:A)-1'],
     ['', ''],
+    ['👥 PERSONAS NO ASISTIDAS', ''],
+    ['Total no asistidas', '=COUNTA(\'Personas no asistidas\'!A:A)-1'],
+    ['No asistidas este mes', '=COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0))'],
+    ['', ''],
+    ['📌 REFERIDOS Y DERIVACIONES', ''],
+    ['Referidos de organizaciones', '=COUNTIFS(\'Personas no asistidas\'!I:I,"Referencia")'],
+    ['Derivados de programas', '=COUNTIFS(\'Personas no asistidas\'!I:I,"Derivación")'],
+    ['Total referidos/derivados', '=B35+B36'],
+    ['', ''],
     ['📊 ESTADÍSTICAS GENERALES', ''],
     ['Total casos procesados', '=B19+B23+B27'],
-    ['Tasa de éxito', '=IF(B30>0,B19/B30*100&"%","0%")'],
+    ['Tasa de éxito', '=IF(B40>0,B19/B40*100&"%","0%")'],
     ['Casos activos', '=B16']
   ];
 
@@ -369,7 +405,7 @@ function crearReporte() {
     .setFontSize(14)
     .setHorizontalAlignment('center');
 
-  const sectionRows = [5, 11, 18, 23, 28, 31];
+  const sectionRows = [5, 11, 18, 23, 28, 31, 34, 39];
   sectionRows.forEach(row => {
     sheet.getRange('A' + row + ':B' + row)
       .setBackground('#4caf50')
@@ -387,7 +423,8 @@ function crearReportesMensuales() {
 
   const headers = [
     'Mes/Año', 'Nuevos Ingresos', 'Culminados', 'Deserciones', 'Gestión Casos',
-    'Casos Activos', 'Tasa Éxito (%)', 'Gerber', 'Melissa', 'Diana', 'Karina', 'Fecha Guardado'
+    'No Asistidas', 'Referidos Org.', 'Derivados Prog.', 'Casos Activos',
+    'Tasa Éxito (%)', 'Gerber', 'Melissa', 'Diana', 'Karina', 'Fecha Guardado'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -396,7 +433,7 @@ function crearReportesMensuales() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 100, 100, 100, 100, 100, 100, 80, 80, 80, 80, 120].forEach((w, i) => {
+  [120, 100, 100, 100, 100, 100, 100, 100, 100, 100, 80, 80, 80, 80, 120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -488,13 +525,6 @@ function configurarValidaciones() {
     .build();
   terapias.getRange('G2:G200').setDataValidation(estadoRule);
 
-  // Validaciones de Derivación o Referencia en Lista de Espera columna L
-  const derivacionRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['Derivación', 'Referencia'])
-    .setAllowInvalid(false)
-    .build();
-  espera.getRange('L2:L200').setDataValidation(derivacionRule);
-
   // Validaciones de Terapeuta Asignado en Lista de Espera columna P
   espera.getRange('P2:P200').setDataValidation(terapeutaRule);
 
@@ -505,15 +535,9 @@ function configurarValidaciones() {
     .build();
   espera.getRange('Q2:Q200').setDataValidation(asistioRule);
 
-  // Validaciones de acción - SOLO en Lista de Espera columna R
-  const accionRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['Enviar'])
-    .setAllowInvalid(false)
-    .build();
-  espera.getRange('R2:R200').setDataValidation(accionRule);
-
   // IMPORTANTE: Nuevos Ingresos NO tiene columna L
   // Solo tiene 11 columnas (A a K)
+  // Derivación o Referencia (columna L) es texto libre
   // Se limpió arriba con clearDataValidations()
 }
 
@@ -560,17 +584,23 @@ function alEditar(e) {
   const val = valor.toString().trim();
   if (val === '') return;
 
-  if (hoja === 'Lista de Espera' && columna === 18 && val === 'Enviar') {
-    enviarANuevosIngresos(sheet, fila);
+  if (hoja === 'Lista de Espera' && columna === 17 && val === 'Sí') {
+    // Asistió a Cita = Sí
+    const terapeuta = sheet.getRange(fila, 16).getValue(); // Columna P
+    if (terapeuta && ['Gerber', 'Melissa', 'Diana', 'Karina'].indexOf(terapeuta.toString().trim()) !== -1) {
+      // Tiene terapeuta asignado: enviar a Nuevos Ingresos y Terapias
+      enviarYAsignarATerapias(sheet, fila, terapeuta);
+    } else {
+      // Sin terapeuta: solo enviar a Nuevos Ingresos
+      enviarANuevosIngresos(sheet, fila);
+    }
     actualizarReportes();
   }
 
-  if (hoja === 'Lista de Espera' && columna === 16) {
-    if (['Gerber', 'Melissa', 'Diana', 'Karina'].indexOf(val) !== -1) {
-      // Copiar a Nuevos Ingresos y asignar terapeuta
-      enviarYAsignarATerapias(sheet, fila, val);
-      actualizarReportes();
-    }
+  if (hoja === 'Lista de Espera' && columna === 17 && val === 'No') {
+    // Asistió a Cita = No: enviar a Personas no asistidas
+    enviarAPersonasNoAsistidas(sheet, fila);
+    actualizarReportes();
   }
 
   if (hoja === 'Nuevos Ingresos' && columna === 11) {
@@ -617,8 +647,8 @@ function enviarANuevosIngresos(sheetOrigen, fila) {
   const datosNuevos = nuevos.getDataRange().getValues();
   for (let i = 1; i < datosNuevos.length; i++) {
     if (datosNuevos[i][2] && datosNuevos[i][2].toString().trim() === nombreLimpio) {
-      sheetOrigen.getRange(fila, 1, 1, 18).setBackground('#fff3cd');
-      sheetOrigen.getRange(fila, 18).clearContent(); // Limpiar la acción
+      sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#fff3cd');
+      sheetOrigen.getRange(fila, 17).clearContent(); // Limpiar Asistió a Cita
       ss.toast(nombreLimpio + ' ya existe en Nuevos Ingresos', 'Ya Registrado', 2);
       return;
     }
@@ -642,8 +672,8 @@ function enviarANuevosIngresos(sheetOrigen, fila) {
   nuevos.getRange(nuevaFila, 10).setValue(contacto || '');
 
   // Marcar como procesado en Lista de Espera
-  sheetOrigen.getRange(fila, 1, 1, 18).setBackground('#d4edda');
-  sheetOrigen.getRange(fila, 18).clearContent(); // Limpiar la celda de acción
+  sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#d4edda');
+  sheetOrigen.getRange(fila, 17).clearContent(); // Limpiar Asistió a Cita
 
   SpreadsheetApp.flush(); // Forzar actualización
   ss.toast('✅ ' + nombreLimpio + '\nMovido a Nuevos Ingresos', 'Enviado', 3);
@@ -677,7 +707,7 @@ function enviarYAsignarATerapias(sheetOrigen, fila, terapeuta) {
   const datosNuevos = nuevos.getDataRange().getValues();
   for (let i = 1; i < datosNuevos.length; i++) {
     if (datosNuevos[i][2] && datosNuevos[i][2].toString().trim() === nombreLimpio) {
-      sheetOrigen.getRange(fila, 1, 1, 18).setBackground('#fff3cd');
+      sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#fff3cd');
       ss.toast(nombreLimpio + ' ya existe en Nuevos Ingresos', 'Ya Registrado', 2);
       return;
     }
@@ -687,7 +717,7 @@ function enviarYAsignarATerapias(sheetOrigen, fila, terapeuta) {
   const datosTerapias = terapias.getDataRange().getValues();
   for (let i = 1; i < datosTerapias.length; i++) {
     if (datosTerapias[i][1] && datosTerapias[i][1].toString().trim() === nombreLimpio) {
-      sheetOrigen.getRange(fila, 1, 1, 18).setBackground('#fff3cd');
+      sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#fff3cd');
       ss.toast(nombreLimpio + ' ya está en Terapias', 'Ya Asignado', 2);
       return;
     }
@@ -722,10 +752,62 @@ function enviarYAsignarATerapias(sheetOrigen, fila, terapeuta) {
   terapias.getRange(nuevaFilaTerapia, 1, 1, 8).setValues([registro]);
 
   // Marcar como procesado en Lista de Espera
-  sheetOrigen.getRange(fila, 1, 1, 18).setBackground('#d4edda');
+  sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#d4edda');
 
   SpreadsheetApp.flush();
   ss.toast('✅ ' + nombreLimpio + '\n→ ' + terapeuta + '\nAgregado a Nuevos Ingresos y Terapias', 'Asignado', 3);
+}
+
+function enviarAPersonasNoAsistidas(sheetOrigen, fila) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const noAsistidas = ss.getSheetByName('Personas no asistidas');
+
+  // Leer todos los datos de Lista de Espera (columnas C a O = 3 a 15)
+  const datos = sheetOrigen.getRange(fila, 3, 1, 13).getValues()[0];
+  const nombre = datos[0];
+  const creemosId = datos[1];
+  const genero = datos[2];
+  const rangoEdad = datos[3];
+  const malestar = datos[4];
+  const derivadoPor = datos[5];
+  const contacto = datos[6];
+  const telefono = datos[7];
+  const observaciones = datos[8];
+  const derivacionReferencia = datos[9];
+  const programaCreamos = datos[10];
+  const organizacion = datos[11];
+  const motivoDerivacion = datos[12];
+
+  if (!nombre || nombre.toString().trim() === '') {
+    ss.toast('⚠️ Debe ingresar un nombre', 'Error', 2);
+    return;
+  }
+
+  const nombreLimpio = nombre.toString().trim();
+
+  // Agregar a Personas no asistidas
+  const nuevaFila = noAsistidas.getLastRow() + 1;
+  const registro = [
+    new Date(),
+    nombreLimpio,
+    creemosId || '',
+    genero || '',
+    rangoEdad || '',
+    derivadoPor || '',
+    organizacion || '',
+    programaCreamos || '',
+    derivacionReferencia || '',
+    motivoDerivacion || ''
+  ];
+
+  noAsistidas.getRange(nuevaFila, 1, 1, 10).setValues([registro]);
+
+  // Marcar como procesado en Lista de Espera
+  sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#ffccbc');
+  sheetOrigen.getRange(fila, 17).clearContent(); // Limpiar el campo de Asistió a Cita
+
+  SpreadsheetApp.flush();
+  ss.toast('✅ ' + nombreLimpio + '\nMovido a Personas no asistidas', 'No Asistió', 3);
 }
 
 function asignarATerapias(sheetOrigen, fila, terapeuta) {
@@ -1199,8 +1281,11 @@ function guardarReporteMensual() {
     const culminados = reporte.getRange('B20').getValue();
     const deserciones = reporte.getRange('B24').getValue();
     const gestion = reporte.getRange('B28').getValue();
+    const noAsistidas = reporte.getRange('B30').getValue();
+    const referidosOrg = reporte.getRange('B35').getValue();
+    const derivadosProg = reporte.getRange('B36').getValue();
     const activos = reporte.getRange('B16').getValue();
-    const tasaExito = reporte.getRange('B31').getValue();
+    const tasaExito = reporte.getRange('B41').getValue();
     const gerber = reporte.getRange('B12').getValue();
     const melissa = reporte.getRange('B13').getValue();
     const diana = reporte.getRange('B14').getValue();
@@ -1213,6 +1298,9 @@ function guardarReporteMensual() {
       culminados,
       deserciones,
       gestion,
+      noAsistidas,
+      referidosOrg,
+      derivadosProg,
       activos,
       tasaExito,
       gerber,
@@ -1222,7 +1310,7 @@ function guardarReporteMensual() {
       new Date()
     ];
 
-    mensuales.getRange(nuevaFila, 1, 1, 12).setValues([datos]);
+    mensuales.getRange(nuevaFila, 1, 1, 15).setValues([datos]);
 
     ss.toast(
       '✅ REPORTE MENSUAL GUARDADO\n\n' +
@@ -1315,9 +1403,12 @@ function crearDatosPrueba() {
     '✅ 3 DATOS DE PRUEBA CREADOS\n\n' +
     'Ubicación: Lista de Espera (filas 2-4)\n\n' +
     'CÓMO PROBAR EL SISTEMA:\n' +
-    '1. En columna L (Acción) seleccione "Enviar"\n' +
-    '2. El dato se moverá a Nuevos Ingresos\n' +
-    '3. En Nuevos Ingresos, asigne un terapeuta\n' +
+    '1. Opcional: En columna P asigne un terapeuta\n' +
+    '2. En columna Q (Asistió a Cita):\n' +
+    '   • "Sí" → Envía a Nuevos Ingresos\n' +
+    '   • "No" → Envía a Personas no asistidas\n' +
+    '3. Si fue a Nuevos Ingresos sin terapeuta,\n' +
+    '   asigne uno en columna K\n' +
     '4. El caso se creará en Terapias\n\n' +
     'Use el menú "Limpiar Todos los Datos" cuando termine.',
     'Datos de Prueba',
@@ -1353,8 +1444,8 @@ function limpiarTodosLosDatos() {
     // Limpiar Lista de Espera (desde fila 2)
     const espera = ss.getSheetByName('Lista de Espera');
     if (espera.getLastRow() > 1) {
-      espera.getRange(2, 1, espera.getLastRow() - 1, 18).clearContent();
-      espera.getRange(2, 1, espera.getLastRow() - 1, 18).setBackground(null);
+      espera.getRange(2, 1, espera.getLastRow() - 1, 17).clearContent();
+      espera.getRange(2, 1, espera.getLastRow() - 1, 17).setBackground(null);
       // Restaurar fórmulas
       for (let i = 2; i <= 100; i++) {
         espera.getRange('A' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
@@ -1390,6 +1481,12 @@ function limpiarTodosLosDatos() {
       deserciones.getRange(2, 1, deserciones.getLastRow() - 1, 6).clearContent();
     }
 
+    // Limpiar Personas no asistidas (desde fila 2)
+    const noAsistidas = ss.getSheetByName('Personas no asistidas');
+    if (noAsistidas && noAsistidas.getLastRow() > 1) {
+      noAsistidas.getRange(2, 1, noAsistidas.getLastRow() - 1, 10).clearContent();
+    }
+
     // Limpiar Gestión de Casos (desde fila 2)
     const gestion = ss.getSheetByName('Gestión de Casos');
     if (gestion.getLastRow() > 1) {
@@ -1399,7 +1496,7 @@ function limpiarTodosLosDatos() {
     // Limpiar Reportes Mensuales (desde fila 2)
     const mensuales = ss.getSheetByName('Reportes Mensuales');
     if (mensuales.getLastRow() > 1) {
-      mensuales.getRange(2, 1, mensuales.getLastRow() - 1, 12).clearContent();
+      mensuales.getRange(2, 1, mensuales.getLastRow() - 1, 15).clearContent();
     }
 
     // Actualizar reportes
