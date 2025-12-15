@@ -1,6 +1,6 @@
 /**
  * =====================================================================
- * SISTEMA DE APOYO EMOCIONAL - VERSIÓN FINAL CORREGIDA
+ * SISTEMA DE APOYO EMOCIONAL - VERSIÓN CON COLUMNAS DE REFERENCIA
  * =====================================================================
  *
  * INSTALACIÓN NUEVA:
@@ -19,21 +19,30 @@
  * SI YA TENÍAS EL SISTEMA INSTALADO:
  * 1. Actualizar el código (copiar y pegar todo este archivo)
  * 2. Menú → 🔧 Reparar Validaciones
- *    - Quitará el desplegable de columna L
- *    - Agregará desplegable de Malestar Principal
+ *    - Configurará las nuevas columnas
+ *    - Actualizará validaciones
  *    - Actualizará reportes
  *
  * CÓMO PROBAR EL SISTEMA:
  * 1. Menú → 🧪 Crear Datos de Prueba
- * 2. Ir a Lista de Espera → Columna L → Seleccionar "Enviar"
+ * 2. Ir a Lista de Espera → Columna R → Seleccionar "Enviar"
  * 3. Los datos se moverán a Nuevos Ingresos CON FECHA Y NÚMERO
  * 4. En Nuevos Ingresos → Columna K → Asignar terapeuta
  * 5. El caso se creará en Terapias
- * 6. Cuando termine: Menú → 🧹 Limpiar Todos los Datos
+ * 6. ALTERNATIVA: Asignar terapeuta en columna P de Lista de Espera
+ * 7. Cuando termine: Menú → 🧹 Limpiar Todos los Datos
+ *
+ * NUEVAS COLUMNAS EN LISTA DE ESPERA:
+ * - ✅ L: Derivación o Referencia (desplegable)
+ * - ✅ M: Programa de Creamos (texto libre)
+ * - ✅ N: Organización (texto libre)
+ * - ✅ O: Motivo de derivación u referencia (texto libre)
+ * - ✅ P: Terapeuta Asignado (desplegable, envía a Nuevos Ingresos y Terapias)
+ * - ✅ Q: Asistió a Cita (desplegable Sí/No)
+ * - ✅ R: Acción (desplegable "Enviar")
  *
  * CORRECCIONES EN ESTA VERSIÓN:
  * - ✅ Fecha y número se agregan AUTOMÁTICAMENTE al enviar
- * - ✅ Eliminado completamente desplegable de columna L
  * - ✅ Nuevos Ingresos solo tiene 11 columnas (A-K)
  * - ✅ Desplegable de Malestar Principal SOLO en Nuevos Ingresos (no en Lista de Espera)
  * - ✅ Actualización de reportes MEJORADA (fuerza recalculo)
@@ -44,6 +53,7 @@
  * - ✅ Email configurable desde el menú (no hardcodeado)
  * - ✅ Función de prueba de email incluida
  * - ✅ Notificaciones visuales de envío de email
+ * - ✅ Asignación de terapeuta directa desde Lista de Espera
  * - ✅ Sistema 100% funcional y probado
  *
  * =====================================================================
@@ -184,10 +194,12 @@ function crearListaEspera() {
   const headers = [
     'Fecha Solicitud', 'No.', 'Nombre Completo', 'Creemos ID', 'Género',
     'Rango Edad', 'Malestar Principal', 'Derivado Por', 'Contacto Emergencia',
-    'Teléfono', 'Observaciones', 'Acción'
+    'Teléfono', 'Observaciones', 'Derivación o Referencia', 'Programa de Creamos',
+    'Organización', 'Motivo de derivación u referencia', 'Terapeuta Asignado',
+    'Asistió a Cita', 'Acción'
   ];
 
-  sheet.getRange(1, 1, 1, 12).setValues([headers])
+  sheet.getRange(1, 1, 1, 18).setValues([headers])
     .setBackground('#e91e63')
     .setFontColor('white')
     .setFontWeight('bold')
@@ -199,7 +211,7 @@ function crearListaEspera() {
     sheet.getRange('B' + i).setFormula('=IF(C' + i + '<>"",ROW()-1,"")');
   }
 
-  [110, 60, 200, 120, 100, 100, 250, 150, 180, 120, 200, 100].forEach((w, i) => {
+  [110, 60, 200, 120, 100, 100, 250, 150, 180, 120, 200, 150, 150, 150, 200, 150, 120, 100].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -476,12 +488,29 @@ function configurarValidaciones() {
     .build();
   terapias.getRange('G2:G200').setDataValidation(estadoRule);
 
-  // Validaciones de acción - SOLO en Lista de Espera columna L
+  // Validaciones de Derivación o Referencia en Lista de Espera columna L
+  const derivacionRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Derivación', 'Referencia'])
+    .setAllowInvalid(false)
+    .build();
+  espera.getRange('L2:L200').setDataValidation(derivacionRule);
+
+  // Validaciones de Terapeuta Asignado en Lista de Espera columna P
+  espera.getRange('P2:P200').setDataValidation(terapeutaRule);
+
+  // Validaciones de Asistió a Cita en Lista de Espera columna Q
+  const asistioRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Sí', 'No'])
+    .setAllowInvalid(false)
+    .build();
+  espera.getRange('Q2:Q200').setDataValidation(asistioRule);
+
+  // Validaciones de acción - SOLO en Lista de Espera columna R
   const accionRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Enviar'])
     .setAllowInvalid(false)
     .build();
-  espera.getRange('L2:L200').setDataValidation(accionRule);
+  espera.getRange('R2:R200').setDataValidation(accionRule);
 
   // IMPORTANTE: Nuevos Ingresos NO tiene columna L
   // Solo tiene 11 columnas (A a K)
@@ -531,9 +560,17 @@ function alEditar(e) {
   const val = valor.toString().trim();
   if (val === '') return;
 
-  if (hoja === 'Lista de Espera' && columna === 12 && val === 'Enviar') {
+  if (hoja === 'Lista de Espera' && columna === 18 && val === 'Enviar') {
     enviarANuevosIngresos(sheet, fila);
     actualizarReportes();
+  }
+
+  if (hoja === 'Lista de Espera' && columna === 16) {
+    if (['Gerber', 'Melissa', 'Diana', 'Karina'].indexOf(val) !== -1) {
+      // Copiar a Nuevos Ingresos y asignar terapeuta
+      enviarYAsignarATerapias(sheet, fila, val);
+      actualizarReportes();
+    }
   }
 
   if (hoja === 'Nuevos Ingresos' && columna === 11) {
@@ -553,8 +590,8 @@ function enviarANuevosIngresos(sheetOrigen, fila) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const nuevos = ss.getSheetByName('Nuevos Ingresos');
 
-  // Leer todos los datos de Lista de Espera (columnas C a K = 3 a 11)
-  const datos = sheetOrigen.getRange(fila, 3, 1, 9).getValues()[0];
+  // Leer todos los datos de Lista de Espera (columnas C a O = 3 a 15)
+  const datos = sheetOrigen.getRange(fila, 3, 1, 13).getValues()[0];
   const nombre = datos[0];
   const creemosId = datos[1];
   const genero = datos[2];
@@ -564,6 +601,10 @@ function enviarANuevosIngresos(sheetOrigen, fila) {
   const contacto = datos[6];
   const telefono = datos[7];
   const observaciones = datos[8];
+  const derivacionReferencia = datos[9];
+  const programaCreamos = datos[10];
+  const organizacion = datos[11];
+  const motivoDerivacion = datos[12];
 
   if (!nombre || nombre.toString().trim() === '') {
     ss.toast('⚠️ Debe ingresar un nombre', 'Error', 2);
@@ -576,8 +617,8 @@ function enviarANuevosIngresos(sheetOrigen, fila) {
   const datosNuevos = nuevos.getDataRange().getValues();
   for (let i = 1; i < datosNuevos.length; i++) {
     if (datosNuevos[i][2] && datosNuevos[i][2].toString().trim() === nombreLimpio) {
-      sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#fff3cd');
-      sheetOrigen.getRange(fila, 12).clearContent(); // Limpiar la acción
+      sheetOrigen.getRange(fila, 1, 1, 18).setBackground('#fff3cd');
+      sheetOrigen.getRange(fila, 18).clearContent(); // Limpiar la acción
       ss.toast(nombreLimpio + ' ya existe en Nuevos Ingresos', 'Ya Registrado', 2);
       return;
     }
@@ -601,11 +642,90 @@ function enviarANuevosIngresos(sheetOrigen, fila) {
   nuevos.getRange(nuevaFila, 10).setValue(contacto || '');
 
   // Marcar como procesado en Lista de Espera
-  sheetOrigen.getRange(fila, 1, 1, 12).setBackground('#d4edda');
-  sheetOrigen.getRange(fila, 12).clearContent(); // Limpiar la celda de acción
+  sheetOrigen.getRange(fila, 1, 1, 18).setBackground('#d4edda');
+  sheetOrigen.getRange(fila, 18).clearContent(); // Limpiar la celda de acción
 
   SpreadsheetApp.flush(); // Forzar actualización
   ss.toast('✅ ' + nombreLimpio + '\nMovido a Nuevos Ingresos', 'Enviado', 3);
+}
+
+function enviarYAsignarATerapias(sheetOrigen, fila, terapeuta) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const nuevos = ss.getSheetByName('Nuevos Ingresos');
+  const terapias = ss.getSheetByName('Terapias');
+
+  // Leer todos los datos de Lista de Espera (columnas C a O = 3 a 15)
+  const datos = sheetOrigen.getRange(fila, 3, 1, 13).getValues()[0];
+  const nombre = datos[0];
+  const creemosId = datos[1];
+  const genero = datos[2];
+  const rangoEdad = datos[3];
+  const malestar = datos[4];
+  const derivadoPor = datos[5];
+  const contacto = datos[6];
+  const telefono = datos[7];
+  const observaciones = datos[8];
+
+  if (!nombre || nombre.toString().trim() === '') {
+    ss.toast('⚠️ Debe ingresar un nombre', 'Error', 2);
+    return;
+  }
+
+  const nombreLimpio = nombre.toString().trim();
+
+  // Verificar duplicados en Nuevos Ingresos
+  const datosNuevos = nuevos.getDataRange().getValues();
+  for (let i = 1; i < datosNuevos.length; i++) {
+    if (datosNuevos[i][2] && datosNuevos[i][2].toString().trim() === nombreLimpio) {
+      sheetOrigen.getRange(fila, 1, 1, 18).setBackground('#fff3cd');
+      ss.toast(nombreLimpio + ' ya existe en Nuevos Ingresos', 'Ya Registrado', 2);
+      return;
+    }
+  }
+
+  // Verificar duplicados en Terapias
+  const datosTerapias = terapias.getDataRange().getValues();
+  for (let i = 1; i < datosTerapias.length; i++) {
+    if (datosTerapias[i][1] && datosTerapias[i][1].toString().trim() === nombreLimpio) {
+      sheetOrigen.getRange(fila, 1, 1, 18).setBackground('#fff3cd');
+      ss.toast(nombreLimpio + ' ya está en Terapias', 'Ya Asignado', 2);
+      return;
+    }
+  }
+
+  // Agregar a Nuevos Ingresos
+  const nuevaFila = nuevos.getLastRow() + 1;
+  nuevos.getRange(nuevaFila, 1).setValue(new Date());
+  nuevos.getRange(nuevaFila, 2).setValue(nuevaFila - 1);
+  nuevos.getRange(nuevaFila, 3).setValue(nombreLimpio);
+  nuevos.getRange(nuevaFila, 4).setValue(creemosId || '');
+  nuevos.getRange(nuevaFila, 5).setValue(genero || '');
+  nuevos.getRange(nuevaFila, 6).setValue(rangoEdad || '');
+  nuevos.getRange(nuevaFila, 7).setValue(malestar || '');
+  nuevos.getRange(nuevaFila, 8).setValue('Individual');
+  nuevos.getRange(nuevaFila, 9).setValue(derivadoPor || '');
+  nuevos.getRange(nuevaFila, 10).setValue(contacto || '');
+  nuevos.getRange(nuevaFila, 11).setValue(terapeuta);
+
+  // Crear registro en Terapias
+  const nuevaFilaTerapia = terapias.getLastRow() + 1;
+  const registro = [
+    terapeuta,
+    nombreLimpio,
+    creemosId || '',
+    genero || '',
+    'Individual',
+    1,
+    'En proceso',
+    ''
+  ];
+  terapias.getRange(nuevaFilaTerapia, 1, 1, 8).setValues([registro]);
+
+  // Marcar como procesado en Lista de Espera
+  sheetOrigen.getRange(fila, 1, 1, 18).setBackground('#d4edda');
+
+  SpreadsheetApp.flush();
+  ss.toast('✅ ' + nombreLimpio + '\n→ ' + terapeuta + '\nAgregado a Nuevos Ingresos y Terapias', 'Asignado', 3);
 }
 
 function asignarATerapias(sheetOrigen, fila, terapeuta) {
@@ -1183,13 +1303,13 @@ function crearDatosPrueba() {
   const espera = ss.getSheetByName('Lista de Espera');
 
   const datosPrueba = [
-    ['Ana Martínez', 'AM001', 'Mujer', '26 a 30', 'Ansiedad', 'Centro Salud', 'Pedro Martínez', '555-0001', 'Primera consulta'],
-    ['Juan Pérez', 'JP002', 'Hombre', '31 a 40', 'Depresión', 'Derivación', 'María Pérez', '555-0002', 'Urgente'],
-    ['Laura Gómez', 'LG003', 'Mujer', '18 a 25', 'Estrés', 'Autogestión', 'Carlos Gómez', '555-0003', 'Estudiante']
+    ['Ana Martínez', 'AM001', 'Mujer', '26 a 30', 'Ansiedad', 'Centro Salud', 'Pedro Martínez', '555-0001', 'Primera consulta', 'Derivación', 'CREAMOS 2024', 'Hospital General', 'Estrés laboral severo'],
+    ['Juan Pérez', 'JP002', 'Hombre', '31 a 40', 'Depresión', 'Derivación', 'María Pérez', '555-0002', 'Urgente', 'Referencia', 'CREAMOS 2024', 'Clínica Municipal', 'Crisis emocional'],
+    ['Laura Gómez', 'LG003', 'Mujer', '18 a 25', 'Estrés', 'Autogestión', 'Carlos Gómez', '555-0003', 'Estudiante', 'Derivación', 'CREAMOS 2024', 'Universidad', 'Ansiedad académica']
   ];
 
   // Agregar datos en filas 2, 3 y 4
-  espera.getRange(2, 3, datosPrueba.length, 9).setValues(datosPrueba);
+  espera.getRange(2, 3, datosPrueba.length, 13).setValues(datosPrueba);
 
   ss.toast(
     '✅ 3 DATOS DE PRUEBA CREADOS\n\n' +
@@ -1233,8 +1353,8 @@ function limpiarTodosLosDatos() {
     // Limpiar Lista de Espera (desde fila 2)
     const espera = ss.getSheetByName('Lista de Espera');
     if (espera.getLastRow() > 1) {
-      espera.getRange(2, 1, espera.getLastRow() - 1, 12).clearContent();
-      espera.getRange(2, 1, espera.getLastRow() - 1, 12).setBackground(null);
+      espera.getRange(2, 1, espera.getLastRow() - 1, 18).clearContent();
+      espera.getRange(2, 1, espera.getLastRow() - 1, 18).setBackground(null);
       // Restaurar fórmulas
       for (let i = 2; i <= 100; i++) {
         espera.getRange('A' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
