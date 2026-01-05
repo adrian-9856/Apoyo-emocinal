@@ -479,6 +479,7 @@ function configurarValidaciones() {
   const terapias = ss.getSheetByName('Terapias');
   const espera = ss.getSheetByName('Lista de Espera');
   const intervencion = ss.getSheetByName('Intervención de casos');
+  const deserciones = ss.getSheetByName('Deserciones');
 
   // LIMPIAR TODAS las validaciones existentes primero
   // clearDataValidations() debe llamarse sobre un rango, no sobre la hoja
@@ -487,6 +488,9 @@ function configurarValidaciones() {
   terapias.getRange('A1:Z200').clearDataValidations();
   if (intervencion) {
     intervencion.getRange('A1:Z200').clearDataValidations();
+  }
+  if (deserciones) {
+    deserciones.getRange('A1:Z200').clearDataValidations();
   }
 
   // Validaciones de género
@@ -552,9 +556,9 @@ function configurarValidaciones() {
     .build();
   terapias.getRange('E2:E200').setDataValidation(sesionRule);
 
-  // Validaciones de estado - Terapias columna F (antes era G)
+  // Validaciones de estado - Terapias columna F (solo "En proceso")
   const estadoRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['En proceso', 'Proceso culminado', 'deserciones'])
+    .requireValueInList(['En proceso'])
     .setAllowInvalid(false)
     .build();
   terapias.getRange('F2:F200').setDataValidation(estadoRule);
@@ -585,6 +589,37 @@ function configurarValidaciones() {
       .setAllowInvalid(true)
       .build();
     intervencion.getRange('E2:E200').setDataValidation(tipoIntervencionRule);
+  }
+
+  // Validaciones de Motivos de Deserción - en Deserciones columna F
+  if (deserciones) {
+    const motivoDesercionRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList([
+        'Otras prioridades',
+        'Horario laboral',
+        'Retos/problemas familiares',
+        'Violencia de parte de la pareja/violencia de género',
+        'Migración (por motivos económicos/por violencia)',
+        'Embarazo',
+        'Retos/problemas de salud física',
+        'Retos/problemas de salud mental',
+        'Retos/Problemas legales/Privación de libertad',
+        'Falta de apoyo',
+        'Compromisos religiosos',
+        'Problemas financieros',
+        'Violencia comunitaria',
+        'Falta de motivación',
+        'No querer continuar en el proceso',
+        'Descontento con la organización',
+        'Falta de comunicación',
+        'Falta de interés',
+        'Asesinato/Fallecimiento',
+        'Cuidado de terceras personas',
+        'Falta de adaptabilidad'
+      ])
+      .setAllowInvalid(true)
+      .build();
+    deserciones.getRange('F2:F200').setDataValidation(motivoDesercionRule);
   }
 
   // =====================================================================
@@ -736,22 +771,9 @@ function alEditar(e) {
     }
   }
 
-  // CASO 4: Terapias - Cambio de Estado (columna F)
-  if (hoja === 'Terapias' && columna === 6) {
-    if (val === 'Proceso culminado' || val === 'deserciones') {
-      Logger.log('✅ Detectado cambio de estado en Terapias: ' + val);
-      Logger.log('▶️ EJECUTANDO procesarFinalizacionTerapia...');
-
-      try {
-        procesarFinalizacionTerapia(sheet, fila, val);
-        Logger.log('✅ procesarFinalizacionTerapia completado');
-        actualizarReportes();
-        Logger.log('✅ Reportes actualizados');
-      } catch (error) {
-        Logger.log('❌ ERROR en procesarFinalizacionTerapia: ' + error.toString());
-      }
-    }
-  }
+  // NOTA: El CASO 4 (Cambio de Estado) fue eliminado porque ahora el dropdown
+  // de Estado en Terapias solo contiene "En proceso". Las deserciones y procesos
+  // culminados se gestionan manualmente desde la hoja correspondiente.
 }
 
 /**
