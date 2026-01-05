@@ -556,9 +556,9 @@ function configurarValidaciones() {
     .build();
   terapias.getRange('E2:E200').setDataValidation(sesionRule);
 
-  // Validaciones de estado - Terapias columna F (solo "En proceso")
+  // Validaciones de estado - Terapias columna F
   const estadoRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['En proceso'])
+    .requireValueInList(['En proceso', 'Proceso culminado', 'deserciones'])
     .setAllowInvalid(false)
     .build();
   terapias.getRange('F2:F200').setDataValidation(estadoRule);
@@ -771,9 +771,22 @@ function alEditar(e) {
     }
   }
 
-  // NOTA: El CASO 4 (Cambio de Estado) fue eliminado porque ahora el dropdown
-  // de Estado en Terapias solo contiene "En proceso". Las deserciones y procesos
-  // culminados se gestionan manualmente desde la hoja correspondiente.
+  // CASO 4: Terapias - Cambio de Estado (columna F)
+  if (hoja === 'Terapias' && columna === 6) {
+    if (val === 'Proceso culminado' || val === 'deserciones') {
+      Logger.log('✅ Detectado cambio de estado en Terapias: ' + val);
+      Logger.log('▶️ EJECUTANDO procesarFinalizacionTerapia...');
+
+      try {
+        procesarFinalizacionTerapia(sheet, fila, val);
+        Logger.log('✅ procesarFinalizacionTerapia completado');
+        actualizarReportes();
+        Logger.log('✅ Reportes actualizados');
+      } catch (error) {
+        Logger.log('❌ ERROR en procesarFinalizacionTerapia: ' + error.toString());
+      }
+    }
+  }
 }
 
 /**
@@ -1075,6 +1088,178 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
 }
 
 /**
+ * Muestra un diálogo HTML con dropdown para seleccionar motivo de deserción
+ */
+function mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion) {
+  const motivosDeserciones = [
+    'Otras prioridades',
+    'Horario laboral',
+    'Retos/problemas familiares',
+    'Dificultades económicas',
+    'No encuentra utilidad',
+    'Mudanza',
+    'Falta de compromiso',
+    'No se adapta al modelo de terapia',
+    'No se adapta al/a la terapeuta',
+    'Problemas de salud',
+    'Inicio estudios/trabajo',
+    'No desea continuar',
+    'Busca atención presencial',
+    'Situaciones de riesgo',
+    'Horarios',
+    'Disponibilidad de tiempo',
+    'Dificultades tecnológicas',
+    'Problemas de conexión',
+    'No desea recibir apoyo',
+    'No responde mensajes',
+    'Otro'
+  ];
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <base target="_top">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            margin: 0;
+          }
+          .info-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #dc3545;
+            padding: 12px;
+            margin-bottom: 20px;
+          }
+          .info-box p {
+            margin: 5px 0;
+            font-size: 14px;
+          }
+          .info-box strong {
+            color: #dc3545;
+          }
+          label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+          }
+          select {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+          }
+          .button-container {
+            text-align: right;
+            margin-top: 20px;
+          }
+          button {
+            padding: 10px 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+          }
+          .btn-cancel {
+            background-color: #6c757d;
+            color: white;
+          }
+          .btn-cancel:hover {
+            background-color: #5a6268;
+          }
+          .btn-ok {
+            background-color: #dc3545;
+            color: white;
+          }
+          .btn-ok:hover {
+            background-color: #c82333;
+          }
+          .btn-ok:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="info-box">
+          <p><strong>Participante:</strong> ${nombre}</p>
+          <p><strong>Terapeuta:</strong> ${terapeuta}</p>
+          <p><strong>Sesiones:</strong> ${numSesion}</p>
+        </div>
+
+        <label for="motivo">Seleccione el motivo de deserción:</label>
+        <select id="motivo">
+          <option value="">-- Seleccione un motivo --</option>
+          ${motivosDeserciones.map(m => '<option value="' + m + '">' + m + '</option>').join('\n          ')}
+        </select>
+
+        <div class="button-container">
+          <button class="btn-cancel" onclick="cancelar()">Cancelar</button>
+          <button class="btn-ok" id="btnOk" onclick="aceptar()" disabled>Aceptar</button>
+        </div>
+
+        <script>
+          // Habilitar botón OK solo si hay selección
+          document.getElementById('motivo').addEventListener('change', function() {
+            document.getElementById('btnOk').disabled = this.value === '';
+          });
+
+          function aceptar() {
+            const motivo = document.getElementById('motivo').value;
+            if (motivo) {
+              google.script.run
+                .withSuccessHandler(function() {
+                  google.script.host.close();
+                })
+                .guardarMotivoDesercionTemporal(motivo);
+            }
+          }
+
+          function cancelar() {
+            google.script.run
+              .withSuccessHandler(function() {
+                google.script.host.close();
+              })
+              .guardarMotivoDesercionTemporal('');
+          }
+        </script>
+      </body>
+    </html>
+  `;
+
+  const html = HtmlService.createHtmlOutput(htmlContent)
+    .setWidth(500)
+    .setHeight(350);
+
+  // Limpiar cualquier valor previo
+  PropertiesService.getScriptProperties().deleteProperty('MOTIVO_DESERCION_TEMP');
+
+  // Mostrar diálogo (bloquea hasta que se cierre)
+  SpreadsheetApp.getUi().showModalDialog(html, 'Motivo de Deserción');
+
+  // Leer el valor guardado
+  const motivo = PropertiesService.getScriptProperties().getProperty('MOTIVO_DESERCION_TEMP') || '';
+
+  // Limpiar
+  PropertiesService.getScriptProperties().deleteProperty('MOTIVO_DESERCION_TEMP');
+
+  return motivo;
+}
+
+/**
+ * Guarda temporalmente el motivo de deserción seleccionado
+ */
+function guardarMotivoDesercionTemporal(motivo) {
+  PropertiesService.getScriptProperties().setProperty('MOTIVO_DESERCION_TEMP', motivo);
+}
+
+/**
  * Procesa la finalización de terapia (Proceso culminado o deserciones)
  */
 function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
@@ -1095,39 +1280,43 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
 
   const nombre = participante.toString().trim();
 
-  // Pedir motivo según el tipo
-  let promptMotivo = '';
-  if (tipoFinal === 'Proceso culminado') {
-    promptMotivo = 'Motivo de finalización del proceso:\n\n' +
+  let motivo = '';
+
+  // Para deserciones, mostrar diálogo HTML con dropdown
+  if (tipoFinal === 'deserciones') {
+    motivo = mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion);
+
+    if (!motivo || motivo === '') {
+      // Usuario canceló o no seleccionó nada
+      sheetOrigen.getRange(fila, 6).setValue('En proceso');
+      return;
+    }
+  } else if (tipoFinal === 'Proceso culminado') {
+    // Para proceso culminado, usar prompt de texto libre
+    const promptMotivo = 'Motivo de finalización del proceso:\n\n' +
                    'Participante: ' + nombre + '\n' +
                    'Terapeuta: ' + terapeuta + '\n' +
                    'Sesiones: ' + numSesion + '\n\n' +
                    'Ingrese el motivo:';
-  } else if (tipoFinal === 'deserciones') {
-    promptMotivo = 'Motivo de deserción:\n\n' +
-                   'Participante: ' + nombre + '\n' +
-                   'Terapeuta: ' + terapeuta + '\n' +
-                   'Sesiones: ' + numSesion + '\n\n' +
-                   'Ingrese el motivo:';
-  }
 
-  const motivoResp = ui.prompt(
-    'Motivo - ' + tipoFinal,
-    promptMotivo,
-    ui.ButtonSet.OK_CANCEL
-  );
+    const motivoResp = ui.prompt(
+      'Motivo - ' + tipoFinal,
+      promptMotivo,
+      ui.ButtonSet.OK_CANCEL
+    );
 
-  if (motivoResp.getSelectedButton() !== ui.Button.OK) {
-    sheetOrigen.getRange(fila, 6).setValue('En proceso');
-    return;
-  }
+    if (motivoResp.getSelectedButton() !== ui.Button.OK) {
+      sheetOrigen.getRange(fila, 6).setValue('En proceso');
+      return;
+    }
 
-  const motivo = motivoResp.getResponseText().trim();
+    motivo = motivoResp.getResponseText().trim();
 
-  if (!motivo || motivo === '') {
-    ui.alert('❌ Error', 'Debe ingresar un motivo', ui.ButtonSet.OK);
-    sheetOrigen.getRange(fila, 6).setValue('En proceso');
-    return;
+    if (!motivo || motivo === '') {
+      ui.alert('❌ Error', 'Debe ingresar un motivo', ui.ButtonSet.OK);
+      sheetOrigen.getRange(fila, 6).setValue('En proceso');
+      return;
+    }
   }
 
   // Guardar motivo en columna G
