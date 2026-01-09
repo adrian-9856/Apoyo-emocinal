@@ -1471,16 +1471,21 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
   // Solo para DESERCIONES pedir motivo con diálogo
   if (tipoFinal === 'deserciones') {
     try {
+      Logger.log('📋 Solicitando motivo de deserción para: ' + nombre);
       motivo = mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion);
+      Logger.log('✅ Motivo recibido: ' + motivo);
 
       if (!motivo || motivo === '') {
         // Usuario canceló o no seleccionó nada
+        Logger.log('⚠️ Usuario canceló o no seleccionó motivo');
         sheetOrigen.getRange(fila, 6).setValue('En proceso');
+        ss.toast('❌ Deserción cancelada\n\nNo se seleccionó motivo', 'Cancelado', 3);
         return;
       }
     } catch (error) {
       // Error al mostrar diálogo - probablemente el trigger no está instalado
-      Logger.log('Error mostrando diálogo: ' + error.message);
+      Logger.log('❌ Error mostrando diálogo: ' + error.message);
+      Logger.log('   Stack: ' + error.stack);
       sheetOrigen.getRange(fila, 6).setValue('En proceso');
 
       ss.toast(
@@ -1489,7 +1494,8 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
         '1. Ir al menú: 🏥 Apoyo Emocional\n' +
         '2. Hacer clic en: ✏️ Instalar Trigger onEdit\n' +
         '3. Autorizar los permisos\n\n' +
-        'Después de instalar el trigger, vuelva a seleccionar "deserciones".',
+        'Después de instalar el trigger, vuelva a seleccionar "deserciones".\n\n' +
+        'Error: ' + error.message,
         'Trigger No Instalado',
         15
       );
@@ -1498,23 +1504,32 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
   } else if (tipoFinal === 'Proceso culminado') {
     // Para proceso culminado, NO pedir motivo - enviar directo
     motivo = 'Proceso terapéutico completado';
+    Logger.log('✅ Proceso culminado - motivo automático');
   }
 
+  Logger.log('💾 Guardando motivo en columna G: ' + tipoFinal + ': ' + motivo);
   // Guardar motivo en columna G
   sheetOrigen.getRange(fila, 7).setValue(tipoFinal + ': ' + motivo);
 
+  Logger.log('📧 Enviando email a la directora');
   // Enviar email a la directora
   enviarEmailFinalizacion(nombre, terapeuta, tipoFinal, motivo, numSesion);
 
   // Copiar a la hoja correspondiente
   let ok = false;
   if (tipoFinal === 'Proceso culminado') {
+    Logger.log('📂 Copiando a Procesos Culminados...');
     ok = copiarACulminados(nombre, terapeuta, creemosId, numSesion, motivo);
   } else if (tipoFinal === 'deserciones') {
+    Logger.log('📂 Copiando a Deserciones...');
+    Logger.log('   Participante: ' + nombre);
+    Logger.log('   Terapeuta: ' + terapeuta);
+    Logger.log('   Motivo: ' + motivo);
     ok = copiarADeserciones(nombre, terapeuta, creemosId, numSesion, motivo);
   }
 
   if (ok) {
+    Logger.log('✅ Copia exitosa');
     // Colores según el tipo
     const colores = {
       'Proceso culminado': '#d4edda',
@@ -1522,7 +1537,23 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
     };
 
     sheetOrigen.getRange(fila, 1, 1, 8).setBackground(colores[tipoFinal]);
-    ss.toast('✅ ' + nombre + '\n' + tipoFinal + '\nSesiones: ' + numSesion, 'Procesado', 4);
+
+    if (tipoFinal === 'deserciones') {
+      ss.toast(
+        '✅ DESERCIÓN PROCESADA\n\n' +
+        'Participante: ' + nombre + '\n' +
+        'Motivo: ' + motivo + '\n' +
+        'Sesiones: ' + numSesion + '\n\n' +
+        'Enviado a hoja Deserciones',
+        'Deserción Registrada',
+        5
+      );
+    } else {
+      ss.toast('✅ ' + nombre + '\n' + tipoFinal + '\nSesiones: ' + numSesion, 'Procesado', 4);
+    }
+  } else {
+    Logger.log('❌ Error al copiar a la hoja');
+    ss.toast('❌ Error al copiar a la hoja de ' + tipoFinal, 'Error', 5);
   }
 }
 
@@ -1857,8 +1888,17 @@ function copiarACulminados(participante, terapeuta, creemosId, sesiones, motivo)
 
 function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo) {
   try {
+    Logger.log('🔍 copiarADeserciones - Inicio');
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Deserciones');
+
+    if (!sheet) {
+      Logger.log('❌ Hoja "Deserciones" no encontrada');
+      ss.toast('❌ Error: Hoja "Deserciones" no existe', 'Error', 5);
+      return false;
+    }
+
+    Logger.log('✅ Hoja Deserciones encontrada');
 
     // Buscar la primera fila vacía
     let nuevaFila = 2;
@@ -1872,12 +1912,26 @@ function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo
       }
     }
 
+    Logger.log('📍 Nueva fila para deserción: ' + nuevaFila);
+
     const datos = [new Date(), participante, terapeuta, creemosId || '', parseInt(sesiones) || 1, motivo];
 
+    Logger.log('📝 Datos a guardar:');
+    Logger.log('   Fecha: ' + new Date());
+    Logger.log('   Participante: ' + participante);
+    Logger.log('   Terapeuta: ' + terapeuta);
+    Logger.log('   Creemos ID: ' + (creemosId || ''));
+    Logger.log('   Sesiones: ' + (parseInt(sesiones) || 1));
+    Logger.log('   Motivo: ' + motivo);
+
     sheet.getRange(nuevaFila, 1, 1, 6).setValues([datos]);
+    Logger.log('✅ Datos guardados en fila ' + nuevaFila + ' de hoja Deserciones');
+
     return true;
   } catch (error) {
-    Logger.log('Error deserciones: ' + error.message);
+    Logger.log('❌ Error en copiarADeserciones: ' + error.message);
+    Logger.log('   Stack: ' + error.stack);
+    ss.toast('❌ Error al copiar a Deserciones: ' + error.message, 'Error', 5);
     return false;
   }
 }
