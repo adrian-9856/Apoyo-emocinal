@@ -118,32 +118,83 @@ function instalarSistema() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   try {
-    ss.toast('Creando hojas...', 'Instalando', 3);
+    ss.toast('📋 Creando hojas...', 'Instalando', 3);
+    Utilities.sleep(1000);
     crearHojas();
 
-    ss.toast('Configurando validaciones...', 'Instalando', 3);
+    ss.toast('✅ Configurando validaciones...', 'Instalando', 3);
+    Utilities.sleep(1000);
     configurarValidaciones();
 
-    ss.toast('Aplicando formatos...', 'Instalando', 3);
+    ss.toast('🎨 Aplicando formatos...', 'Instalando', 3);
+    Utilities.sleep(1000);
     configurarFormatos();
 
-    ss.toast('Creando ejemplos...', 'Instalando', 3);
+    ss.toast('📝 Creando ejemplos...', 'Instalando', 3);
+    Utilities.sleep(1000);
     crearEjemplos();
 
+    ss.toast('⏰ Instalando triggers automáticos...', 'Instalando', 3);
+    Utilities.sleep(1000);
+
+    // Instalar trigger onEdit (necesario para diálogos)
+    try {
+      const triggers = ScriptApp.getProjectTriggers();
+      triggers.forEach(trigger => {
+        if (trigger.getHandlerFunction() === 'alEditar' &&
+            trigger.getEventType() === ScriptApp.EventType.ON_EDIT) {
+          ScriptApp.deleteTrigger(trigger);
+        }
+      });
+
+      ScriptApp.newTrigger('alEditar')
+        .forSpreadsheet(ss)
+        .onEdit()
+        .create();
+
+      Logger.log('✅ Trigger onEdit instalado');
+    } catch (triggerError) {
+      Logger.log('⚠️ Error instalando trigger onEdit: ' + triggerError.message);
+    }
+
+    // Instalar trigger de tiempo (actualización de reportes cada hora)
+    try {
+      const triggers = ScriptApp.getProjectTriggers();
+      triggers.forEach(trigger => {
+        if (trigger.getHandlerFunction() === 'actualizarReportes') {
+          ScriptApp.deleteTrigger(trigger);
+        }
+      });
+
+      ScriptApp.newTrigger('actualizarReportes')
+        .timeBased()
+        .everyHours(1)
+        .create();
+
+      Logger.log('✅ Trigger de tiempo instalado');
+    } catch (triggerError) {
+      Logger.log('⚠️ Error instalando trigger de tiempo: ' + triggerError.message);
+    }
+
     ss.toast(
-      '✅ SISTEMA INSTALADO\n\n' +
-      'IMPORTANTE: Ahora debes crear el TRIGGER:\n\n' +
-      '1. Apps Script → Activadores (⏰)\n' +
-      '2. + Agregar activador\n' +
-      '3. Función: alEditar\n' +
-      '4. Tipo de evento: Al editar\n' +
-      '5. Guardar',
+      '✅ SISTEMA INSTALADO COMPLETAMENTE\n\n' +
+      '✓ Todas las hojas creadas\n' +
+      '✓ Validaciones configuradas\n' +
+      '✓ Formatos aplicados\n' +
+      '✓ Trigger onEdit instalado (para diálogos)\n' +
+      '✓ Trigger de tiempo instalado (reportes cada hora)\n\n' +
+      '🎯 El sistema está listo para usar.\n\n' +
+      'NOTA: Si los diálogos de deserción no aparecen,\n' +
+      'use el menú: 🏥 Apoyo Emocional → ✏️ Instalar Trigger onEdit',
       'INSTALACIÓN COMPLETA',
-      -1
+      10
     );
 
+    Logger.log('✅ Sistema instalado completamente');
+
   } catch (error) {
-    ss.toast('Error: ' + error.message, 'ERROR', 10);
+    ss.toast('❌ Error: ' + error.message, 'ERROR', 10);
+    Logger.log('❌ Error en instalación: ' + error.message);
   }
 }
 
@@ -453,8 +504,10 @@ function crearReportesMensuales() {
 
   const headers = [
     'Mes/Año', 'Nuevos Ingresos', 'Culminados', 'Deserciones', 'Gestión Casos',
-    'Casos Activos', 'Tasa Éxito (%)', 'Sesiones Gerber', 'Sesiones Melissa', 'Sesiones Diana', 'Sesiones Karina',
-    'Derivaciones Externas', '(Sin uso)', 'Fecha Guardado'
+    'Total Activos', 'Tasa Éxito (%)',
+    'Sesiones Gerber', 'Sesiones Melissa', 'Sesiones Diana', 'Sesiones Karina',
+    'Activos Gerber', 'Activos Melissa', 'Activos Diana', 'Activos Karina',
+    'Derivaciones Externas', 'Fecha Guardado'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -463,7 +516,7 @@ function crearReportesMensuales() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 100, 100, 100, 100, 100, 100, 80, 80, 80, 80, 120, 120, 120].forEach((w, i) => {
+  [120, 100, 100, 100, 100, 100, 100, 90, 90, 90, 90, 90, 90, 90, 90, 120, 120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -2578,10 +2631,19 @@ function guardarReporteMensual() {
     const gestion = reporte.getRange('B46').getValue(); // Total en intervención
     const activos = reporte.getRange('B27').getValue(); // Total casos activos
     const tasaExito = reporte.getRange('B51').getValue(); // Tasa de éxito
-    const gerber = reporte.getRange('B29').getValue(); // Sesiones este mes
-    const melissa = reporte.getRange('B30').getValue(); // Sesiones este mes
-    const diana = reporte.getRange('B31').getValue(); // Sesiones este mes
-    const karina = reporte.getRange('B32').getValue(); // Sesiones este mes
+
+    // Sesiones por terapeuta
+    const sesionesGerber = reporte.getRange('B29').getValue();
+    const sesionesMelissa = reporte.getRange('B30').getValue();
+    const sesionesDiana = reporte.getRange('B31').getValue();
+    const sesionesKarina = reporte.getRange('B32').getValue();
+
+    // Activos por terapeuta
+    const activosGerber = reporte.getRange('B23').getValue();
+    const activosMelissa = reporte.getRange('B24').getValue();
+    const activosDiana = reporte.getRange('B25').getValue();
+    const activosKarina = reporte.getRange('B26').getValue();
+
     const derivacionesExternas = reporte.getRange('B13').getValue(); // Derivaciones externas
 
     const nuevaFila = mensuales.getLastRow() + 1;
@@ -2593,16 +2655,19 @@ function guardarReporteMensual() {
       gestion,
       activos,
       tasaExito,
-      gerber,
-      melissa,
-      diana,
-      karina,
+      sesionesGerber,
+      sesionesMelissa,
+      sesionesDiana,
+      sesionesKarina,
+      activosGerber,
+      activosMelissa,
+      activosDiana,
+      activosKarina,
       derivacionesExternas,
-      0, // Columna fusionada, ya no se usa por separado
       new Date()
     ];
 
-    mensuales.getRange(nuevaFila, 1, 1, 14).setValues([datos]);
+    mensuales.getRange(nuevaFila, 1, 1, 17).setValues([datos]);
 
     // Actualizar "Sesiones Mes Anterior" para el próximo mes
     // Copiar el valor actual de "No. Sesión" a "Sesiones Mes Anterior"
