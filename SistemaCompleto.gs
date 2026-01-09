@@ -1415,9 +1415,9 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
 
   let motivo = '';
 
-  try {
-    // Para deserciones, mostrar diálogo HTML con dropdown
-    if (tipoFinal === 'deserciones') {
+  // Solo para DESERCIONES pedir motivo con diálogo
+  if (tipoFinal === 'deserciones') {
+    try {
       motivo = mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion);
 
       if (!motivo || motivo === '') {
@@ -1425,32 +1425,26 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
         sheetOrigen.getRange(fila, 6).setValue('En proceso');
         return;
       }
-    } else if (tipoFinal === 'Proceso culminado') {
-      // Para proceso culminado, mostrar diálogo HTML con campo de texto
-      motivo = mostrarDialogoMotivoCulminado(nombre, terapeuta, numSesion);
+    } catch (error) {
+      // Error al mostrar diálogo - probablemente el trigger no está instalado
+      Logger.log('Error mostrando diálogo: ' + error.message);
+      sheetOrigen.getRange(fila, 6).setValue('En proceso');
 
-      if (!motivo || motivo === '') {
-        // Usuario canceló o no ingresó nada
-        sheetOrigen.getRange(fila, 6).setValue('En proceso');
-        return;
-      }
+      ss.toast(
+        '⚠️ ERROR: No se puede mostrar el diálogo\n\n' +
+        'Para que funcione el diálogo de deserciones, debe:\n' +
+        '1. Ir al menú: 🏥 Apoyo Emocional\n' +
+        '2. Hacer clic en: ✏️ Instalar Trigger onEdit\n' +
+        '3. Autorizar los permisos\n\n' +
+        'Después de instalar el trigger, vuelva a seleccionar "deserciones".',
+        'Trigger No Instalado',
+        15
+      );
+      return;
     }
-  } catch (error) {
-    // Error al mostrar diálogo - probablemente el trigger no está instalado
-    Logger.log('Error mostrando diálogo: ' + error.message);
-    sheetOrigen.getRange(fila, 6).setValue('En proceso');
-
-    ss.toast(
-      '⚠️ ERROR: No se puede mostrar el diálogo\n\n' +
-      'Para que funcionen los diálogos de motivo, debe:\n' +
-      '1. Ir al menú: 🏥 Apoyo Emocional\n' +
-      '2. Hacer clic en: ✏️ Instalar Trigger onEdit\n' +
-      '3. Autorizar los permisos\n\n' +
-      'Después de instalar el trigger, vuelva a seleccionar el estado.',
-      'Trigger No Instalado',
-      15
-    );
-    return;
+  } else if (tipoFinal === 'Proceso culminado') {
+    // Para proceso culminado, NO pedir motivo - enviar directo
+    motivo = 'Proceso terapéutico completado';
   }
 
   // Guardar motivo en columna G
