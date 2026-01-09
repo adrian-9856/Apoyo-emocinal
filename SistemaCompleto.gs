@@ -101,6 +101,7 @@ function onOpen() {
     .addSeparator()
     .addItem('⏰ Instalar Trigger de Tiempo', 'instalarTriggerTiempo')
     .addItem('📅 Instalar Recordatorio Mensual', 'instalarTriggerRecordatorioMensual')
+    .addItem('✏️ Instalar Trigger onEdit', 'instalarTriggerOnEdit')
     .addSeparator()
     .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
     .addSeparator()
@@ -221,10 +222,10 @@ function crearListaEspera() {
     'Fecha Solicitud', 'No.', 'Nombre Completo', 'Creemos ID', 'Género',
     'Edad', 'Malestar Principal', 'Teléfono', 'Derivación o Referencia',
     'Nombre de quien deriva o refiere', 'Programa de Creamos / Organización',
-    'Motivo de derivación u referencia', 'Terapeuta Asignado', 'Asistió a Cita'
+    'Motivo de derivación u referencia', 'Servicio que solicita', 'Terapeuta Asignado', 'Asistió a Cita'
   ];
 
-  sheet.getRange(1, 1, 1, 14).setValues([headers])
+  sheet.getRange(1, 1, 1, 15).setValues([headers])
     .setBackground('#e91e63')
     .setFontColor('white')
     .setFontWeight('bold')
@@ -236,7 +237,7 @@ function crearListaEspera() {
     sheet.getRange('B' + i).setFormula('=IF(C' + i + '<>"",ROW()-1,"")');
   }
 
-  [110, 60, 200, 120, 100, 100, 250, 200, 180, 220, 220, 200, 150, 120].forEach((w, i) => {
+  [110, 60, 200, 120, 100, 100, 250, 200, 180, 220, 220, 200, 180, 150, 120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -528,15 +529,15 @@ function configurarValidaciones() {
     .build();
   terapias.getRange('F2:F200').setDataValidation(estadoRule);
 
-  // Validaciones de terapeuta - en Lista de Espera columna M (13)
-  espera.getRange('M2:M200').setDataValidation(terapeutaRule);
+  // Validaciones de terapeuta - en Lista de Espera columna N (14)
+  espera.getRange('N2:N200').setDataValidation(terapeutaRule);
 
-  // Validaciones de asistencia - en Lista de Espera columna N (14)
+  // Validaciones de asistencia - en Lista de Espera columna O (15)
   const asistenciaRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Vino', 'No vino', 'Pendiente'])
     .setAllowInvalid(false)
     .build();
-  espera.getRange('N2:N200').setDataValidation(asistenciaRule);
+  espera.getRange('O2:O200').setDataValidation(asistenciaRule);
 
   // Validaciones de Tipo de Intervención - en Intervención de casos columna E
   if (intervencion) {
@@ -597,8 +598,8 @@ function configurarValidaciones() {
   // LISTA DE ESPERA:
   //   - Género (E)
   //   - Edad (F) - texto libre, sin validación
-  //   - Terapeuta Asignado (M)
-  //   - Asistió a Cita (N)
+  //   - Terapeuta Asignado (N)
+  //   - Asistió a Cita (O)
   //
   // TERAPIAS:
   //   - Terapeuta (A)
@@ -675,9 +676,9 @@ function alEditar(e) {
     return;
   }
 
-  // CASO 1: Lista de Espera - Asignación de Terapeuta (columna M = 13)
-  if (hoja === 'Lista de Espera' && columna === 13) {
-    Logger.log('✅ Detectada edición en Lista de Espera, columna M (13)');
+  // CASO 1: Lista de Espera - Asignación de Terapeuta (columna N = 14)
+  if (hoja === 'Lista de Espera' && columna === 14) {
+    Logger.log('✅ Detectada edición en Lista de Espera, columna N (14)');
     Logger.log('   Valor ingresado: "' + val + '"');
 
     if (['Gerber', 'Melissa', 'Diana', 'Karina'].indexOf(val) !== -1) {
@@ -698,9 +699,9 @@ function alEditar(e) {
     }
   }
 
-  // CASO 2: Lista de Espera - Confirmación de Asistencia (columna N = 14)
-  if (hoja === 'Lista de Espera' && columna === 14) {
-    Logger.log('✅ Detectada edición en Lista de Espera, columna N (14)');
+  // CASO 2: Lista de Espera - Confirmación de Asistencia (columna O = 15)
+  if (hoja === 'Lista de Espera' && columna === 15) {
+    Logger.log('✅ Detectada edición en Lista de Espera, columna O (15)');
     Logger.log('   Valor ingresado: "' + val + '"');
 
     if (val === 'Vino' || val === 'No vino') {
@@ -797,7 +798,7 @@ function asignarTerapeuta(sheetOrigen, fila, terapeuta) {
     }
 
     // 3. Marcar fila en amarillo (pendiente)
-    sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#fff3cd');
+    sheetOrigen.getRange(fila, 1, 1, 15).setBackground('#fff3cd');
 
   } catch (error) {
     Logger.log('❌ ERROR en asignarTerapeuta: ' + error.toString());
@@ -813,8 +814,8 @@ function procesarConfirmacionAsistencia(sheetOrigen, fila, confirmacion) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   try {
-    // Leer todos los datos necesarios (C-M = 11 columnas)
-    const datos = sheetOrigen.getRange(fila, 3, 1, 11).getValues()[0];
+    // Leer todos los datos necesarios (C-N = 12 columnas)
+    const datos = sheetOrigen.getRange(fila, 3, 1, 12).getValues()[0];
     const nombre = datos[0];         // C
     const creemosId = datos[1];      // D
     const genero = datos[2];         // E
@@ -825,7 +826,8 @@ function procesarConfirmacionAsistencia(sheetOrigen, fila, confirmacion) {
     const quienDeriva = datos[7];    // J: Nombre de quien deriva o refiere
     const programaOrganizacion = datos[8]; // K: Programa de Creamos / Organización
     const motivoDerivacion = datos[9]; // L: Motivo de derivación u referencia
-    const terapeuta = datos[10];     // M: Terapeuta Asignado
+    const servicioSolicita = datos[10]; // M: Servicio que solicita
+    const terapeuta = datos[11];     // N: Terapeuta Asignado
 
     if (!nombre || nombre.toString().trim() === '') {
       ss.toast('⚠️ Error: No hay nombre en esta fila', 'Error', 3);
@@ -869,8 +871,8 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     const datosTerapias = terapias.getDataRange().getValues();
     for (let i = 1; i < datosTerapias.length; i++) {
       if (datosTerapias[i][1] && datosTerapias[i][1].toString().trim() === nombre) {
-        sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#fff3cd');
-        sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar terapeuta (columna M)
+        sheetOrigen.getRange(fila, 1, 1, 15).setBackground('#fff3cd');
+        sheetOrigen.getRange(fila, 14).clearContent(); // Limpiar terapeuta (columna N)
         ss.toast('⚠️ ' + nombre + ' ya está en Terapias', 'Ya Asignado', 3);
         Logger.log('Duplicado encontrado: ' + nombre);
         return;
@@ -932,9 +934,9 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     Logger.log('✅ Agregado a Terapias en fila: ' + nuevaFilaTerapias);
 
     // Marcar como procesado en verde
-    sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#d4edda');
-    sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar terapeuta (columna M)
-    sheetOrigen.getRange(fila, 14).clearContent(); // Limpiar asistió (columna N)
+    sheetOrigen.getRange(fila, 1, 1, 15).setBackground('#d4edda');
+    sheetOrigen.getRange(fila, 14).clearContent(); // Limpiar terapeuta (columna N)
+    sheetOrigen.getRange(fila, 15).clearContent(); // Limpiar asistió (columna O)
 
     SpreadsheetApp.flush();
     ss.toast('✅ ' + nombre + '\n→ Nuevos Ingresos\n→ Terapias con ' + terapeuta, 'Asignado', 4);
@@ -979,9 +981,9 @@ function enviarAPersonasNoAsistidas(nombre, creemosId, genero, edad, malestar, t
     Logger.log('✅ Agregado a Personas no asistidas en fila: ' + nuevaFila);
 
     // Marcar como procesado en rojo (no asistió)
-    sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#f8d7da');
-    sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar terapeuta (columna M)
-    sheetOrigen.getRange(fila, 14).clearContent(); // Limpiar asistió (columna N)
+    sheetOrigen.getRange(fila, 1, 1, 15).setBackground('#f8d7da');
+    sheetOrigen.getRange(fila, 14).clearContent(); // Limpiar terapeuta (columna N)
+    sheetOrigen.getRange(fila, 15).clearContent(); // Limpiar asistió (columna O)
 
     SpreadsheetApp.flush();
     ss.toast('⚠️ ' + nombre + '\n→ Personas no asistidas (NO VINO)', 'No Asistió', 3);
@@ -2500,6 +2502,49 @@ function instalarTriggerRecordatorioMensual() {
       5
     );
     Logger.log('❌ Error instalando trigger de recordatorio mensual: ' + error.message);
+  }
+}
+
+/**
+ * Instala el trigger onEdit como instalable para permitir diálogos HTML
+ */
+function instalarTriggerOnEdit() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Eliminar triggers onEdit existentes
+    const triggers = ScriptApp.getProjectTriggers();
+    triggers.forEach(trigger => {
+      if (trigger.getHandlerFunction() === 'alEditar' &&
+          trigger.getEventType() === ScriptApp.EventType.ON_EDIT) {
+        ScriptApp.deleteTrigger(trigger);
+      }
+    });
+
+    // Crear nuevo trigger onEdit instalable
+    ScriptApp.newTrigger('alEditar')
+      .forSpreadsheet(ss)
+      .onEdit()
+      .create();
+
+    ss.toast(
+      '✅ Trigger onEdit instalado correctamente\n\n' +
+      'Ahora los diálogos de motivo funcionarán correctamente cuando:\n' +
+      '- Seleccione "Proceso culminado" en Estado de Terapias\n' +
+      '- Seleccione "deserciones" en Estado de Terapias',
+      'Trigger onEdit Instalado',
+      6
+    );
+
+    Logger.log('✅ Trigger onEdit instalado correctamente');
+  } catch (error) {
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      '❌ Error: ' + error.message + '\n\n' +
+      'Es posible que necesite autorizar los permisos del script.',
+      'Error',
+      5
+    );
+    Logger.log('❌ Error instalando trigger onEdit: ' + error.message);
   }
 }
 
