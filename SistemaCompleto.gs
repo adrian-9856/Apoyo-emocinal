@@ -453,8 +453,8 @@ function crearReportesMensuales() {
 
   const headers = [
     'Mes/Año', 'Nuevos Ingresos', 'Culminados', 'Deserciones', 'Gestión Casos',
-    'Casos Activos', 'Tasa Éxito (%)', 'Gerber', 'Melissa', 'Diana', 'Karina',
-    'Derivados Programa Creamos', 'Derivados Organizaciones', 'Fecha Guardado'
+    'Casos Activos', 'Tasa Éxito (%)', 'Sesiones Gerber', 'Sesiones Melissa', 'Sesiones Diana', 'Sesiones Karina',
+    'Derivaciones Externas', '(Sin uso)', 'Fecha Guardado'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -1415,24 +1415,42 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
 
   let motivo = '';
 
-  // Para deserciones, mostrar diálogo HTML con dropdown
-  if (tipoFinal === 'deserciones') {
-    motivo = mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion);
+  try {
+    // Para deserciones, mostrar diálogo HTML con dropdown
+    if (tipoFinal === 'deserciones') {
+      motivo = mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion);
 
-    if (!motivo || motivo === '') {
-      // Usuario canceló o no seleccionó nada
-      sheetOrigen.getRange(fila, 6).setValue('En proceso');
-      return;
-    }
-  } else if (tipoFinal === 'Proceso culminado') {
-    // Para proceso culminado, mostrar diálogo HTML con campo de texto
-    motivo = mostrarDialogoMotivoCulminado(nombre, terapeuta, numSesion);
+      if (!motivo || motivo === '') {
+        // Usuario canceló o no seleccionó nada
+        sheetOrigen.getRange(fila, 6).setValue('En proceso');
+        return;
+      }
+    } else if (tipoFinal === 'Proceso culminado') {
+      // Para proceso culminado, mostrar diálogo HTML con campo de texto
+      motivo = mostrarDialogoMotivoCulminado(nombre, terapeuta, numSesion);
 
-    if (!motivo || motivo === '') {
-      // Usuario canceló o no ingresó nada
-      sheetOrigen.getRange(fila, 6).setValue('En proceso');
-      return;
+      if (!motivo || motivo === '') {
+        // Usuario canceló o no ingresó nada
+        sheetOrigen.getRange(fila, 6).setValue('En proceso');
+        return;
+      }
     }
+  } catch (error) {
+    // Error al mostrar diálogo - probablemente el trigger no está instalado
+    Logger.log('Error mostrando diálogo: ' + error.message);
+    sheetOrigen.getRange(fila, 6).setValue('En proceso');
+
+    ss.toast(
+      '⚠️ ERROR: No se puede mostrar el diálogo\n\n' +
+      'Para que funcionen los diálogos de motivo, debe:\n' +
+      '1. Ir al menú: 🏥 Apoyo Emocional\n' +
+      '2. Hacer clic en: ✏️ Instalar Trigger onEdit\n' +
+      '3. Autorizar los permisos\n\n' +
+      'Después de instalar el trigger, vuelva a seleccionar el estado.',
+      'Trigger No Instalado',
+      15
+    );
+    return;
   }
 
   // Guardar motivo en columna G
