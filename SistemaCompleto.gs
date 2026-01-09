@@ -1234,6 +1234,173 @@ function guardarMotivoDesercionTemporal(motivo) {
 }
 
 /**
+ * Muestra un diálogo HTML con campo de texto para motivo de proceso culminado
+ */
+function mostrarDialogoMotivoCulminado(nombre, terapeuta, numSesion) {
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <base target="_top">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            margin: 0;
+          }
+          .info-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #28a745;
+            padding: 12px;
+            margin-bottom: 20px;
+          }
+          .info-box p {
+            margin: 5px 0;
+            font-size: 14px;
+          }
+          .info-box strong {
+            color: #28a745;
+          }
+          label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+          }
+          textarea {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+            resize: vertical;
+            min-height: 100px;
+          }
+          .button-container {
+            text-align: right;
+            margin-top: 20px;
+          }
+          button {
+            padding: 10px 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+          }
+          .btn-cancel {
+            background-color: #6c757d;
+            color: white;
+          }
+          .btn-cancel:hover {
+            background-color: #5a6268;
+          }
+          .btn-ok {
+            background-color: #28a745;
+            color: white;
+          }
+          .btn-ok:hover {
+            background-color: #218838;
+          }
+          .btn-ok:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+          }
+          .char-count {
+            text-align: right;
+            font-size: 12px;
+            color: #666;
+            margin-top: -15px;
+            margin-bottom: 10px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="info-box">
+          <p><strong>Participante:</strong> ${nombre}</p>
+          <p><strong>Terapeuta:</strong> ${terapeuta}</p>
+          <p><strong>Sesiones:</strong> ${numSesion}</p>
+        </div>
+
+        <label for="motivo">Ingrese el motivo de culminación del proceso:</label>
+        <textarea id="motivo" placeholder="Describa el motivo de la culminación del proceso terapéutico..."></textarea>
+        <div class="char-count">
+          <span id="charCount">0</span> caracteres
+        </div>
+
+        <div class="button-container">
+          <button class="btn-cancel" onclick="cancelar()">Cancelar</button>
+          <button class="btn-ok" id="btnOk" onclick="aceptar()" disabled>Aceptar</button>
+        </div>
+
+        <script>
+          // Habilitar botón OK solo si hay texto
+          const textarea = document.getElementById('motivo');
+          const btnOk = document.getElementById('btnOk');
+          const charCount = document.getElementById('charCount');
+
+          textarea.addEventListener('input', function() {
+            const texto = this.value.trim();
+            charCount.textContent = this.value.length;
+            btnOk.disabled = texto.length === 0;
+          });
+
+          // Auto-focus en el textarea
+          textarea.focus();
+
+          function aceptar() {
+            const motivo = document.getElementById('motivo').value.trim();
+            if (motivo) {
+              google.script.run
+                .withSuccessHandler(function() {
+                  google.script.host.close();
+                })
+                .guardarMotivoCulminadoTemporal(motivo);
+            }
+          }
+
+          function cancelar() {
+            google.script.run
+              .withSuccessHandler(function() {
+                google.script.host.close();
+              })
+              .guardarMotivoCulminadoTemporal('');
+          }
+        </script>
+      </body>
+    </html>
+  `;
+
+  const html = HtmlService.createHtmlOutput(htmlContent)
+    .setWidth(500)
+    .setHeight(400);
+
+  // Limpiar cualquier valor previo
+  PropertiesService.getScriptProperties().deleteProperty('MOTIVO_CULMINADO_TEMP');
+
+  // Mostrar diálogo (bloquea hasta que se cierre)
+  SpreadsheetApp.getUi().showModalDialog(html, 'Proceso Culminado - Motivo');
+
+  // Leer el valor guardado
+  const motivo = PropertiesService.getScriptProperties().getProperty('MOTIVO_CULMINADO_TEMP') || '';
+
+  // Limpiar
+  PropertiesService.getScriptProperties().deleteProperty('MOTIVO_CULMINADO_TEMP');
+
+  return motivo;
+}
+
+/**
+ * Guarda temporalmente el motivo de culminación seleccionado
+ */
+function guardarMotivoCulminadoTemporal(motivo) {
+  PropertiesService.getScriptProperties().setProperty('MOTIVO_CULMINADO_TEMP', motivo);
+}
+
+/**
  * Procesa la finalización de terapia (Proceso culminado o deserciones)
  */
 function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
@@ -1266,28 +1433,11 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
       return;
     }
   } else if (tipoFinal === 'Proceso culminado') {
-    // Para proceso culminado, usar prompt de texto libre
-    const promptMotivo = 'Motivo de finalización del proceso:\n\n' +
-                   'Participante: ' + nombre + '\n' +
-                   'Terapeuta: ' + terapeuta + '\n' +
-                   'Sesiones: ' + numSesion + '\n\n' +
-                   'Ingrese el motivo:';
-
-    const motivoResp = ui.prompt(
-      'Motivo - ' + tipoFinal,
-      promptMotivo,
-      ui.ButtonSet.OK_CANCEL
-    );
-
-    if (motivoResp.getSelectedButton() !== ui.Button.OK) {
-      sheetOrigen.getRange(fila, 6).setValue('En proceso');
-      return;
-    }
-
-    motivo = motivoResp.getResponseText().trim();
+    // Para proceso culminado, mostrar diálogo HTML con campo de texto
+    motivo = mostrarDialogoMotivoCulminado(nombre, terapeuta, numSesion);
 
     if (!motivo || motivo === '') {
-      ui.alert('❌ Error', 'Debe ingresar un motivo', ui.ButtonSet.OK);
+      // Usuario canceló o no ingresó nada
       sheetOrigen.getRange(fila, 6).setValue('En proceso');
       return;
     }
