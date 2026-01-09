@@ -512,32 +512,6 @@ function configurarValidaciones() {
     .build();
   espera.getRange('F2:F200').setDataValidation(rangoEdadRule);
 
-  // Validaciones de MALESTAR PRINCIPAL
-  // Aplicar en Lista de Espera (columna G) con opciones específicas
-  const malestarRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList([
-      'Duelo',
-      'Sintomatología depresiva',
-      'Sintomatología de ansiedad',
-      'Dinámica familiar disfuncional',
-      'Sintomatología o Trastorno de Personalidad',
-      'Requerimiento legal',
-      'Violencia de género',
-      'Separación de pareja',
-      'Dificultad en las relaciones interpersonales',
-      'Estrés',
-      'Consumo problemático de sustancias',
-      'Intento o ideación suicida',
-      'Sintomatología de TEA o TEPT',
-      'Problemas de la conducta alimentaria',
-      'Dificultad en la gestión emocional',
-      'Violencia intrafamiliar',
-      'Conducta adictiva'
-    ])
-    .setAllowInvalid(true) // Permitir otros valores para flexibilidad
-    .build();
-  espera.getRange('G2:G200').setDataValidation(malestarRule);
-
   // Validaciones de terapeuta
   const terapeutaRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Gerber', 'Melissa', 'Diana', 'Karina'])
