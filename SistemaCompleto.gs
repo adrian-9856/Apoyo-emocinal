@@ -1232,9 +1232,21 @@ function mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion) {
           function aceptar() {
             const motivo = document.getElementById('motivo').value;
             if (motivo) {
+              // Deshabilitar botón para evitar clicks múltiples
+              document.getElementById('btnOk').disabled = true;
+              document.getElementById('btnOk').textContent = 'Guardando...';
+
               google.script.run
                 .withSuccessHandler(function() {
-                  google.script.host.close();
+                  // Esperar un poco antes de cerrar para asegurar que se guardó
+                  setTimeout(function() {
+                    google.script.host.close();
+                  }, 500);
+                })
+                .withFailureHandler(function(error) {
+                  alert('Error al guardar: ' + error.message);
+                  document.getElementById('btnOk').disabled = false;
+                  document.getElementById('btnOk').textContent = 'Aceptar';
                 })
                 .guardarMotivoDesercionTemporal(motivo);
             }
@@ -1243,7 +1255,9 @@ function mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion) {
           function cancelar() {
             google.script.run
               .withSuccessHandler(function() {
-                google.script.host.close();
+                setTimeout(function() {
+                  google.script.host.close();
+                }, 300);
               })
               .guardarMotivoDesercionTemporal('');
           }
@@ -1262,8 +1276,13 @@ function mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion) {
   // Mostrar diálogo (bloquea hasta que se cierre)
   SpreadsheetApp.getUi().showModalDialog(html, 'Motivo de Deserción');
 
+  // IMPORTANTE: Esperar un momento para que se guarde el valor
+  Utilities.sleep(1000); // Esperar 1 segundo
+
   // Leer el valor guardado
   const motivo = PropertiesService.getScriptProperties().getProperty('MOTIVO_DESERCION_TEMP') || '';
+
+  Logger.log('🔍 Valor leído de PropertiesService: "' + motivo + '"');
 
   // Limpiar
   PropertiesService.getScriptProperties().deleteProperty('MOTIVO_DESERCION_TEMP');
@@ -1275,7 +1294,9 @@ function mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion) {
  * Guarda temporalmente el motivo de deserción seleccionado
  */
 function guardarMotivoDesercionTemporal(motivo) {
+  Logger.log('💾 Guardando motivo en PropertiesService: "' + motivo + '"');
   PropertiesService.getScriptProperties().setProperty('MOTIVO_DESERCION_TEMP', motivo);
+  Logger.log('✅ Motivo guardado exitosamente');
 }
 
 /**
