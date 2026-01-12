@@ -464,7 +464,7 @@ function crearReporte() {
 
     // SECCIÓN 5: PROCESOS CULMINADOS
     ['PROCESOS CULMINADOS', 'Total', 'Este mes', 'Promedio sesiones'],
-    ['Procesos terapeuticos completados', '=COUNTA(\'Procesos Culminados\'!A:A)-1', '=COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0))', '=IF(B21>0,ROUND(AVERAGE(\'Procesos Culminados\'!E:E),1),0)'],
+    ['Procesos terapeuticos completados', '=COUNTA(\'Procesos Culminados\'!A:A)-1', '=COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0))', '=IFERROR(IF(B21>0,ROUND(AVERAGE(\'Procesos Culminados\'!E2:E500),1),0),0)'],
     ['', '', '', ''],
 
     // SECCIÓN 6: DESERCIONES
