@@ -105,6 +105,7 @@ function onOpen() {
     .addSeparator()
     .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
     .addItem('🔧 Reparar Formulas Lista Espera', 'repararFormulasListaEspera')
+    .addItem('📦 Compactar Lista Espera', 'compactarListaEspera')
     .addSeparator()
     .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
     .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos')
@@ -2847,5 +2848,65 @@ function repararFormulasListaEspera() {
   } catch (error) {
     ss.toast('Error: ' + error.message, 'Error', 5);
     Logger.log('Error reparando formulas: ' + error.message);
+  }
+}
+
+/**
+ * Compacta los datos de Lista de Espera eliminando filas vacías
+ * Mueve todos los registros hacia arriba para que queden consecutivos desde la fila 2
+ */
+function compactarListaEspera() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    ss.toast('Compactando Lista de Espera...', 'Procesando', 3);
+
+    const sheet = ss.getSheetByName('Lista de Espera');
+    if (!sheet) {
+      ss.toast('Error: No se encuentra la hoja "Lista de Espera"', 'Error', 5);
+      return;
+    }
+
+    // Leer todos los datos (columnas C a O = 13 columnas, desde C hasta O)
+    const ultimaFila = 1000; // Leer hasta fila 1000
+    const datos = sheet.getRange(2, 3, ultimaFila - 1, 13).getValues(); // C2:O1000
+
+    // Filtrar solo las filas que tienen nombre (columna C no vacía)
+    const datosCompactados = [];
+    datos.forEach(fila => {
+      const nombre = fila[0]; // Columna C (índice 0 en el array)
+      if (nombre && nombre.toString().trim() !== '') {
+        datosCompactados.push(fila);
+      }
+    });
+
+    if (datosCompactados.length === 0) {
+      ss.toast('No hay datos para compactar', 'Lista Vacía', 3);
+      return;
+    }
+
+    // Limpiar todo el rango de datos (columnas C a O)
+    sheet.getRange(2, 3, ultimaFila - 1, 13).clearContent();
+    sheet.getRange(2, 3, ultimaFila - 1, 13).setBackground(null);
+
+    // Escribir los datos compactados desde la fila 2
+    sheet.getRange(2, 3, datosCompactados.length, 13).setValues(datosCompactados);
+
+    // Las columnas A (Fecha) y B (Número) se llenarán automáticamente por las fórmulas
+
+    ss.toast(
+      'COMPACTACION EXITOSA\n\n' +
+      'Registros encontrados: ' + datosCompactados.length + '\n' +
+      'Los datos ahora estan consecutivos desde la fila 2.\n\n' +
+      'Las fechas y numeros se actualizaran automaticamente.',
+      'Compactacion Completa',
+      8
+    );
+
+    Logger.log('✅ Lista de Espera compactada: ' + datosCompactados.length + ' registros');
+
+  } catch (error) {
+    ss.toast('Error: ' + error.message, 'Error', 5);
+    Logger.log('Error compactando Lista de Espera: ' + error.message);
   }
 }
