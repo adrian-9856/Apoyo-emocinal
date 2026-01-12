@@ -423,79 +423,138 @@ function crearReporte() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Reporte');
 
+  // Título principal
   const data = [
-    ['📊 REPORTE AUTOMÁTICO COMPLETO', ''],
-    ['🔄 Última actualización:', '=NOW()'],
-    ['📅 Mes actual:', '=TEXT(TODAY(),"MMMM YYYY")'],
-    ['', ''],
-    ['👥 NUEVOS INGRESOS (QUE VINIERON)', ''],
-    ['Total ingresos', '=COUNTA(\'Nuevos Ingresos\'!C:C)-1'],
-    ['Ingresos este mes', '=COUNTIFS(\'Nuevos Ingresos\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Nuevos Ingresos\'!A:A,"<="&EOMONTH(TODAY(),0))'],
-    ['', ''],
-    ['⚠️ PERSONAS NO ASISTIDAS', ''],
-    ['Total no asistidas', '=COUNTA(\'Personas no asistidas\'!B:B)-1'],
-    ['No asistidas este mes', '=COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0))'],
-    ['', ''],
-    ['🔗 REFERENCIAS Y DERIVACIONES', ''],
-    ['Derivaciones externas (Programas/Organizaciones)', '=COUNTA(\'Lista de Espera\'!K:K)-1'],
-    ['', ''],
-    ['✅ ASISTENCIAS (HOJAS EXTERNAS)', ''],
-    ['Estado conexión', 'No configurado'],
-    ['Total asistencias (todas)', 0],
-    ['Asistencias este mes (todas)', 0],
-    ['', ''],
-    ['👩‍⚕️ CASOS ACTIVOS POR TERAPEUTA', ''],
-    ['Gerber - Casos activos', '=COUNTIFS(Terapias!A:A,"Gerber",Terapias!F:F,"En proceso")'],
-    ['Melissa - Casos activos', '=COUNTIFS(Terapias!A:A,"Melissa",Terapias!F:F,"En proceso")'],
-    ['Diana - Casos activos', '=COUNTIFS(Terapias!A:A,"Diana",Terapias!F:F,"En proceso")'],
-    ['Karina - Casos activos', '=COUNTIFS(Terapias!A:A,"Karina",Terapias!F:F,"En proceso")'],
-    ['Total casos activos', '=B23+B24+B25+B26'],
-    ['', ''],
-    ['📊 SESIONES DEL MES POR TERAPEUTA', ''],
-    ['Gerber - Sesiones este mes', '=SUMPRODUCT((Terapias!A2:A200="Gerber")*(Terapias!E2:E200-Terapias!H2:H200))'],
-    ['Melissa - Sesiones este mes', '=SUMPRODUCT((Terapias!A2:A200="Melissa")*(Terapias!E2:E200-Terapias!H2:H200))'],
-    ['Diana - Sesiones este mes', '=SUMPRODUCT((Terapias!A2:A200="Diana")*(Terapias!E2:E200-Terapias!H2:H200))'],
-    ['Karina - Sesiones este mes', '=SUMPRODUCT((Terapias!A2:A200="Karina")*(Terapias!E2:E200-Terapias!H2:H200))'],
-    ['Total sesiones este mes', '=B29+B30+B31+B32'],
-    ['', ''],
-    ['🎉 PROCESOS CULMINADOS', ''],
-    ['Total culminados', '=COUNTA(\'Procesos Culminados\'!A:A)-1'],
-    ['Culminados este mes', '=COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0))'],
-    ['Promedio sesiones', '=IF(B36>0,AVERAGE(\'Procesos Culminados\'!E:E),0)'],
-    ['', ''],
-    ['⚠️ DESERCIONES', ''],
-    ['Total deserciones', '=COUNTA(Deserciones!A:A)-1'],
-    ['Deserciones este mes', '=COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0))'],
-    ['Tasa deserción', '=IF((B36+B41)>0,B41/(B36+B41)*100&"%","0%")'],
-    ['', ''],
-    ['📋 INTERVENCIÓN DE CASOS', ''],
-    ['Total en intervención', '=COUNTA(\'Intervención de casos\'!A:A)-1'],
-    ['', ''],
-    ['📊 ESTADÍSTICAS GENERALES', ''],
-    ['Total casos procesados', '=B36+B41+B46'],
-    ['Tasa de éxito', '=IF(B49>0,B36/B49*100&"%","0%")'],
-    ['Casos activos', '=B27']
+    ['REPORTE AUTOMATICO - APOYO EMOCIONAL', '', '', ''],
+    ['Ultima actualizacion:', '=TEXT(NOW(),"DD/MM/YYYY HH:MM")', 'Mes actual:', '=TEXT(TODAY(),"MMMM YYYY")'],
+    ['', '', '', ''],
+
+    // SECCIÓN 1: INGRESOS
+    ['NUEVOS INGRESOS', 'Total', 'Este mes', ''],
+    ['Participantes que vinieron a primera cita', '=COUNTA(\'Nuevos Ingresos\'!C:C)-1', '=COUNTIFS(\'Nuevos Ingresos\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Nuevos Ingresos\'!A:A,"<="&EOMONTH(TODAY(),0))', ''],
+    ['', '', '', ''],
+
+    // SECCIÓN 2: NO ASISTIDAS
+    ['PERSONAS NO ASISTIDAS', 'Total', 'Este mes', ''],
+    ['Personas que no asistieron a primera cita', '=COUNTA(\'Personas no asistidas\'!B:B)-1', '=COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0))', ''],
+    ['', '', '', ''],
+
+    // SECCIÓN 3: DERIVACIONES
+    ['DERIVACIONES INSTITUCIONALES', 'Total', '', ''],
+    ['Derivaciones de Programas Creamos', '=COUNTIFS(\'Lista de Espera\'!I:I,"Programa de Creamos",\'Lista de Espera\'!K:K,"<>")', '', ''],
+    ['Derivaciones de Organizaciones Externas', '=COUNTIFS(\'Lista de Espera\'!I:I,"Organización Externa",\'Lista de Espera\'!K:K,"<>")', '', ''],
+    ['Total derivaciones institucionales', '=B12+B13', '', ''],
+    ['', '', '', ''],
+
+    // SECCIÓN 4: CASOS ACTIVOS
+    ['CASOS ACTIVOS POR TERAPEUTA', 'Casos activos', 'Sesiones mes', ''],
+    ['Gerber', '=COUNTIFS(Terapias!A:A,"Gerber",Terapias!F:F,"En proceso")', '=SUMPRODUCT((Terapias!A2:A500="Gerber")*(Terapias!E2:E500-Terapias!H2:H500))', ''],
+    ['Melissa', '=COUNTIFS(Terapias!A:A,"Melissa",Terapias!F:F,"En proceso")', '=SUMPRODUCT((Terapias!A2:A500="Melissa")*(Terapias!E2:E500-Terapias!H2:H500))', ''],
+    ['Diana', '=COUNTIFS(Terapias!A:A,"Diana",Terapias!F:F,"En proceso")', '=SUMPRODUCT((Terapias!A2:A500="Diana")*(Terapias!E2:E500-Terapias!H2:H500))', ''],
+    ['Karina', '=COUNTIFS(Terapias!A:A,"Karina",Terapias!F:F,"En proceso")', '=SUMPRODUCT((Terapias!A2:A500="Karina")*(Terapias!E2:E500-Terapias!H2:H500))', ''],
+    ['TOTAL', '=SUM(B18:B21)', '=SUM(C18:C21)', ''],
+    ['', '', '', ''],
+
+    // SECCIÓN 5: PROCESOS CULMINADOS
+    ['PROCESOS CULMINADOS', 'Total', 'Este mes', 'Promedio sesiones'],
+    ['Procesos terapeuticos completados', '=COUNTA(\'Procesos Culminados\'!A:A)-1', '=COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0))', '=IF(B25>0,ROUND(AVERAGE(\'Procesos Culminados\'!E:E),1),0)'],
+    ['', '', '', ''],
+
+    // SECCIÓN 6: DESERCIONES
+    ['DESERCIONES', 'Total', 'Este mes', 'Tasa desercion'],
+    ['Participantes que desertaron', '=COUNTA(Deserciones!A:A)-1', '=COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0))', '=IF((B25+B29)>0,ROUND(B29/(B25+B29)*100,1)&"%","0%")'],
+    ['', '', '', ''],
+
+    // SECCIÓN 7: INTERVENCION DE CASOS
+    ['INTERVENCION DE CASOS', 'Total', '', ''],
+    ['Casos en intervencion', '=COUNTA(\'Intervención de casos\'!A:A)-1', '', ''],
+    ['', '', '', ''],
+
+    // SECCIÓN 8: RESUMEN GENERAL
+    ['RESUMEN GENERAL', 'Valor', '', ''],
+    ['Total casos procesados', '=B25+B29+B33', '', ''],
+    ['Tasa de exito', '=IF(B37>0,ROUND(B25/B37*100,1)&"%","0%")', '', ''],
+    ['Casos activos totales', '=B22', '', '']
   ];
 
-  sheet.getRange(1, 1, data.length, 2).setValues(data);
+  // Escribir datos
+  sheet.getRange(1, 1, data.length, 4).setValues(data);
 
-  sheet.getRange('A1:B1').merge()
-    .setBackground('#1f4788')
+  // DISEÑO: Título principal (fila 1)
+  sheet.getRange('A1:D1')
+    .merge()
+    .setBackground('#0d47a1')
     .setFontColor('white')
     .setFontWeight('bold')
-    .setFontSize(14)
-    .setHorizontalAlignment('center');
+    .setFontSize(16)
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+  sheet.setRowHeight(1, 45);
 
-  const sectionRows = [5, 9, 13, 17, 22, 28, 35, 40, 45, 48];
-  sectionRows.forEach(row => {
-    sheet.getRange('A' + row + ':B' + row)
-      .setBackground('#4caf50')
+  // DISEÑO: Subtítulo con fecha (fila 2)
+  sheet.getRange('A2:D2')
+    .setBackground('#e3f2fd')
+    .setFontSize(10)
+    .setVerticalAlignment('middle');
+  sheet.getRange('A2').setFontWeight('bold').setHorizontalAlignment('right');
+  sheet.getRange('C2').setFontWeight('bold').setHorizontalAlignment('right');
+  sheet.setRowHeight(2, 30);
+
+  // DISEÑO: Headers de secciones (columnas azul oscuro)
+  const headerRows = [4, 7, 11, 16, 24, 28, 32, 36];
+  headerRows.forEach(row => {
+    sheet.getRange('A' + row + ':D' + row)
+      .setBackground('#1565c0')
       .setFontColor('white')
-      .setFontWeight('bold');
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle')
+      .setFontSize(11);
+    sheet.setRowHeight(row, 35);
   });
 
-  sheet.setColumnWidth(1, 300);
-  sheet.setColumnWidth(2, 150);
+  // DISEÑO: Filas totales (azul más claro, negrita)
+  const totalRows = [14, 22, 37, 38, 39];
+  totalRows.forEach(row => {
+    sheet.getRange('A' + row + ':D' + row)
+      .setBackground('#bbdefb')
+      .setFontWeight('bold')
+      .setFontSize(10);
+  });
+
+  // DISEÑO: Filas de datos normales (fondo blanco alternado)
+  const dataRows = [5, 8, 12, 13, 18, 19, 20, 21, 25, 29, 33];
+  dataRows.forEach((row, idx) => {
+    const bg = idx % 2 === 0 ? '#ffffff' : '#f5f5f5';
+    sheet.getRange('A' + row + ':D' + row)
+      .setBackground(bg)
+      .setFontSize(10)
+      .setVerticalAlignment('middle');
+  });
+
+  // Bordes profesionales en toda la tabla
+  sheet.getRange('A1:D' + data.length)
+    .setBorder(true, true, true, true, true, true, '#cccccc', SpreadsheetApp.BorderStyle.SOLID);
+
+  // Anchos de columna optimizados para cualquier laptop
+  sheet.setColumnWidth(1, 280);  // Columna descripción
+  sheet.setColumnWidth(2, 120);  // Columna valor 1
+  sheet.setColumnWidth(3, 120);  // Columna valor 2
+  sheet.setColumnWidth(4, 140);  // Columna valor 3
+
+  // Alineación de números
+  sheet.getRange('B:D').setHorizontalAlignment('center');
+  sheet.getRange('A:A').setHorizontalAlignment('left');
+
+  // Altura predeterminada para filas de datos
+  for (let i = 1; i <= data.length; i++) {
+    if (!headerRows.includes(i) && i !== 1 && i !== 2) {
+      sheet.setRowHeight(i, 28);
+    }
+  }
+
+  // Congelar las dos primeras filas
+  sheet.setFrozenRows(2);
 }
 
 function crearReportesMensuales() {
