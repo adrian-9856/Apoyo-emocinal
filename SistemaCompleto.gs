@@ -283,9 +283,9 @@ function crearListaEspera() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  // Fórmulas para fecha y número automáticos (extendido a 500 filas)
+  // Fórmulas para fecha y número automáticos (extendido a 1000 filas)
   const formulas = [];
-  for (let i = 2; i <= 500; i++) {
+  for (let i = 2; i <= 1000; i++) {
     formulas.push([
       '=IF(C' + i + '<>"",TODAY(),"")',  // Columna A: Fecha
       '=IF(C' + i + '<>"",COUNTA($C$2:C' + i + '),"")'  // Columna B: Número secuencial
@@ -293,15 +293,15 @@ function crearListaEspera() {
   }
 
   // Aplicar todas las fórmulas de una vez (más eficiente)
-  sheet.getRange('A2:B500').setFormulas(formulas);
+  sheet.getRange('A2:B1000').setFormulas(formulas);
 
   [110, 60, 200, 120, 100, 100, 250, 200, 180, 220, 220, 200, 180, 150, 120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
   // Proteger columnas de fecha y número para que no se editen manualmente
-  sheet.getRange('A2:A500').protect().setWarningOnly(true);
-  sheet.getRange('B2:B500').protect().setWarningOnly(true);
+  sheet.getRange('A2:A1000').protect().setWarningOnly(true);
+  sheet.getRange('B2:B1000').protect().setWarningOnly(true);
 }
 
 function crearNuevosIngresos() {
@@ -2805,7 +2805,7 @@ function repararFormulasListaEspera() {
 
     // Crear fórmulas mejoradas para fecha y número
     const formulas = [];
-    for (let i = 2; i <= 500; i++) {
+    for (let i = 2; i <= 1000; i++) {
       formulas.push([
         '=IF(C' + i + '<>"",TODAY(),"")',  // Columna A: Fecha
         '=IF(C' + i + '<>"",COUNTA($C$2:C' + i + '),"")'  // Columna B: Número secuencial
@@ -2813,7 +2813,7 @@ function repararFormulasListaEspera() {
     }
 
     // Aplicar fórmulas
-    sheet.getRange('A2:B500').setFormulas(formulas);
+    sheet.getRange('A2:B1000').setFormulas(formulas);
 
     // Proteger columnas para que no se editen manualmente
     try {
@@ -2827,8 +2827,8 @@ function repararFormulasListaEspera() {
       });
 
       // Aplicar nuevas protecciones
-      sheet.getRange('A2:A500').protect().setWarningOnly(true);
-      sheet.getRange('B2:B500').protect().setWarningOnly(true);
+      sheet.getRange('A2:A1000').protect().setWarningOnly(true);
+      sheet.getRange('B2:B1000').protect().setWarningOnly(true);
     } catch (protectionError) {
       Logger.log('Advertencia protegiendo rangos: ' + protectionError.message);
     }
@@ -2838,7 +2838,8 @@ function repararFormulasListaEspera() {
       'Las formulas de fecha y numero han sido reparadas.\n' +
       'Ahora funcionaran correctamente cuando agregues nombres.\n\n' +
       'Fecha: Se llena automaticamente con la fecha actual\n' +
-      'Numero: Se numera secuencialmente (1, 2, 3...)',
+      'Numero: Se numera secuencialmente (1, 2, 3...)\n\n' +
+      'Cobertura: Hasta 1000 filas',
       'Reparacion Exitosa',
       8
     );
