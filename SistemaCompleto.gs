@@ -1107,363 +1107,72 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
 }
 
 /**
- * Muestra un diálogo HTML con dropdown para seleccionar motivo de deserción
+ * Muestra un diálogo para seleccionar motivo de deserción usando ui.prompt
  */
 function mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion) {
+  const ui = SpreadsheetApp.getUi();
+
   const motivosDeserciones = [
-    'Otras prioridades',
-    'Horario laboral',
-    'Retos/problemas familiares',
-    'Dificultades económicas',
-    'No encuentra utilidad',
-    'Mudanza',
-    'Falta de compromiso',
-    'No se adapta al modelo de terapia',
-    'No se adapta al/a la terapeuta',
-    'Problemas de salud',
-    'Inicio estudios/trabajo',
-    'No desea continuar',
-    'Busca atención presencial',
-    'Situaciones de riesgo',
-    'Horarios',
-    'Disponibilidad de tiempo',
-    'Dificultades tecnológicas',
-    'Problemas de conexión',
-    'No desea recibir apoyo',
-    'No responde mensajes',
-    'Otro'
+    '1. Otras prioridades',
+    '2. Horario laboral',
+    '3. Retos/problemas familiares',
+    '4. Dificultades económicas',
+    '5. No encuentra utilidad',
+    '6. Mudanza',
+    '7. Falta de compromiso',
+    '8. No se adapta al modelo de terapia',
+    '9. No se adapta al/a la terapeuta',
+    '10. Problemas de salud',
+    '11. Inicio estudios/trabajo',
+    '12. No desea continuar',
+    '13. Busca atención presencial',
+    '14. Situaciones de riesgo',
+    '15. Horarios',
+    '16. Disponibilidad de tiempo',
+    '17. Dificultades tecnológicas',
+    '18. Problemas de conexión',
+    '19. No desea recibir apoyo',
+    '20. No responde mensajes',
+    '21. Otro'
   ];
 
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <base target="_top">
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            margin: 0;
-          }
-          .info-box {
-            background-color: #f8f9fa;
-            border-left: 4px solid #dc3545;
-            padding: 12px;
-            margin-bottom: 20px;
-          }
-          .info-box p {
-            margin: 5px 0;
-            font-size: 14px;
-          }
-          .info-box strong {
-            color: #dc3545;
-          }
-          label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #333;
-          }
-          select {
-            width: 100%;
-            padding: 10px;
-            font-size: 14px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            box-sizing: border-box;
-          }
-          .button-container {
-            text-align: right;
-            margin-top: 20px;
-          }
-          button {
-            padding: 10px 20px;
-            font-size: 14px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-left: 10px;
-          }
-          .btn-cancel {
-            background-color: #6c757d;
-            color: white;
-          }
-          .btn-cancel:hover {
-            background-color: #5a6268;
-          }
-          .btn-ok {
-            background-color: #dc3545;
-            color: white;
-          }
-          .btn-ok:hover {
-            background-color: #c82333;
-          }
-          .btn-ok:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="info-box">
-          <p><strong>Participante:</strong> ${nombre}</p>
-          <p><strong>Terapeuta:</strong> ${terapeuta}</p>
-          <p><strong>Sesiones:</strong> ${numSesion}</p>
-        </div>
+  const listaMotivos = motivosDeserciones.join('\n');
 
-        <label for="motivo">Seleccione el motivo de deserción:</label>
-        <select id="motivo">
-          <option value="">-- Seleccione un motivo --</option>
-          ${motivosDeserciones.map(m => '<option value="' + m + '">' + m + '</option>').join('\n          ')}
-        </select>
+  const mensaje =
+    '🔴 MOTIVO DE DESERCIÓN\n\n' +
+    'Participante: ' + nombre + '\n' +
+    'Terapeuta: ' + terapeuta + '\n' +
+    'Sesiones: ' + numSesion + '\n\n' +
+    'MOTIVOS DISPONIBLES:\n' +
+    listaMotivos + '\n\n' +
+    'Ingrese el NÚMERO (1-21) del motivo:';
 
-        <div class="button-container">
-          <button class="btn-cancel" onclick="cancelar()">Cancelar</button>
-          <button class="btn-ok" id="btnOk" onclick="aceptar()" disabled>Aceptar</button>
-        </div>
+  const respuesta = ui.prompt(
+    'Motivo de Deserción',
+    mensaje,
+    ui.ButtonSet.OK_CANCEL
+  );
 
-        <script>
-          // Habilitar botón OK solo si hay selección
-          document.getElementById('motivo').addEventListener('change', function() {
-            document.getElementById('btnOk').disabled = this.value === '';
-          });
+  if (respuesta.getSelectedButton() !== ui.Button.OK) {
+    Logger.log('⚠️ Usuario canceló el diálogo');
+    return '';
+  }
 
-          function aceptar() {
-            const motivo = document.getElementById('motivo').value;
-            if (motivo) {
-              // Deshabilitar botón para evitar clicks múltiples
-              document.getElementById('btnOk').disabled = true;
-              document.getElementById('btnOk').textContent = 'Guardando...';
+  const numeroSeleccionado = respuesta.getResponseText().trim();
+  const numero = parseInt(numeroSeleccionado);
 
-              google.script.run
-                .withSuccessHandler(function() {
-                  // Esperar un poco antes de cerrar para asegurar que se guardó
-                  setTimeout(function() {
-                    google.script.host.close();
-                  }, 500);
-                })
-                .withFailureHandler(function(error) {
-                  alert('Error al guardar: ' + error.message);
-                  document.getElementById('btnOk').disabled = false;
-                  document.getElementById('btnOk').textContent = 'Aceptar';
-                })
-                .guardarMotivoDesercionTemporal(motivo);
-            }
-          }
+  if (isNaN(numero) || numero < 1 || numero > 21) {
+    ui.alert('❌ Error', 'Debe ingresar un número entre 1 y 21', ui.ButtonSet.OK);
+    Logger.log('❌ Número inválido ingresado: ' + numeroSeleccionado);
+    return '';
+  }
 
-          function cancelar() {
-            google.script.run
-              .withSuccessHandler(function() {
-                setTimeout(function() {
-                  google.script.host.close();
-                }, 300);
-              })
-              .guardarMotivoDesercionTemporal('');
-          }
-        </script>
-      </body>
-    </html>
-  `;
+  // Obtener el motivo sin el número
+  const motivoCompleto = motivosDeserciones[numero - 1];
+  const motivo = motivoCompleto.substring(motivoCompleto.indexOf('.') + 2); // Quitar "1. "
 
-  const html = HtmlService.createHtmlOutput(htmlContent)
-    .setWidth(500)
-    .setHeight(350);
-
-  // Limpiar cualquier valor previo
-  PropertiesService.getScriptProperties().deleteProperty('MOTIVO_DESERCION_TEMP');
-
-  // Mostrar diálogo (bloquea hasta que se cierre)
-  SpreadsheetApp.getUi().showModalDialog(html, 'Motivo de Deserción');
-
-  // IMPORTANTE: Esperar un momento para que se guarde el valor
-  Utilities.sleep(1000); // Esperar 1 segundo
-
-  // Leer el valor guardado
-  const motivo = PropertiesService.getScriptProperties().getProperty('MOTIVO_DESERCION_TEMP') || '';
-
-  Logger.log('🔍 Valor leído de PropertiesService: "' + motivo + '"');
-
-  // Limpiar
-  PropertiesService.getScriptProperties().deleteProperty('MOTIVO_DESERCION_TEMP');
-
+  Logger.log('✅ Motivo seleccionado: ' + motivo);
   return motivo;
-}
-
-/**
- * Guarda temporalmente el motivo de deserción seleccionado
- */
-function guardarMotivoDesercionTemporal(motivo) {
-  Logger.log('💾 Guardando motivo en PropertiesService: "' + motivo + '"');
-  PropertiesService.getScriptProperties().setProperty('MOTIVO_DESERCION_TEMP', motivo);
-  Logger.log('✅ Motivo guardado exitosamente');
-}
-
-/**
- * Muestra un diálogo HTML con campo de texto para motivo de proceso culminado
- */
-function mostrarDialogoMotivoCulminado(nombre, terapeuta, numSesion) {
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <base target="_top">
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            margin: 0;
-          }
-          .info-box {
-            background-color: #f8f9fa;
-            border-left: 4px solid #28a745;
-            padding: 12px;
-            margin-bottom: 20px;
-          }
-          .info-box p {
-            margin: 5px 0;
-            font-size: 14px;
-          }
-          .info-box strong {
-            color: #28a745;
-          }
-          label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #333;
-          }
-          textarea {
-            width: 100%;
-            padding: 10px;
-            font-size: 14px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            box-sizing: border-box;
-            font-family: Arial, sans-serif;
-            resize: vertical;
-            min-height: 100px;
-          }
-          .button-container {
-            text-align: right;
-            margin-top: 20px;
-          }
-          button {
-            padding: 10px 20px;
-            font-size: 14px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-left: 10px;
-          }
-          .btn-cancel {
-            background-color: #6c757d;
-            color: white;
-          }
-          .btn-cancel:hover {
-            background-color: #5a6268;
-          }
-          .btn-ok {
-            background-color: #28a745;
-            color: white;
-          }
-          .btn-ok:hover {
-            background-color: #218838;
-          }
-          .btn-ok:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-          }
-          .char-count {
-            text-align: right;
-            font-size: 12px;
-            color: #666;
-            margin-top: -15px;
-            margin-bottom: 10px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="info-box">
-          <p><strong>Participante:</strong> ${nombre}</p>
-          <p><strong>Terapeuta:</strong> ${terapeuta}</p>
-          <p><strong>Sesiones:</strong> ${numSesion}</p>
-        </div>
-
-        <label for="motivo">Ingrese el motivo de culminación del proceso:</label>
-        <textarea id="motivo" placeholder="Describa el motivo de la culminación del proceso terapéutico..."></textarea>
-        <div class="char-count">
-          <span id="charCount">0</span> caracteres
-        </div>
-
-        <div class="button-container">
-          <button class="btn-cancel" onclick="cancelar()">Cancelar</button>
-          <button class="btn-ok" id="btnOk" onclick="aceptar()" disabled>Aceptar</button>
-        </div>
-
-        <script>
-          // Habilitar botón OK solo si hay texto
-          const textarea = document.getElementById('motivo');
-          const btnOk = document.getElementById('btnOk');
-          const charCount = document.getElementById('charCount');
-
-          textarea.addEventListener('input', function() {
-            const texto = this.value.trim();
-            charCount.textContent = this.value.length;
-            btnOk.disabled = texto.length === 0;
-          });
-
-          // Auto-focus en el textarea
-          textarea.focus();
-
-          function aceptar() {
-            const motivo = document.getElementById('motivo').value.trim();
-            if (motivo) {
-              google.script.run
-                .withSuccessHandler(function() {
-                  google.script.host.close();
-                })
-                .guardarMotivoCulminadoTemporal(motivo);
-            }
-          }
-
-          function cancelar() {
-            google.script.run
-              .withSuccessHandler(function() {
-                google.script.host.close();
-              })
-              .guardarMotivoCulminadoTemporal('');
-          }
-        </script>
-      </body>
-    </html>
-  `;
-
-  const html = HtmlService.createHtmlOutput(htmlContent)
-    .setWidth(500)
-    .setHeight(400);
-
-  // Limpiar cualquier valor previo
-  PropertiesService.getScriptProperties().deleteProperty('MOTIVO_CULMINADO_TEMP');
-
-  // Mostrar diálogo (bloquea hasta que se cierre)
-  SpreadsheetApp.getUi().showModalDialog(html, 'Proceso Culminado - Motivo');
-
-  // Leer el valor guardado
-  const motivo = PropertiesService.getScriptProperties().getProperty('MOTIVO_CULMINADO_TEMP') || '';
-
-  // Limpiar
-  PropertiesService.getScriptProperties().deleteProperty('MOTIVO_CULMINADO_TEMP');
-
-  return motivo;
-}
-
-/**
- * Guarda temporalmente el motivo de culminación seleccionado
- */
-function guardarMotivoCulminadoTemporal(motivo) {
-  PropertiesService.getScriptProperties().setProperty('MOTIVO_CULMINADO_TEMP', motivo);
 }
 
 /**
