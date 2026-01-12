@@ -450,9 +450,7 @@ function crearReporte() {
 
     // SECCIÓN 3: DERIVACIONES
     ['DERIVACIONES INSTITUCIONALES', 'Total', '', ''],
-    ['Derivaciones de Programas Creamos', '=COUNTIFS(\'Lista de Espera\'!I:I,"Programa de Creamos",\'Lista de Espera\'!K:K,"<>")', '', ''],
-    ['Derivaciones de Organizaciones Externas', '=COUNTIFS(\'Lista de Espera\'!I:I,"Organización Externa",\'Lista de Espera\'!K:K,"<>")', '', ''],
-    ['Total derivaciones institucionales', '=B12+B13', '', ''],
+    ['Total derivaciones institucionales', '=COUNTA(\'Lista de Espera\'!K:K)-1', '', ''],
     ['', '', '', ''],
 
     // SECCIÓN 4: CASOS ACTIVOS
@@ -461,17 +459,17 @@ function crearReporte() {
     ['Melissa', '=COUNTIFS(Terapias!A:A,"Melissa",Terapias!F:F,"En proceso")', '=SUMPRODUCT((Terapias!A2:A500="Melissa")*(Terapias!E2:E500-Terapias!H2:H500))', ''],
     ['Diana', '=COUNTIFS(Terapias!A:A,"Diana",Terapias!F:F,"En proceso")', '=SUMPRODUCT((Terapias!A2:A500="Diana")*(Terapias!E2:E500-Terapias!H2:H500))', ''],
     ['Karina', '=COUNTIFS(Terapias!A:A,"Karina",Terapias!F:F,"En proceso")', '=SUMPRODUCT((Terapias!A2:A500="Karina")*(Terapias!E2:E500-Terapias!H2:H500))', ''],
-    ['TOTAL', '=SUM(B18:B21)', '=SUM(C18:C21)', ''],
+    ['TOTAL', '=SUM(B14:B17)', '=SUM(C14:C17)', ''],
     ['', '', '', ''],
 
     // SECCIÓN 5: PROCESOS CULMINADOS
     ['PROCESOS CULMINADOS', 'Total', 'Este mes', 'Promedio sesiones'],
-    ['Procesos terapeuticos completados', '=COUNTA(\'Procesos Culminados\'!A:A)-1', '=COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0))', '=IF(B25>0,ROUND(AVERAGE(\'Procesos Culminados\'!E:E),1),0)'],
+    ['Procesos terapeuticos completados', '=COUNTA(\'Procesos Culminados\'!A:A)-1', '=COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0))', '=IF(B21>0,ROUND(AVERAGE(\'Procesos Culminados\'!E:E),1),0)'],
     ['', '', '', ''],
 
     // SECCIÓN 6: DESERCIONES
     ['DESERCIONES', 'Total', 'Este mes', 'Tasa desercion'],
-    ['Participantes que desertaron', '=COUNTA(Deserciones!A:A)-1', '=COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0))', '=IF((B25+B29)>0,ROUND(B29/(B25+B29)*100,1)&"%","0%")'],
+    ['Participantes que desertaron', '=COUNTA(Deserciones!A:A)-1', '=COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0))', '=IF((B21+B24)>0,ROUND(B24/(B21+B24)*100,1)&"%","0%")'],
     ['', '', '', ''],
 
     // SECCIÓN 7: INTERVENCION DE CASOS
@@ -481,9 +479,9 @@ function crearReporte() {
 
     // SECCIÓN 8: RESUMEN GENERAL
     ['RESUMEN GENERAL', 'Valor', '', ''],
-    ['Total casos procesados', '=B25+B29+B33', '', ''],
-    ['Tasa de exito', '=IF(B37>0,ROUND(B25/B37*100,1)&"%","0%")', '', ''],
-    ['Casos activos totales', '=B22', '', '']
+    ['Total casos procesados', '=B21+B24+B27', '', ''],
+    ['Tasa de exito', '=IF(B30>0,ROUND(B21/B30*100,1)&"%","0%")', '', ''],
+    ['Casos activos totales', '=B18', '', '']
   ];
 
   // Escribir datos
@@ -510,7 +508,7 @@ function crearReporte() {
   sheet.setRowHeight(2, 30);
 
   // DISEÑO: Headers de secciones (columnas azul oscuro)
-  const headerRows = [4, 7, 11, 16, 24, 28, 32, 36];
+  const headerRows = [4, 7, 10, 13, 20, 23, 26, 29];
   headerRows.forEach(row => {
     sheet.getRange('A' + row + ':D' + row)
       .setBackground('#1565c0')
@@ -523,7 +521,7 @@ function crearReporte() {
   });
 
   // DISEÑO: Filas totales (azul más claro, negrita)
-  const totalRows = [14, 22, 37, 38, 39];
+  const totalRows = [18, 30, 31, 32];
   totalRows.forEach(row => {
     sheet.getRange('A' + row + ':D' + row)
       .setBackground('#bbdefb')
@@ -532,7 +530,7 @@ function crearReporte() {
   });
 
   // DISEÑO: Filas de datos normales (fondo blanco alternado)
-  const dataRows = [5, 8, 12, 13, 18, 19, 20, 21, 25, 29, 33];
+  const dataRows = [5, 8, 11, 14, 15, 16, 17, 21, 24, 27];
   dataRows.forEach((row, idx) => {
     const bg = idx % 2 === 0 ? '#ffffff' : '#f5f5f5';
     sheet.getRange('A' + row + ':D' + row)
