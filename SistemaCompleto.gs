@@ -104,6 +104,7 @@ function onOpen() {
     .addItem('✏️ Instalar Trigger onEdit', 'instalarTriggerOnEdit')
     .addSeparator()
     .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
+    .addItem('🔧 Reparar Formulas Lista Espera', 'repararFormulasListaEspera')
     .addSeparator()
     .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
     .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos')
@@ -282,18 +283,25 @@ function crearListaEspera() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  // Fórmulas para fecha y número automáticos
-  for (let i = 2; i <= 100; i++) {
-    sheet.getRange('A' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
-    sheet.getRange('B' + i).setFormula('=IF(C' + i + '<>"",ROW()-1,"")');
+  // Fórmulas para fecha y número automáticos (extendido a 500 filas)
+  const formulas = [];
+  for (let i = 2; i <= 500; i++) {
+    formulas.push([
+      '=IF(C' + i + '<>"",TODAY(),"")',  // Columna A: Fecha
+      '=IF(C' + i + '<>"",COUNTA($C$2:C' + i + '),"")'  // Columna B: Número secuencial
+    ]);
   }
+
+  // Aplicar todas las fórmulas de una vez (más eficiente)
+  sheet.getRange('A2:B500').setFormulas(formulas);
 
   [110, 60, 200, 120, 100, 100, 250, 200, 180, 220, 220, 200, 180, 150, 120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
-  sheet.getRange('A2:A100').protect().setWarningOnly(true);
-  sheet.getRange('B2:B100').protect().setWarningOnly(true);
+  // Proteger columnas de fecha y número para que no se editen manualmente
+  sheet.getRange('A2:A500').protect().setWarningOnly(true);
+  sheet.getRange('B2:B500').protect().setWarningOnly(true);
 }
 
 function crearNuevosIngresos() {
@@ -2776,5 +2784,67 @@ function limpiarTodosLosDatos() {
   } catch (error) {
     ss.toast('❌ Error: ' + error.message, 'Error en Limpieza', 5);
     Logger.log('Error limpiando datos: ' + error.message);
+  }
+}
+
+/**
+ * Repara las fórmulas de fecha y número en Lista de Espera
+ * Útil cuando las fórmulas no están funcionando correctamente
+ */
+function repararFormulasListaEspera() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    ss.toast('Reparando formulas de Lista de Espera...', 'Reparando', 3);
+
+    const sheet = ss.getSheetByName('Lista de Espera');
+    if (!sheet) {
+      ss.toast('Error: No se encuentra la hoja "Lista de Espera"', 'Error', 5);
+      return;
+    }
+
+    // Crear fórmulas mejoradas para fecha y número
+    const formulas = [];
+    for (let i = 2; i <= 500; i++) {
+      formulas.push([
+        '=IF(C' + i + '<>"",TODAY(),"")',  // Columna A: Fecha
+        '=IF(C' + i + '<>"",COUNTA($C$2:C' + i + '),"")'  // Columna B: Número secuencial
+      ]);
+    }
+
+    // Aplicar fórmulas
+    sheet.getRange('A2:B500').setFormulas(formulas);
+
+    // Proteger columnas para que no se editen manualmente
+    try {
+      // Eliminar protecciones existentes primero
+      const protections = sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE);
+      protections.forEach(protection => {
+        const range = protection.getRange();
+        if (range.getA1Notation().startsWith('A2:A') || range.getA1Notation().startsWith('B2:B')) {
+          protection.remove();
+        }
+      });
+
+      // Aplicar nuevas protecciones
+      sheet.getRange('A2:A500').protect().setWarningOnly(true);
+      sheet.getRange('B2:B500').protect().setWarningOnly(true);
+    } catch (protectionError) {
+      Logger.log('Advertencia protegiendo rangos: ' + protectionError.message);
+    }
+
+    ss.toast(
+      'FORMULAS REPARADAS\n\n' +
+      'Las formulas de fecha y numero han sido reparadas.\n' +
+      'Ahora funcionaran correctamente cuando agregues nombres.\n\n' +
+      'Fecha: Se llena automaticamente con la fecha actual\n' +
+      'Numero: Se numera secuencialmente (1, 2, 3...)',
+      'Reparacion Exitosa',
+      8
+    );
+
+  } catch (error) {
+    ss.toast('Error: ' + error.message, 'Error', 5);
+    Logger.log('Error reparando formulas: ' + error.message);
   }
 }
