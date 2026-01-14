@@ -341,22 +341,23 @@ function crearTerapias() {
 
   const headers = [
     'Terapeuta', 'Participante', 'Creemos ID', 'Género',
-    'No. Sesión', 'Estado', 'Motivo Finalización', 'Sesiones Mes Anterior'
+    'No. Sesión', 'Estado', 'Motivo Finalización', 'Sesiones Mes Anterior', 'Inasistencias'
   ];
 
-  sheet.getRange(1, 1, 1, 8).setValues([headers])
+  sheet.getRange(1, 1, 1, 9).setValues([headers])
     .setBackground('#2e7d32')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 200, 120, 80, 80, 120, 300, 120].forEach((w, i) => {
+  [120, 200, 120, 80, 80, 120, 300, 120, 100].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
-  // Inicializar columna H con 0
+  // Inicializar columna H con 0 y columna I con 0
   for (let i = 2; i <= 200; i++) {
     sheet.getRange('H' + i).setValue(0);
+    sheet.getRange('I' + i).setValue(0);
   }
 }
 
@@ -849,10 +850,14 @@ function alEditar(e) {
     Logger.log('   Fila: ' + fila + ', Nuevo valor: ' + val);
 
     try {
+      // Preguntar si vino o no vino a la sesión
+      registrarAsistenciaSesion(sheet, fila, val);
+      Logger.log('✅ Asistencia registrada');
+
       actualizarReportes();
       Logger.log('✅ Reportes actualizados');
     } catch (error) {
-      Logger.log('❌ ERROR actualizando reportes: ' + error.toString());
+      Logger.log('❌ ERROR: ' + error.toString());
     }
   }
 
@@ -1047,9 +1052,10 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
       1,                  // E: No. Sesión
       'En proceso',       // F: Estado
       '',                 // G: Motivo Finalización
-      0                   // H: Sesiones Mes Anterior
+      0,                  // H: Sesiones Mes Anterior
+      0                   // I: Inasistencias
     ];
-    terapias.getRange(nuevaFilaTerapias, 1, 1, 8).setValues([registroTerapias]);
+    terapias.getRange(nuevaFilaTerapias, 1, 1, 9).setValues([registroTerapias]);
     Logger.log('✅ Agregado a Terapias en fila: ' + nuevaFilaTerapias);
 
     // Marcar como procesado en verde
@@ -1160,16 +1166,80 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
     1,
     'En proceso',
     '',
-    0  // Sesiones Mes Anterior (inicializa en 0)
+    0,  // H: Sesiones Mes Anterior (inicializa en 0)
+    0   // I: Inasistencias (inicializa en 0)
   ];
 
-  terapias.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
+  terapias.getRange(nuevaFila, 1, 1, 9).setValues([registro]);
 
   // Marcar como procesado
   sheetOrigen.getRange(fila, 1, 1, 7).setBackground('#d4edda');
 
   SpreadsheetApp.flush(); // Forzar actualización
   ss.toast('✅ ' + nombreLimpio + '\n→ ' + terapeuta + '\nCaso creado en Terapias', 'Asignado', 3);
+}
+
+/**
+ * Registra la asistencia a una sesión de terapia
+ * Pregunta si el participante vino o no vino a la sesión
+ * Si no vino, incrementa el contador de inasistencias
+ */
+function registrarAsistenciaSesion(sheet, fila, numSesion) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Obtener datos del participante
+  const participante = sheet.getRange(fila, 2).getValue(); // Columna B
+  const terapeuta = sheet.getRange(fila, 1).getValue();    // Columna A
+
+  if (!participante || participante.toString().trim() === '') {
+    Logger.log('⚠️ No hay participante en esta fila, ignorando');
+    return;
+  }
+
+  const nombre = participante.toString().trim();
+
+  // Mostrar diálogo preguntando si vino o no vino
+  const mensaje =
+    'REGISTRO DE ASISTENCIA\n\n' +
+    'Participante: ' + nombre + '\n' +
+    'Terapeuta: ' + terapeuta + '\n' +
+    'Sesion: ' + numSesion + '\n\n' +
+    'El participante asistio a esta sesion?';
+
+  const respuesta = ui.alert(
+    'Asistencia a Sesion',
+    mensaje,
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta === ui.Button.YES) {
+    // Vino a la sesión - no hacer nada con el contador
+    Logger.log('✅ Participante asistió a la sesión ' + numSesion);
+    ss.toast('✅ Asistencia registrada\n\n' + nombre + ' asistio a la sesion ' + numSesion, 'Vino', 3);
+
+  } else if (respuesta === ui.Button.NO) {
+    // No vino - incrementar contador de inasistencias
+    Logger.log('⚠️ Participante NO asistió a la sesión ' + numSesion);
+
+    const inasistenciasActuales = sheet.getRange(fila, 9).getValue() || 0; // Columna I
+    const nuevasInasistencias = parseInt(inasistenciasActuales) + 1;
+
+    sheet.getRange(fila, 9).setValue(nuevasInasistencias); // Columna I
+
+    Logger.log('📊 Inasistencias actualizadas: ' + inasistenciasActuales + ' → ' + nuevasInasistencias);
+
+    ss.toast(
+      'INASISTENCIA REGISTRADA\n\n' +
+      nombre + ' NO asistio a la sesion ' + numSesion + '\n\n' +
+      'Total inasistencias: ' + nuevasInasistencias,
+      'No vino',
+      4
+    );
+  } else {
+    // Usuario canceló
+    Logger.log('⚠️ Usuario canceló el registro de asistencia');
+  }
 }
 
 /**
@@ -1248,12 +1318,13 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
-  const datos = sheetOrigen.getRange(fila, 1, 1, 8).getValues()[0];
+  const datos = sheetOrigen.getRange(fila, 1, 1, 9).getValues()[0];
   const terapeuta = datos[0];
   const participante = datos[1];
   const creemosId = datos[2];
   const genero = datos[3];
   const numSesion = datos[4];
+  const inasistencias = datos[8] || 0; // Columna I
 
   if (!participante || participante.toString().trim() === '') {
     ss.toast('⚠️ Error: No hay participante en esta fila', 'Error', 3);
@@ -1332,7 +1403,7 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
       'deserciones': '#f8d7da'
     };
 
-    sheetOrigen.getRange(fila, 1, 1, 8).setBackground(colores[tipoFinal]);
+    sheetOrigen.getRange(fila, 1, 1, 9).setBackground(colores[tipoFinal]);
 
     if (tipoFinal === 'deserciones') {
       ss.toast(
@@ -2734,8 +2805,8 @@ function limpiarTodosLosDatos() {
     // Limpiar Terapias (desde fila 2)
     const terapias = ss.getSheetByName('Terapias');
     if (terapias.getLastRow() > 1) {
-      terapias.getRange(2, 1, terapias.getLastRow() - 1, 8).clearContent();
-      terapias.getRange(2, 1, terapias.getLastRow() - 1, 8).setBackground(null);
+      terapias.getRange(2, 1, terapias.getLastRow() - 1, 9).clearContent();
+      terapias.getRange(2, 1, terapias.getLastRow() - 1, 9).setBackground(null);
     }
 
     // Limpiar Procesos Culminados (desde fila 2)
