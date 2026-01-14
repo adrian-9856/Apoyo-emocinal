@@ -659,22 +659,20 @@ function configurarValidaciones() {
     .build();
   espera.getRange('O2:O200').setDataValidation(asistenciaRule);
 
-  // Validaciones de Tipo de Intervención - en Intervención de casos columna E
+  // Validaciones de Motivo de Intervención - en Intervención de casos columna F
   if (intervencion) {
-    const tipoIntervencionRule = SpreadsheetApp.newDataValidation()
+    // NO validación en columna E (Tipo) - debe ser texto libre
+    // Validación en columna F (Motivo)
+    const motivoIntervencionRule = SpreadsheetApp.newDataValidation()
       .requireValueInList([
-        'Sintomatología de depresión',
-        'Crisis suicida',
-        'Consumo de sustancias',
-        'Sintomatología de ansiedad',
-        'Duelo reciente',
-        'Violencia comunitaria',
-        'VdG',
-        'Estrés'
+        'Referencia programas',
+        'Derivación institucional',
+        'Paps',
+        'Crisis suicida'
       ])
       .setAllowInvalid(true)
       .build();
-    intervencion.getRange('E2:E200').setDataValidation(tipoIntervencionRule);
+    intervencion.getRange('F2:F200').setDataValidation(motivoIntervencionRule);
   }
 
   // Validaciones de Motivos de Deserción - en Deserciones columna F
@@ -724,9 +722,12 @@ function configurarValidaciones() {
   // TERAPIAS:
   //   - Terapeuta (A)
   //   - Género (D)
-  //   - Tipo Terapia (E)
-  //   - No. Sesión (F)
-  //   - Estado (G)
+  //   - No. Sesión (E)
+  //   - Estado (F)
+  //
+  // INTERVENCION DE CASOS:
+  //   - Tipo (E) - texto libre, sin validación
+  //   - Motivo (F) - desplegable: Referencia programas, Derivación institucional, Paps, Crisis suicida
   //
   // =====================================================================
 }
