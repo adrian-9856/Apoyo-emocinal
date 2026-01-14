@@ -659,11 +659,10 @@ function configurarValidaciones() {
     .build();
   espera.getRange('O2:O200').setDataValidation(asistenciaRule);
 
-  // Validaciones de Motivo de Intervención - en Intervención de casos columna F
+  // Validaciones de Tipo de Intervención - en Intervención de casos columna E
   if (intervencion) {
-    // NO validación en columna E (Tipo) - debe ser texto libre
-    // Validación en columna F (Motivo)
-    const motivoIntervencionRule = SpreadsheetApp.newDataValidation()
+    // Validación en columna E (Tipo) - desplegable con 4 opciones
+    const tipoIntervencionRule = SpreadsheetApp.newDataValidation()
       .requireValueInList([
         'Referencia programas',
         'Derivación institucional',
@@ -672,7 +671,9 @@ function configurarValidaciones() {
       ])
       .setAllowInvalid(true)
       .build();
-    intervencion.getRange('F2:F200').setDataValidation(motivoIntervencionRule);
+    intervencion.getRange('E2:E200').setDataValidation(tipoIntervencionRule);
+
+    // NO validación en columna F (Motivo) - debe ser texto libre
   }
 
   // Validaciones de Motivos de Deserción - en Deserciones columna F
@@ -726,8 +727,8 @@ function configurarValidaciones() {
   //   - Estado (F)
   //
   // INTERVENCION DE CASOS:
-  //   - Tipo (E) - texto libre, sin validación
-  //   - Motivo (F) - desplegable: Referencia programas, Derivación institucional, Paps, Crisis suicida
+  //   - Tipo (E) - desplegable: Referencia programas, Derivación institucional, Paps, Crisis suicida
+  //   - Motivo (F) - texto libre, sin validación
   //
   // =====================================================================
 }
