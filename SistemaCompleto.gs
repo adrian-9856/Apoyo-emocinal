@@ -110,6 +110,77 @@ function onOpen() {
     .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
     .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos')
     .addToUi();
+
+  // Ejecutar mantenimiento automático al abrir
+  try {
+    mantenimientoAutomatico();
+  } catch (error) {
+    Logger.log('Error en mantenimiento automático: ' + error.message);
+  }
+}
+
+/**
+ * Ejecuta mantenimiento automático al abrir el documento
+ * - Repara fórmulas de fecha y número en Lista de Espera
+ * - Compacta la lista eliminando filas vacías
+ * - Actualiza reportes
+ */
+function mantenimientoAutomatico() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    Logger.log('🔧 Iniciando mantenimiento automático...');
+
+    // 1. Reparar fórmulas de Lista de Espera
+    const sheet = ss.getSheetByName('Lista de Espera');
+    if (sheet) {
+      // Crear fórmulas mejoradas para fecha y número
+      const formulas = [];
+      for (let i = 2; i <= 1000; i++) {
+        formulas.push([
+          '=IF(C' + i + '<>"",TODAY(),"")',  // Columna A: Fecha
+          '=IF(C' + i + '<>"",COUNTA($C$2:C' + i + '),"")'  // Columna B: Número secuencial
+        ]);
+      }
+
+      // Aplicar fórmulas silenciosamente
+      sheet.getRange('A2:B1000').setFormulas(formulas);
+      Logger.log('✅ Fórmulas de Lista de Espera reparadas');
+    }
+
+    // 2. Compactar Lista de Espera (eliminar filas vacías)
+    if (sheet) {
+      const ultimaFila = 1000;
+      const datos = sheet.getRange(2, 3, ultimaFila - 1, 13).getValues(); // C2:O1000
+
+      // Filtrar solo las filas que tienen nombre (columna C no vacía)
+      const datosCompactados = [];
+      datos.forEach(fila => {
+        const nombre = fila[0]; // Columna C
+        if (nombre && nombre.toString().trim() !== '') {
+          datosCompactados.push(fila);
+        }
+      });
+
+      if (datosCompactados.length > 0) {
+        // Limpiar todo el rango de datos
+        sheet.getRange(2, 3, ultimaFila - 1, 13).clearContent();
+
+        // Escribir los datos compactados desde la fila 2
+        sheet.getRange(2, 3, datosCompactados.length, 13).setValues(datosCompactados);
+        Logger.log('✅ Lista de Espera compactada: ' + datosCompactados.length + ' registros');
+      }
+    }
+
+    // 3. Actualizar reportes
+    actualizarReportes();
+    Logger.log('✅ Reportes actualizados');
+
+    Logger.log('🎉 Mantenimiento automático completado');
+
+  } catch (error) {
+    Logger.log('❌ Error en mantenimiento automático: ' + error.message);
+  }
 }
 
 // =====================================================================
@@ -2548,26 +2619,28 @@ function guardarReporteMensual() {
     }
 
     const mesActual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM yyyy');
-    const nuevosIngresos = reporte.getRange('B7').getValue();
-    const culminados = reporte.getRange('B36').getValue(); // Culminados este mes
-    const deserciones = reporte.getRange('B41').getValue(); // Deserciones este mes
-    const gestion = reporte.getRange('B46').getValue(); // Total en intervención
-    const activos = reporte.getRange('B27').getValue(); // Total casos activos
-    const tasaExito = reporte.getRange('B51').getValue(); // Tasa de éxito
 
-    // Sesiones por terapeuta
-    const sesionesGerber = reporte.getRange('B29').getValue();
-    const sesionesMelissa = reporte.getRange('B30').getValue();
-    const sesionesDiana = reporte.getRange('B31').getValue();
-    const sesionesKarina = reporte.getRange('B32').getValue();
+    // Referencias correctas según el nuevo diseño del reporte
+    const nuevosIngresos = reporte.getRange('C5').getValue(); // Nuevos ingresos este mes
+    const culminados = reporte.getRange('C21').getValue(); // Culminados este mes
+    const deserciones = reporte.getRange('C24').getValue(); // Deserciones este mes
+    const gestion = reporte.getRange('B27').getValue(); // Total en intervención
+    const activos = reporte.getRange('B18').getValue(); // Total casos activos
+    const tasaExito = reporte.getRange('B31').getValue(); // Tasa de éxito
 
-    // Activos por terapeuta
-    const activosGerber = reporte.getRange('B23').getValue();
-    const activosMelissa = reporte.getRange('B24').getValue();
-    const activosDiana = reporte.getRange('B25').getValue();
-    const activosKarina = reporte.getRange('B26').getValue();
+    // Sesiones por terapeuta (columna C de cada fila)
+    const sesionesGerber = reporte.getRange('C14').getValue();
+    const sesionesMelissa = reporte.getRange('C15').getValue();
+    const sesionesDiana = reporte.getRange('C16').getValue();
+    const sesionesKarina = reporte.getRange('C17').getValue();
 
-    const derivacionesExternas = reporte.getRange('B13').getValue(); // Derivaciones externas
+    // Activos por terapeuta (columna B de cada fila)
+    const activosGerber = reporte.getRange('B14').getValue();
+    const activosMelissa = reporte.getRange('B15').getValue();
+    const activosDiana = reporte.getRange('B16').getValue();
+    const activosKarina = reporte.getRange('B17').getValue();
+
+    const derivacionesExternas = reporte.getRange('B11').getValue(); // Derivaciones institucionales
 
     const nuevaFila = mensuales.getLastRow() + 1;
     const datos = [
@@ -2600,7 +2673,7 @@ function guardarReporteMensual() {
       '✅ REPORTE MENSUAL GUARDADO\n\n' +
       'Mes: ' + mesActual + '\n' +
       'Guardado en fila: ' + nuevaFila + '\n\n' +
-      'Las sesiones del próximo mes se contarán desde cero.',
+      'Las sesiones del proximo mes se contaran desde cero.',
       'Reporte Guardado',
       5
     );
