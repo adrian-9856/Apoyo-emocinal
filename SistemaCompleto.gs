@@ -106,6 +106,7 @@ function onOpen() {
     .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
     .addItem('🔧 Reparar Formulas Lista Espera', 'repararFormulasListaEspera')
     .addItem('🔧 Actualizar Formulas Reporte', 'actualizarFormulasReporte')
+    .addItem('🔍 Diagnosticar Reporte', 'diagnosticarReporte')
     .addItem('📦 Compactar Lista Espera', 'compactarListaEspera')
     .addSeparator()
     .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
@@ -2284,83 +2285,14 @@ function actualizarReportes() {
       return;
     }
 
-    // 1. Actualizar fecha y hora
+    // 1. Actualizar fecha y hora solamente
     reporte.getRange('B2').setValue(new Date());
 
-    // 2. Actualizar asistencias desde hojas externas (múltiples grupos)
-    try {
-      const resultados = contarAsistenciasTodosGrupos();
+    // 2. NO sobrescribir las fórmulas de casos activos por terapeuta
+    // Las celdas B14-B17 y C14-C17 deben mantener sus fórmulas
+    // NO tocar esas celdas aquí
 
-      if (resultados.length === 0) {
-        reporte.getRange('B14').setValue('No configurado');
-        reporte.getRange('B15').setValue(0);
-        reporte.getRange('B16').setValue(0);
-      } else {
-        // Calcular totales
-        let totalGeneral = 0;
-        let totalMes = 0;
-        let gruposConError = 0;
-
-        resultados.forEach(resultado => {
-          if (!resultado.error) {
-            totalGeneral += resultado.totalAsistencias;
-            totalMes += resultado.asistenciasMes;
-          } else {
-            gruposConError++;
-          }
-        });
-
-        // Actualizar celdas
-        reporte.getRange('B14').setValue(resultados.length + ' grupos conectados');
-        reporte.getRange('B15').setValue(totalGeneral);
-        reporte.getRange('B16').setValue(totalMes);
-
-        // Mostrar asistencias por grupo en filas adicionales (a partir de fila 17)
-        let filaActual = 17;
-        resultados.forEach(resultado => {
-          if (filaActual <= 50) {  // Límite de seguridad
-            reporte.getRange('A' + filaActual).setValue('  • ' + resultado.grupo);
-            if (resultado.error) {
-              reporte.getRange('B' + filaActual).setValue('Error');
-            } else {
-              reporte.getRange('B' + filaActual).setValue(resultado.asistenciasMes);
-            }
-            filaActual++;
-          }
-        });
-
-        // Limpiar filas sobrantes
-        for (let i = filaActual; i <= 50; i++) {
-          reporte.getRange('A' + i).clearContent();
-          reporte.getRange('B' + i).clearContent();
-        }
-      }
-    } catch (e) {
-      reporte.getRange('B14').setValue('Error');
-      reporte.getRange('B15').setValue(0);
-      reporte.getRange('B16').setValue(0);
-      Logger.log('⚠️ Error actualizando asistencias: ' + e.toString());
-    }
-
-    // 3. Forzar recalculo - método más robusto
-    SpreadsheetApp.flush();
-
-    // 4. Actualizar las celdas de fórmulas una por una para forzar recalculo
-    const celdas = ['B6', 'B7', 'B10', 'B11',
-                    'B19', 'B20', 'B21', 'B22', 'B23',
-                    'B25', 'B26', 'B27', 'B28', 'B29',
-                    'B32', 'B33', 'B34',
-                    'B37', 'B38', 'B39', 'B42', 'B45', 'B46', 'B47'];
-
-    celdas.forEach(celda => {
-      const formula = reporte.getRange(celda).getFormula();
-      if (formula) {
-        // Forzar recalculo estableciendo de nuevo la fórmula
-        reporte.getRange(celda).setFormula(formula);
-      }
-    });
-
-    // 5. Flush final
+    // 3. Forzar recalculo de todas las fórmulas del reporte
     SpreadsheetApp.flush();
 
     // Toast de confirmación
@@ -3074,6 +3006,96 @@ function actualizarFormulasReporte() {
   } catch (error) {
     ss.toast('❌ Error: ' + error.message, 'Error', 5);
     Logger.log('❌ Error actualizando fórmulas del reporte: ' + error.message);
+  }
+}
+
+/**
+ * Diagnóstico del reporte - Muestra qué hay en Terapias y por qué no funciona
+ */
+function diagnosticarReporte() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    const terapias = ss.getSheetByName('Terapias');
+    const reporte = ss.getSheetByName('Reporte');
+
+    if (!terapias) {
+      ui.alert('❌ Error', 'No se encontró la hoja Terapias', ui.ButtonSet.OK);
+      return;
+    }
+
+    if (!reporte) {
+      ui.alert('❌ Error', 'No se encontró la hoja Reporte', ui.ButtonSet.OK);
+      return;
+    }
+
+    // Obtener datos de Terapias
+    const datos = terapias.getDataRange().getValues();
+    let totalRegistros = 0;
+    let casosGerber = 0;
+    let casosMelissa = 0;
+    let casosDiana = 0;
+    let casosKarina = 0;
+    let terapeutasEncontrados = [];
+    let estadosEncontrados = [];
+
+    for (let i = 1; i < datos.length; i++) {
+      const terapeuta = datos[i][0]; // Columna A
+      const participante = datos[i][1]; // Columna B
+      const estado = datos[i][5]; // Columna F
+
+      if (participante && participante.toString().trim() !== '') {
+        totalRegistros++;
+
+        if (terapeuta) terapeutasEncontrados.push('"' + terapeuta + '"');
+        if (estado) estadosEncontrados.push('"' + estado + '"');
+
+        if (terapeuta === 'Gerber' && estado === 'En proceso') casosGerber++;
+        if (terapeuta === 'Melissa' && estado === 'En proceso') casosMelissa++;
+        if (terapeuta === 'Diana' && estado === 'En proceso') casosDiana++;
+        if (terapeuta === 'Karina' && estado === 'En proceso') casosKarina++;
+      }
+    }
+
+    // Ver qué hay en las celdas del reporte
+    const celdasReporte = {
+      B14: reporte.getRange('B14').getValue(),
+      C14: reporte.getRange('C14').getValue(),
+      B14_formula: reporte.getRange('B14').getFormula()
+    };
+
+    const mensaje =
+      '═══ DIAGNÓSTICO DEL REPORTE ═══\n\n' +
+      '📊 DATOS EN TERAPIAS:\n' +
+      'Total registros: ' + totalRegistros + '\n\n' +
+      'Casos "En proceso" por terapeuta:\n' +
+      '  • Gerber: ' + casosGerber + '\n' +
+      '  • Melissa: ' + casosMelissa + '\n' +
+      '  • Diana: ' + casosDiana + '\n' +
+      '  • Karina: ' + casosKarina + '\n\n' +
+      '🔍 TERAPEUTAS ENCONTRADOS (primeros 5):\n' +
+      terapeutasEncontrados.slice(0, 5).join(', ') + '\n\n' +
+      '🔍 ESTADOS ENCONTRADOS (únicos):\n' +
+      [...new Set(estadosEncontrados)].slice(0, 5).join(', ') + '\n\n' +
+      '📋 CELDA B14 (Casos Gerber):\n' +
+      'Valor: ' + celdasReporte.B14 + '\n' +
+      'Fórmula: ' + (celdasReporte.B14_formula || 'SIN FÓRMULA') + '\n\n' +
+      '═══════════════════════════\n' +
+      'Si ves "No configurado" es porque\n' +
+      'la celda tiene TEXTO en lugar de FÓRMULA.';
+
+    ui.alert('Diagnóstico del Reporte', mensaje, ui.ButtonSet.OK);
+
+    Logger.log('Diagnóstico completado');
+    Logger.log('Total registros: ' + totalRegistros);
+    Logger.log('Gerber: ' + casosGerber);
+    Logger.log('Terapeutas: ' + [...new Set(terapeutasEncontrados)].join(', '));
+    Logger.log('Estados: ' + [...new Set(estadosEncontrados)].join(', '));
+
+  } catch (error) {
+    ui.alert('❌ Error', error.message, ui.ButtonSet.OK);
+    Logger.log('❌ Error en diagnóstico: ' + error.message);
   }
 }
 
