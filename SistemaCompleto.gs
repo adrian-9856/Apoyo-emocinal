@@ -345,7 +345,7 @@ function crearListaEspera() {
   const sheet = ss.insertSheet('Lista de Espera', 0);
 
   const headers = [
-    'Fecha Solicitud', 'No.', 'Nombre Completo', 'Creemos ID', 'Género',
+    'Fecha Solicitud', 'No.', 'Nombre Completo', 'Creamos ID', 'Género',
     'Edad', 'Malestar Principal', 'Teléfono', 'Derivación o Referencia',
     'Nombre de quien deriva o refiere', 'Programa de Creamos / Organización',
     'Motivo de derivación u referencia', 'Servicio que solicita', 'Terapeuta Asignado', 'Asistió a Cita'
@@ -384,7 +384,7 @@ function crearNuevosIngresos() {
   sheet.clear();
 
   const headers = [
-    'Fecha Ingreso', 'No.', 'Nombre Completo', 'Creemos ID', 'Género',
+    'Fecha Ingreso', 'No.', 'Nombre Completo', 'Creamos ID', 'Género',
     'Edad', 'Malestar Principal'
   ];
 
@@ -413,7 +413,7 @@ function crearTerapias() {
   const sheet = ss.insertSheet('Terapias');
 
   const headers = [
-    'Terapeuta', 'Participante', 'Creemos ID', 'Género',
+    'Terapeuta', 'Participante', 'Creamos ID', 'Género',
     'No. Sesión', 'Estado', 'Motivo Finalización', 'Sesiones Mes Anterior', 'Inasistencias'
   ];
 
@@ -438,7 +438,7 @@ function crearProcesosCulminados() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Procesos Culminados');
 
-  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creemos ID', 'Total Sesiones', 'Motivo'];
+  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creamos ID', 'Total Sesiones', 'Motivo'];
 
   sheet.getRange(1, 1, 1, 6).setValues([headers])
     .setBackground('#388e3c')
@@ -455,7 +455,7 @@ function crearDeserciones() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Deserciones');
 
-  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creemos ID', 'Sesiones', 'Motivo'];
+  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creamos ID', 'Sesiones', 'Motivo'];
 
   sheet.getRange(1, 1, 1, 6).setValues([headers])
     .setBackground('#d32f2f')
@@ -472,7 +472,7 @@ function crearGestionCasos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Intervención de casos');
 
-  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creemos ID', 'Tipo', 'Motivo'];
+  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creamos ID', 'Tipo', 'Motivo'];
 
   sheet.getRange(1, 1, 1, 6).setValues([headers])
     .setBackground('#f57c00')
@@ -489,7 +489,7 @@ function crearPersonasNoAsistidas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Personas no asistidas');
 
-  const headers = ['Fecha', 'Nombre Completo', 'Creemos ID', 'Género', 'Edad', 'Malestar Principal', 'Terapeuta Asignado', 'Teléfono'];
+  const headers = ['Fecha', 'Nombre Completo', 'Creamos ID', 'Género', 'Edad', 'Malestar Principal', 'Terapeuta Asignado', 'Teléfono'];
 
   sheet.getRange(1, 1, 1, 8).setValues([headers])
     .setBackground('#ff6f00')
@@ -1098,7 +1098,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
       fechaIngreso,        // Columna A: Fecha
       numeroIngreso,       // Columna B: Número
       nombre,              // Columna C: Nombre
-      creemosId || '',     // Columna D: Creemos ID
+      creemosId || '',     // Columna D: Creamos ID
       genero || '',        // Columna E: Género
       edad || '',          // Columna F: Edad
       malestar || ''       // Columna G: Malestar Principal
@@ -1122,7 +1122,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     const registroTerapias = [
       terapeuta,          // A: Terapeuta
       nombre,             // B: Participante
-      creemosId || '',    // C: Creemos ID
+      creemosId || '',    // C: Creamos ID
       genero || '',       // D: Género
       1,                  // E: No. Sesión
       'En proceso',       // F: Estado
@@ -1862,7 +1862,7 @@ function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo
     Logger.log('   Fecha: ' + new Date());
     Logger.log('   Participante: ' + participante);
     Logger.log('   Terapeuta: ' + terapeuta);
-    Logger.log('   Creemos ID: ' + (creemosId || ''));
+    Logger.log('   Creamos ID: ' + (creemosId || ''));
     Logger.log('   Sesiones: ' + (parseInt(sesiones) || 1));
     Logger.log('   Motivo: ' + motivo);
 
@@ -2747,7 +2747,7 @@ function crearDatosPrueba() {
     ['Laura Gómez', 'LG003', 'Mujer', '18 a 25', 'Estrés', 'Estudiante']
   ];
 
-  // Agregar datos en filas 2, 3 y 4 (columnas C-H: Nombre, Creemos ID, Género, Edad, Malestar, Teléfono)
+  // Agregar datos en filas 2, 3 y 4 (columnas C-H: Nombre, Creamos ID, Género, Edad, Malestar, Teléfono)
   espera.getRange(2, 3, datosPrueba.length, 6).setValues(datosPrueba);
 
   ss.toast(
