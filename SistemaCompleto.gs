@@ -512,48 +512,48 @@ function crearReporte() {
 
     // SECCIÓN 1: INGRESOS
     ['NUEVOS INGRESOS', 'Total', 'Este mes', ''],
-    ['Participantes que vinieron a primera cita', '=COUNTA(\'Nuevos Ingresos\'!C:C)-1', '=COUNTIFS(\'Nuevos Ingresos\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Nuevos Ingresos\'!A:A,"<="&EOMONTH(TODAY(),0))', ''],
+    ['Participantes que vinieron a primera cita', '=IFERROR(COUNTA(\'Nuevos Ingresos\'!C:C)-1,0)', '=IFERROR(COUNTIFS(\'Nuevos Ingresos\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Nuevos Ingresos\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
     ['', '', '', ''],
 
     // SECCIÓN 2: NO ASISTIDAS
     ['PERSONAS NO ASISTIDAS', 'Total', 'Este mes', ''],
-    ['Personas que no asistieron a primera cita', '=COUNTA(\'Personas no asistidas\'!B:B)-1', '=COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0))', ''],
+    ['Personas que no asistieron a primera cita', '=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)', '=IFERROR(COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
     ['', '', '', ''],
 
     // SECCIÓN 3: DERIVACIONES
     ['DERIVACIONES INSTITUCIONALES', 'Total', '', ''],
-    ['Total derivaciones institucionales', '=COUNTA(\'Lista de Espera\'!K:K)-1', '', ''],
+    ['Total derivaciones institucionales', '=IFERROR(COUNTA(\'Lista de Espera\'!K:K)-1,0)', '', ''],
     ['', '', '', ''],
 
     // SECCIÓN 4: CASOS ACTIVOS
     ['CASOS ACTIVOS POR TERAPEUTA', 'Casos activos', 'Sesiones mes', ''],
-    ['Gerber', '=COUNTIFS(Terapias!A:A,"Gerber",Terapias!F:F,"En proceso")', '=SUMPRODUCT((Terapias!A2:A500="Gerber")*(Terapias!E2:E500-Terapias!H2:H500))', ''],
-    ['Melissa', '=COUNTIFS(Terapias!A:A,"Melissa",Terapias!F:F,"En proceso")', '=SUMPRODUCT((Terapias!A2:A500="Melissa")*(Terapias!E2:E500-Terapias!H2:H500))', ''],
-    ['Diana', '=COUNTIFS(Terapias!A:A,"Diana",Terapias!F:F,"En proceso")', '=SUMPRODUCT((Terapias!A2:A500="Diana")*(Terapias!E2:E500-Terapias!H2:H500))', ''],
-    ['Karina', '=COUNTIFS(Terapias!A:A,"Karina",Terapias!F:F,"En proceso")', '=SUMPRODUCT((Terapias!A2:A500="Karina")*(Terapias!E2:E500-Terapias!H2:H500))', ''],
-    ['TOTAL', '=SUM(B14:B17)', '=SUM(C14:C17)', ''],
+    ['Gerber', '=IFERROR(COUNTIFS(Terapias!A:A,"Gerber",Terapias!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Gerber")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)', ''],
+    ['Melissa', '=IFERROR(COUNTIFS(Terapias!A:A,"Melissa",Terapias!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Melissa")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)', ''],
+    ['Diana', '=IFERROR(COUNTIFS(Terapias!A:A,"Diana",Terapias!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Diana")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)', ''],
+    ['Karina', '=IFERROR(COUNTIFS(Terapias!A:A,"Karina",Terapias!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Karina")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)', ''],
+    ['TOTAL', '=IFERROR(SUM(B14:B17),0)', '=IFERROR(SUM(C14:C17),0)', ''],
     ['', '', '', ''],
 
     // SECCIÓN 5: PROCESOS CULMINADOS
     ['PROCESOS CULMINADOS', 'Total', 'Este mes', 'Promedio sesiones'],
-    ['Procesos terapeuticos completados', '=COUNTA(\'Procesos Culminados\'!A:A)-1', '=COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0))', '=IFERROR(IF(B21>0,ROUND(AVERAGE(\'Procesos Culminados\'!E2:E500),1),0),0)'],
+    ['Procesos terapeuticos completados', '=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF(B21>0,ROUND(AVERAGE(\'Procesos Culminados\'!E2:E500),1),0),0)'],
     ['', '', '', ''],
 
     // SECCIÓN 6: DESERCIONES
     ['DESERCIONES', 'Total', 'Este mes', 'Tasa desercion'],
-    ['Participantes que desertaron', '=COUNTA(Deserciones!A:A)-1', '=COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0))', '=IF((B21+B24)>0,ROUND(B24/(B21+B24)*100,1)&"%","0%")'],
+    ['Participantes que desertaron', '=IFERROR(COUNTA(Deserciones!A:A)-1,0)', '=IFERROR(COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF((B21+B24)>0,ROUND(B24/(B21+B24)*100,1)&"%","0%"),"0%")'],
     ['', '', '', ''],
 
     // SECCIÓN 7: INTERVENCION DE CASOS
     ['INTERVENCION DE CASOS', 'Total', '', ''],
-    ['Casos en intervencion', '=COUNTA(\'Intervención de casos\'!A:A)-1', '', ''],
+    ['Casos en intervencion', '=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)', '', ''],
     ['', '', '', ''],
 
     // SECCIÓN 8: RESUMEN GENERAL
     ['RESUMEN GENERAL', 'Valor', '', ''],
-    ['Total casos procesados', '=B21+B24+B27', '', ''],
-    ['Tasa de exito', '=IF(B30>0,ROUND(B21/B30*100,1)&"%","0%")', '', ''],
-    ['Casos activos totales', '=B18', '', '']
+    ['Total casos procesados', '=IFERROR(B21+B24+B27,0)', '', ''],
+    ['Tasa de exito', '=IFERROR(IF(B30>0,ROUND(B21/B30*100,1)&"%","0%"),"0%")', '', ''],
+    ['Casos activos totales', '=IFERROR(B18,0)', '', '']
   ];
 
   // Escribir datos
