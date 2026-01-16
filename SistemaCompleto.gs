@@ -105,6 +105,7 @@ function onOpen() {
     .addSeparator()
     .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
     .addItem('🔧 Reparar Formulas Lista Espera', 'repararFormulasListaEspera')
+    .addItem('🔧 Actualizar Formulas Reporte', 'actualizarFormulasReporte')
     .addItem('📦 Compactar Lista Espera', 'compactarListaEspera')
     .addSeparator()
     .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
@@ -2992,6 +2993,87 @@ function repararFormulasListaEspera() {
   } catch (error) {
     ss.toast('Error: ' + error.message, 'Error', 5);
     Logger.log('Error reparando formulas: ' + error.message);
+  }
+}
+
+/**
+ * Actualiza las fórmulas del reporte existente con las correctas (con IFERROR)
+ */
+function actualizarFormulasReporte() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    const reporte = ss.getSheetByName('Reporte');
+
+    if (!reporte) {
+      ss.toast('❌ No se encontró la hoja Reporte', 'Error', 3);
+      return;
+    }
+
+    // Actualizar TODAS las fórmulas con IFERROR
+    // Fila 5: Nuevos Ingresos
+    reporte.getRange('B5').setFormula('=IFERROR(COUNTA(\'Nuevos Ingresos\'!C:C)-1,0)');
+    reporte.getRange('C5').setFormula('=IFERROR(COUNTIFS(\'Nuevos Ingresos\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Nuevos Ingresos\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+
+    // Fila 8: Personas no asistidas
+    reporte.getRange('B8').setFormula('=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)');
+    reporte.getRange('C8').setFormula('=IFERROR(COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+
+    // Fila 11: Derivaciones institucionales
+    reporte.getRange('B11').setFormula('=IFERROR(COUNTA(\'Lista de Espera\'!K:K)-1,0)');
+
+    // Filas 14-17: Casos activos por terapeuta (columna B: casos activos)
+    reporte.getRange('B14').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Gerber",Terapias!F:F,"En proceso"),0)');
+    reporte.getRange('B15').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Melissa",Terapias!F:F,"En proceso"),0)');
+    reporte.getRange('B16').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Diana",Terapias!F:F,"En proceso"),0)');
+    reporte.getRange('B17').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Karina",Terapias!F:F,"En proceso"),0)');
+
+    // Filas 14-17: Sesiones mes (columna C) - FILTRADO POR "En proceso"
+    reporte.getRange('C14').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Gerber")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)');
+    reporte.getRange('C15').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Melissa")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)');
+    reporte.getRange('C16').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Diana")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)');
+    reporte.getRange('C17').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Karina")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)');
+
+    // Fila 18: TOTAL casos activos y sesiones
+    reporte.getRange('B18').setFormula('=IFERROR(SUM(B14:B17),0)');
+    reporte.getRange('C18').setFormula('=IFERROR(SUM(C14:C17),0)');
+
+    // Fila 21: Procesos culminados
+    reporte.getRange('B21').setFormula('=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)');
+    reporte.getRange('C21').setFormula('=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    reporte.getRange('D21').setFormula('=IFERROR(IF(B21>0,ROUND(AVERAGE(\'Procesos Culminados\'!E2:E500),1),0),0)');
+
+    // Fila 24: Deserciones
+    reporte.getRange('B24').setFormula('=IFERROR(COUNTA(Deserciones!A:A)-1,0)');
+    reporte.getRange('C24').setFormula('=IFERROR(COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    reporte.getRange('D24').setFormula('=IFERROR(IF((B21+B24)>0,ROUND(B24/(B21+B24)*100,1)&"%","0%"),"0%")');
+
+    // Fila 27: Intervención de casos
+    reporte.getRange('B27').setFormula('=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)');
+
+    // Fila 30: Total casos procesados
+    reporte.getRange('B30').setFormula('=IFERROR(B21+B24+B27,0)');
+
+    // Fila 31: Tasa de éxito
+    reporte.getRange('B31').setFormula('=IFERROR(IF(B30>0,ROUND(B21/B30*100,1)&"%","0%"),"0%")');
+
+    // Fila 32: Casos activos totales
+    reporte.getRange('B32').setFormula('=IFERROR(B18,0)');
+
+    ss.toast(
+      '✅ FORMULAS ACTUALIZADAS\n\n' +
+      'Todas las formulas del reporte han sido actualizadas\n' +
+      'con proteccion IFERROR y filtros correctos.\n\n' +
+      'Ahora deberia mostrar valores correctos.',
+      'Reporte Actualizado',
+      5
+    );
+
+    Logger.log('✅ Fórmulas del reporte actualizadas correctamente');
+
+  } catch (error) {
+    ss.toast('❌ Error: ' + error.message, 'Error', 5);
+    Logger.log('❌ Error actualizando fórmulas del reporte: ' + error.message);
   }
 }
 
