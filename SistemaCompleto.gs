@@ -153,7 +153,7 @@ function mantenimientoAutomatico() {
     // 2. Compactar Lista de Espera (eliminar filas vacías)
     if (sheet) {
       const ultimaFila = 1000;
-      const datos = sheet.getRange(2, 3, ultimaFila - 1, 13).getValues(); // C2:O1000
+      const datos = sheet.getRange(2, 3, ultimaFila - 1, 12).getValues(); // C2:N1000
 
       // Filtrar solo las filas que tienen nombre (columna C no vacía)
       const datosCompactados = [];
@@ -166,10 +166,10 @@ function mantenimientoAutomatico() {
 
       if (datosCompactados.length > 0) {
         // Limpiar todo el rango de datos
-        sheet.getRange(2, 3, ultimaFila - 1, 13).clearContent();
+        sheet.getRange(2, 3, ultimaFila - 1, 12).clearContent();
 
         // Escribir los datos compactados desde la fila 2
-        sheet.getRange(2, 3, datosCompactados.length, 13).setValues(datosCompactados);
+        sheet.getRange(2, 3, datosCompactados.length, 12).setValues(datosCompactados);
         Logger.log('✅ Lista de Espera compactada: ' + datosCompactados.length + ' registros');
       }
     }
@@ -348,10 +348,10 @@ function crearListaEspera() {
     'Fecha Solicitud', 'No.', 'Nombre Completo', 'Creamos ID', 'Género',
     'Edad', 'Malestar Principal', 'Teléfono', 'Derivación o Referencia',
     'Nombre de quien deriva o refiere', 'Programa de Creamos / Organización',
-    'Motivo de derivación u referencia', 'Servicio que solicita', 'Terapeuta Asignado', 'Asistió a Cita'
+    'Servicio que solicita', 'Terapeuta Asignado', 'Asistió a Cita'
   ];
 
-  sheet.getRange(1, 1, 1, 15).setValues([headers])
+  sheet.getRange(1, 1, 1, 14).setValues([headers])
     .setBackground('#e91e63')
     .setFontColor('white')
     .setFontWeight('bold')
@@ -369,7 +369,7 @@ function crearListaEspera() {
   // Aplicar todas las fórmulas de una vez (más eficiente)
   sheet.getRange('A2:B1000').setFormulas(formulas);
 
-  [110, 60, 200, 120, 100, 100, 250, 200, 180, 220, 220, 200, 180, 150, 120].forEach((w, i) => {
+  [110, 60, 200, 120, 100, 100, 250, 200, 180, 220, 220, 180, 150, 120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -725,7 +725,7 @@ function configurarValidaciones() {
   // Validaciones de terapeuta - en Lista de Espera columna N (14)
   espera.getRange('N2:N200').setDataValidation(terapeutaRule);
 
-  // Validaciones de asistencia - en Lista de Espera columna O (15)
+  // Validaciones de asistencia - en Lista de Espera columna N (14)
   const asistenciaRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Vino', 'No vino', 'Pendiente'])
     .setAllowInvalid(false)
@@ -894,9 +894,9 @@ function alEditar(e) {
     }
   }
 
-  // CASO 2: Lista de Espera - Confirmación de Asistencia (columna O = 15)
-  if (hoja === 'Lista de Espera' && columna === 15) {
-    Logger.log('✅ Detectada edición en Lista de Espera, columna O (15)');
+  // CASO 2: Lista de Espera - Confirmación de Asistencia (columna N = 15)
+  if (hoja === 'Lista de Espera' && columna === 14) {
+    Logger.log('✅ Detectada edición en Lista de Espera, columna N (14)');
     Logger.log('   Valor ingresado: "' + val + '"');
 
     if (val === 'Vino' || val === 'No vino') {
@@ -966,7 +966,7 @@ function asignarTerapeuta(sheetOrigen, fila, terapeuta) {
 
     if (!nombre || nombre.toString().trim() === '') {
       ss.toast('⚠️ Debe ingresar un nombre primero', 'Error', 3);
-      sheetOrigen.getRange(fila, 14).clearContent(); // Limpiar terapeuta (columna N)
+      sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar terapeuta (columna M)
       return;
     }
 
@@ -997,7 +997,7 @@ function asignarTerapeuta(sheetOrigen, fila, terapeuta) {
     }
 
     // 3. Marcar fila en amarillo (pendiente)
-    sheetOrigen.getRange(fila, 1, 1, 15).setBackground('#fff3cd');
+    sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#fff3cd');
 
   } catch (error) {
     Logger.log('❌ ERROR en asignarTerapeuta: ' + error.toString());
@@ -1013,8 +1013,8 @@ function procesarConfirmacionAsistencia(sheetOrigen, fila, confirmacion) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   try {
-    // Leer todos los datos necesarios (C-N = 12 columnas)
-    const datos = sheetOrigen.getRange(fila, 3, 1, 12).getValues()[0];
+    // Leer todos los datos necesarios (C-M = 11 columnas)
+    const datos = sheetOrigen.getRange(fila, 3, 1, 11).getValues()[0];
     const nombre = datos[0];         // C
     const creemosId = datos[1];      // D
     const genero = datos[2];         // E
@@ -1024,9 +1024,8 @@ function procesarConfirmacionAsistencia(sheetOrigen, fila, confirmacion) {
     const derivacion = datos[6];     // I: Derivación o Referencia
     const quienDeriva = datos[7];    // J: Nombre de quien deriva o refiere
     const programaOrganizacion = datos[8]; // K: Programa de Creamos / Organización
-    const motivoDerivacion = datos[9]; // L: Motivo de derivación u referencia
-    const servicioSolicita = datos[10]; // M: Servicio que solicita
-    const terapeuta = datos[11];     // N: Terapeuta Asignado
+    const servicioSolicita = datos[9]; // L: Servicio que solicita
+    const terapeuta = datos[10];     // M: Terapeuta Asignado
 
     if (!nombre || nombre.toString().trim() === '') {
       ss.toast('⚠️ Error: No hay nombre en esta fila', 'Error', 3);
@@ -1070,8 +1069,8 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     const datosTerapias = terapias.getDataRange().getValues();
     for (let i = 1; i < datosTerapias.length; i++) {
       if (datosTerapias[i][1] && datosTerapias[i][1].toString().trim() === nombre) {
-        sheetOrigen.getRange(fila, 1, 1, 15).setBackground('#fff3cd');
-        sheetOrigen.getRange(fila, 14).clearContent(); // Limpiar terapeuta (columna N)
+        sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#fff3cd');
+        sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar terapeuta (columna M)
         ss.toast('⚠️ ' + nombre + ' ya está en Terapias', 'Ya Asignado', 3);
         Logger.log('Duplicado encontrado: ' + nombre);
         return;
@@ -1134,9 +1133,9 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     Logger.log('✅ Agregado a Terapias en fila: ' + nuevaFilaTerapias);
 
     // Marcar como procesado en verde
-    sheetOrigen.getRange(fila, 1, 1, 15).setBackground('#d4edda');
+    sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#d4edda');
     sheetOrigen.getRange(fila, 14).clearContent(); // Limpiar terapeuta (columna N)
-    sheetOrigen.getRange(fila, 15).clearContent(); // Limpiar asistió (columna O)
+    sheetOrigen.getRange(fila, 14).clearContent(); // Limpiar asistió (columna N)
 
     SpreadsheetApp.flush();
     ss.toast('✅ ' + nombre + '\n→ Nuevos Ingresos\n→ Terapias con ' + terapeuta, 'Asignado', 4);
@@ -1181,9 +1180,9 @@ function enviarAPersonasNoAsistidas(nombre, creemosId, genero, edad, malestar, t
     Logger.log('✅ Agregado a Personas no asistidas en fila: ' + nuevaFila);
 
     // Marcar como procesado en rojo (no asistió)
-    sheetOrigen.getRange(fila, 1, 1, 15).setBackground('#f8d7da');
+    sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#f8d7da');
     sheetOrigen.getRange(fila, 14).clearContent(); // Limpiar terapeuta (columna N)
-    sheetOrigen.getRange(fila, 15).clearContent(); // Limpiar asistió (columna O)
+    sheetOrigen.getRange(fila, 14).clearContent(); // Limpiar asistió (columna N)
 
     SpreadsheetApp.flush();
     ss.toast('⚠️ ' + nombre + '\n→ Personas no asistidas (NO VINO)', 'No Asistió', 3);
@@ -1607,7 +1606,7 @@ function enviarEmailAsignacionTerapeuta(terapeuta, nombreParticipante, fila) {
       '   ' + urlSheet + '\n\n' +
       '2. Ve a la hoja "Lista de Espera"\n\n' +
       '3. Busca la fila ' + fila + ' (' + nombreParticipante + ')\n\n' +
-      '4. En la columna "Asistió a Cita" (columna O), selecciona:\n' +
+      '4. En la columna "Asistió a Cita" (columna N), selecciona:\n' +
       '   • "Vino" - Si la persona asistió a la cita\n' +
       '   • "No vino" - Si la persona NO asistió\n\n' +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
@@ -2755,7 +2754,7 @@ function crearDatosPrueba() {
     'Ubicación: Lista de Espera (filas 2-4)\n\n' +
     'CÓMO PROBAR EL SISTEMA:\n' +
     '1. En columna N (Terapeuta Asignado) seleccione un terapeuta\n' +
-    '2. En columna O (Asistió a Cita) seleccione Vino o No vino\n' +
+    '2. En columna N (Asistió a Cita) seleccione Vino o No vino\n' +
     '3. Si Vino + tiene terapeuta → Nuevos Ingresos + Terapias\n' +
     '4. Si No vino → Personas no asistidas\n\n' +
     'Use el menú "Limpiar Todos los Datos" cuando termine.',
@@ -2793,8 +2792,8 @@ function limpiarTodosLosDatos() {
     // Limpiar Lista de Espera (desde fila 2)
     const espera = ss.getSheetByName('Lista de Espera');
     if (espera.getLastRow() > 1) {
-      espera.getRange(2, 1, espera.getLastRow() - 1, 15).clearContent();
-      espera.getRange(2, 1, espera.getLastRow() - 1, 15).setBackground(null);
+      espera.getRange(2, 1, espera.getLastRow() - 1, 14).clearContent();
+      espera.getRange(2, 1, espera.getLastRow() - 1, 14).setBackground(null);
       // Restaurar fórmulas
       for (let i = 2; i <= 100; i++) {
         espera.getRange('A' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
@@ -3115,9 +3114,9 @@ function compactarListaEspera() {
       return;
     }
 
-    // Leer todos los datos (columnas C a O = 13 columnas, desde C hasta O)
+    // Leer todos los datos (columnas C a N = 12 columnas, desde C hasta N)
     const ultimaFila = 1000; // Leer hasta fila 1000
-    const datos = sheet.getRange(2, 3, ultimaFila - 1, 13).getValues(); // C2:O1000
+    const datos = sheet.getRange(2, 3, ultimaFila - 1, 12).getValues(); // C2:N1000
 
     // Filtrar solo las filas que tienen nombre (columna C no vacía)
     const datosCompactados = [];
@@ -3133,12 +3132,12 @@ function compactarListaEspera() {
       return;
     }
 
-    // Limpiar todo el rango de datos (columnas C a O)
-    sheet.getRange(2, 3, ultimaFila - 1, 13).clearContent();
-    sheet.getRange(2, 3, ultimaFila - 1, 13).setBackground(null);
+    // Limpiar todo el rango de datos (columnas C a N)
+    sheet.getRange(2, 3, ultimaFila - 1, 12).clearContent();
+    sheet.getRange(2, 3, ultimaFila - 1, 12).setBackground(null);
 
     // Escribir los datos compactados desde la fila 2
-    sheet.getRange(2, 3, datosCompactados.length, 13).setValues(datosCompactados);
+    sheet.getRange(2, 3, datosCompactados.length, 12).setValues(datosCompactados);
 
     // Las columnas A (Fecha) y B (Número) se llenarán automáticamente por las fórmulas
 
