@@ -1072,7 +1072,25 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
         sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#fff3cd');
         sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar terapeuta (columna M)
         ss.toast('⚠️ ' + nombre + ' ya está en Terapias', 'Ya Asignado', 3);
-        Logger.log('Duplicado encontrado: ' + nombre);
+        Logger.log('Duplicado encontrado en Terapias: ' + nombre);
+        return;
+      }
+    }
+
+    // Verificar duplicados en Nuevos Ingresos
+    const datosNuevos = nuevos.getDataRange().getValues();
+    for (let i = 1; i < datosNuevos.length; i++) {
+      if (datosNuevos[i][2] && datosNuevos[i][2].toString().trim() === nombre) { // Columna C (índice 2)
+        Logger.log('⚠️ Duplicado encontrado en Nuevos Ingresos: ' + nombre);
+        ss.toast(
+          '⚠️ DUPLICADO DETECTADO\n\n' +
+          nombre + ' ya está en Nuevos Ingresos.\n\n' +
+          'No se agregará nuevamente.',
+          'Ya Existe',
+          4
+        );
+        sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#fff3cd');
+        sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar terapeuta (columna M)
         return;
       }
     }
@@ -1134,7 +1152,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
 
     // Marcar como procesado en verde
     sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#d4edda');
-    sheetOrigen.getRange(fila, 14).clearContent(); // Limpiar terapeuta (columna N)
+    sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar terapeuta (columna M)
     sheetOrigen.getRange(fila, 14).clearContent(); // Limpiar asistió (columna N)
 
     SpreadsheetApp.flush();
