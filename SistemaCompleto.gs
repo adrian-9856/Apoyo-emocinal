@@ -1454,7 +1454,20 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
 
   Logger.log('📧 Enviando email a la directora');
   // Enviar email a la directora
-  enviarEmailFinalizacion(nombre, terapeuta, tipoFinal, motivo, numSesion);
+  const emailEnviado = enviarEmailFinalizacion(nombre, terapeuta, tipoFinal, motivo, numSesion);
+
+  if (!emailEnviado) {
+    Logger.log('⚠️ Email no enviado, pero continuando con el proceso');
+    ss.toast(
+      '⚠️ ADVERTENCIA\n\n' +
+      'El caso se procesó correctamente PERO el email\n' +
+      'NO se pudo enviar.\n\n' +
+      'Verifica la configuración de email:\n' +
+      'Menú → 📧 Configurar Email Director',
+      'Email No Enviado',
+      6
+    );
+  }
 
   // Copiar a la hoja correspondiente
   let ok = false;
@@ -1811,6 +1824,23 @@ function copiarACulminados(participante, terapeuta, creemosId, sesiones, motivo)
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Procesos Culminados');
 
+    // VERIFICAR SI YA EXISTE para evitar duplicados
+    const datos = sheet.getDataRange().getValues();
+    for (let i = 1; i < datos.length; i++) {
+      const nombreExistente = datos[i][1]; // Columna B: Participante
+      if (nombreExistente && nombreExistente.toString().trim() === participante.toString().trim()) {
+        Logger.log('⚠️ Participante ya existe en Procesos Culminados: ' + participante);
+        ss.toast(
+          '⚠️ DUPLICADO DETECTADO\n\n' +
+          participante + ' ya está en Procesos Culminados.\n\n' +
+          'No se agregará nuevamente.',
+          'Ya Existe',
+          4
+        );
+        return false; // No agregar duplicado
+      }
+    }
+
     // Buscar la primera fila vacía
     let nuevaFila = 2;
     const maxFilas = 200;
@@ -1823,12 +1853,13 @@ function copiarACulminados(participante, terapeuta, creemosId, sesiones, motivo)
       }
     }
 
-    const datos = [new Date(), participante, terapeuta, creemosId || '', parseInt(sesiones) || 1, motivo];
+    const datosNuevos = [new Date(), participante, terapeuta, creemosId || '', parseInt(sesiones) || 1, motivo];
 
-    sheet.getRange(nuevaFila, 1, 1, 6).setValues([datos]);
+    sheet.getRange(nuevaFila, 1, 1, 6).setValues([datosNuevos]);
+    Logger.log('✅ Agregado a Procesos Culminados: ' + participante + ' en fila ' + nuevaFila);
     return true;
   } catch (error) {
-    Logger.log('Error culminados: ' + error.message);
+    Logger.log('❌ Error culminados: ' + error.message);
     return false;
   }
 }
@@ -1847,6 +1878,23 @@ function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo
 
     Logger.log('✅ Hoja Deserciones encontrada');
 
+    // VERIFICAR SI YA EXISTE para evitar duplicados
+    const datos = sheet.getDataRange().getValues();
+    for (let i = 1; i < datos.length; i++) {
+      const nombreExistente = datos[i][1]; // Columna B: Participante
+      if (nombreExistente && nombreExistente.toString().trim() === participante.toString().trim()) {
+        Logger.log('⚠️ Participante ya existe en Deserciones: ' + participante);
+        ss.toast(
+          '⚠️ DUPLICADO DETECTADO\n\n' +
+          participante + ' ya está en Deserciones.\n\n' +
+          'No se agregará nuevamente.',
+          'Ya Existe',
+          4
+        );
+        return false; // No agregar duplicado
+      }
+    }
+
     // Buscar la primera fila vacía
     let nuevaFila = 2;
     const maxFilas = 200;
@@ -1861,7 +1909,7 @@ function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo
 
     Logger.log('📍 Nueva fila para deserción: ' + nuevaFila);
 
-    const datos = [new Date(), participante, terapeuta, creemosId || '', parseInt(sesiones) || 1, motivo];
+    const datosNuevos = [new Date(), participante, terapeuta, creemosId || '', parseInt(sesiones) || 1, motivo];
 
     Logger.log('📝 Datos a guardar:');
     Logger.log('   Fecha: ' + new Date());
@@ -1871,7 +1919,7 @@ function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo
     Logger.log('   Sesiones: ' + (parseInt(sesiones) || 1));
     Logger.log('   Motivo: ' + motivo);
 
-    sheet.getRange(nuevaFila, 1, 1, 6).setValues([datos]);
+    sheet.getRange(nuevaFila, 1, 1, 6).setValues([datosNuevos]);
     Logger.log('✅ Datos guardados en fila ' + nuevaFila + ' de hoja Deserciones');
 
     return true;
