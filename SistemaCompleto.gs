@@ -1471,25 +1471,31 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
 
   if (ok) {
     Logger.log('✅ Copia exitosa');
-    // Colores según el tipo
-    const colores = {
-      'Proceso culminado': '#d4edda',
-      'deserciones': '#f8d7da'
-    };
-
-    sheetOrigen.getRange(fila, 1, 1, 9).setBackground(colores[tipoFinal]);
 
     if (tipoFinal === 'deserciones') {
+      // Para deserciones: marcar en rojo, mostrar mensaje, y ELIMINAR fila
+      sheetOrigen.getRange(fila, 1, 1, 9).setBackground('#f8d7da');
+      SpreadsheetApp.flush(); // Forzar actualización visual
+
       ss.toast(
         '✅ DESERCIÓN PROCESADA\n\n' +
         'Participante: ' + nombre + '\n' +
         'Motivo: ' + motivo + '\n' +
         'Sesiones: ' + numSesion + '\n\n' +
-        'Enviado a hoja Deserciones',
+        'Enviado a hoja Deserciones\n' +
+        'La fila se eliminará de Terapias',
         'Deserción Registrada',
         5
       );
-    } else {
+
+      // ELIMINAR la fila de Terapias después de copiarla
+      Logger.log('🗑️ Eliminando fila ' + fila + ' de Terapias');
+      sheetOrigen.deleteRow(fila);
+      Logger.log('✅ Fila eliminada exitosamente');
+
+    } else if (tipoFinal === 'Proceso culminado') {
+      // Para procesos culminados: solo marcar en verde (NO eliminar)
+      sheetOrigen.getRange(fila, 1, 1, 9).setBackground('#d4edda');
       ss.toast('✅ ' + nombre + '\n' + tipoFinal + '\nSesiones: ' + numSesion, 'Procesado', 4);
     }
   } else {
