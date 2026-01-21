@@ -722,15 +722,15 @@ function configurarValidaciones() {
     .build();
   terapias.getRange('F2:F200').setDataValidation(estadoRule);
 
-  // Validaciones de terapeuta - en Lista de Espera columna N (14)
-  espera.getRange('N2:N200').setDataValidation(terapeutaRule);
+  // Validaciones de terapeuta - en Lista de Espera columna M (13)
+  espera.getRange('M2:M200').setDataValidation(terapeutaRule);
 
   // Validaciones de asistencia - en Lista de Espera columna N (14)
   const asistenciaRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Vino', 'No vino', 'Pendiente'])
     .setAllowInvalid(false)
     .build();
-  espera.getRange('O2:O200').setDataValidation(asistenciaRule);
+  espera.getRange('N2:N200').setDataValidation(asistenciaRule);
 
   // Validaciones de Tipo de Intervención - en Intervención de casos columna E
   if (intervencion) {
@@ -790,8 +790,8 @@ function configurarValidaciones() {
   // LISTA DE ESPERA:
   //   - Género (E)
   //   - Edad (F) - texto libre, sin validación
-  //   - Terapeuta Asignado (N)
-  //   - Asistió a Cita (O)
+  //   - Terapeuta Asignado (M)
+  //   - Asistió a Cita (N)
   //
   // TERAPIAS:
   //   - Terapeuta (A)
