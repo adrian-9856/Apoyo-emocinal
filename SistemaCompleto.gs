@@ -107,7 +107,13 @@ function onOpen() {
 
   // Submenú: Bienestar y Alertas
   const menuBienestar = ui.createMenu('🏥 Bienestar')
-    .addItem('📋 Importar Datos KoboToolbox', 'importarDatosKobo')
+    .addItem('🔑 Configurar Token API', 'configurarTokenKobo')
+    .addSeparator()
+    .addItem('📋 Importar Datos Manual', 'importarDatosKobo')
+    .addItem('🔄 Importar Datos Automático', 'importarDatosKoboAutomatico')
+    .addItem('⏰ Activar Sincronización Automática', 'instalarSincronizacionAutomatica')
+    .addItem('⏸️ Desactivar Sincronización', 'desactivarSincronizacionAutomatica')
+    .addSeparator()
     .addItem('🆘 Verificar Alertas de Suicidio', 'verificarProtocoloSuicidio')
     .addSeparator()
     .addItem('🧪 Crear Datos de Prueba', 'crearDatosPruebaBienestar')
@@ -3503,7 +3509,53 @@ function crearFormularioBienestar() {
 }
 
 /**
- * Importa datos desde KoboToolbox CSV
+ * Configura el token de API de KoboToolbox para importación automática
+ */
+function configurarTokenKobo() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+
+  // Obtener token actual
+  const tokenActual = props.getProperty('KOBO_API_TOKEN') || '(no configurado)';
+
+  const respuesta = ui.prompt(
+    'Configurar Token de API - KoboToolbox',
+    'Para importar automáticamente datos de KoboToolbox, necesitas un token de API.\n\n' +
+    'Token actual: ' + tokenActual + '\n\n' +
+    '¿Cómo obtener el token?\n' +
+    '1. Ve a: https://kf.kobotoolbox.org/\n' +
+    '2. Clic en tu perfil → Account Settings\n' +
+    '3. Copia el "API Token"\n\n' +
+    'Ingresa el token de API:',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (respuesta.getSelectedButton() === ui.Button.OK) {
+    const token = respuesta.getResponseText().trim();
+
+    if (token && token.length > 10) {
+      props.setProperty('KOBO_API_TOKEN', token);
+
+      ui.alert(
+        '✅ Token Configurado',
+        'El token de API de KoboToolbox se guardó correctamente.\n\n' +
+        'Ahora puedes usar:\n' +
+        '• Importar Datos Automático (desde el menú)\n' +
+        '• Instalar Sincronización Automática\n\n' +
+        'El sistema importará datos nuevos y los enviará\n' +
+        'automáticamente a Lista de Espera.',
+        ui.ButtonSet.OK
+      );
+
+      Logger.log('✅ Token de KoboToolbox configurado');
+    } else {
+      ui.alert('Error', 'El token ingresado no es válido', ui.ButtonSet.OK);
+    }
+  }
+}
+
+/**
+ * Importa datos desde KoboToolbox CSV manualmente (instrucciones)
  */
 function importarDatosKobo() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -3512,17 +3564,34 @@ function importarDatosKobo() {
   try {
     const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/eshoqCSK2fAdzR6VYtPfZ3L/data.csv';
 
-    ui.alert(
+    const respuesta = ui.alert(
       'Importar Datos de KoboToolbox',
-      '⚠️ IMPORTANTE:\n\n' +
-      'Para que esta función funcione, necesitas:\n\n' +
-      '1. Configurar las credenciales de API de KoboToolbox\n' +
-      '2. Tener permisos de acceso al formulario\n\n' +
-      'Por ahora, descarga el CSV manualmente desde:\n' +
-      url + '\n\n' +
-      'Y pégalo en la hoja "C_03_Formulario de Bienestar (2026)"',
-      ui.ButtonSet.OK
+      '¿Cómo deseas importar los datos?\n\n' +
+      'OPCIÓN 1: Manual\n' +
+      '- Descarga el CSV desde KoboToolbox\n' +
+      '- Copia y pega en la hoja de Bienestar\n\n' +
+      'OPCIÓN 2: Automático\n' +
+      '- Configura el token de API primero\n' +
+      '- Usa "Importar Automático" desde el menú\n\n' +
+      '¿Deseas ver las instrucciones manuales?',
+      ui.ButtonSet.YES_NO
     );
+
+    if (respuesta === ui.Button.YES) {
+      ui.alert(
+        'Instrucciones de Importación Manual',
+        'PASOS:\n\n' +
+        '1. Abre en tu navegador:\n' +
+        url + '\n\n' +
+        '2. Descarga el archivo CSV\n\n' +
+        '3. Abre el CSV en Excel o Google Sheets\n\n' +
+        '4. Copia los DATOS (sin encabezados)\n\n' +
+        '5. Pega en la hoja "C_03_Formulario de Bienestar (2026)"\n' +
+        '   empezando en la fila 2\n\n' +
+        '6. Usa "Verificar Alertas de Suicidio" desde el menú',
+        ui.ButtonSet.OK
+      );
+    }
 
     // Crear la hoja si no existe
     let sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
@@ -3530,13 +3599,299 @@ function importarDatosKobo() {
       sheet = crearFormularioBienestar();
     }
 
-    // Por ahora, solo mostrar instrucciones
-    // En el futuro, se puede implementar importación automática con OAuth
     Logger.log('Instrucciones de importación mostradas');
 
   } catch (error) {
     ui.alert('Error', 'Error al importar: ' + error.message, ui.ButtonSet.OK);
     Logger.log('❌ Error en importarDatosKobo: ' + error.message);
+  }
+}
+
+/**
+ * Importa automáticamente datos nuevos desde KoboToolbox
+ * Esta función se ejecuta periódicamente con el trigger
+ */
+function importarDatosKoboAutomatico() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const props = PropertiesService.getDocumentProperties();
+
+  Logger.log('🔄 Iniciando importación automática de KoboToolbox...');
+
+  try {
+    // Verificar token de API
+    const token = props.getProperty('KOBO_API_TOKEN');
+    if (!token) {
+      Logger.log('⚠️ No hay token de API configurado. Usa: Menú → Bienestar → Configurar Token API');
+      return;
+    }
+
+    // URL del CSV de KoboToolbox
+    const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/data.csv';
+
+    // Descargar CSV con autenticación
+    const options = {
+      method: 'get',
+      headers: {
+        'Authorization': 'Token ' + token
+      },
+      muteHttpExceptions: true
+    };
+
+    const response = UrlFetchApp.fetch(url, options);
+    const responseCode = response.getResponseCode();
+
+    if (responseCode !== 200) {
+      Logger.log('❌ Error al descargar CSV: HTTP ' + responseCode);
+      Logger.log('Respuesta: ' + response.getContentText());
+      return;
+    }
+
+    const csvData = response.getContentText();
+    Logger.log('✅ CSV descargado (' + csvData.length + ' caracteres)');
+
+    // Parsear CSV
+    const filas = Utilities.parseCsv(csvData);
+
+    if (filas.length <= 1) {
+      Logger.log('ℹ️ No hay datos nuevos en KoboToolbox');
+      return;
+    }
+
+    // Obtener o crear hoja de Bienestar
+    let sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
+    if (!sheet) {
+      sheet = crearFormularioBienestar();
+    }
+
+    // Obtener datos existentes
+    const datosExistentes = sheet.getDataRange().getValues();
+    const headers = datosExistentes[0];
+
+    // Encontrar índice de columnas importantes
+    let colCompletadoPor = -1;
+    let colCreamos = -1;
+
+    for (let i = 0; i < headers.length; i++) {
+      if (headers[i].toString().toLowerCase().includes('completado')) {
+        colCompletadoPor = i;
+      }
+      if (headers[i].toString().toLowerCase().includes('creamos')) {
+        colCreamos = i;
+      }
+    }
+
+    // Procesar solo filas nuevas
+    let filasNuevas = 0;
+    let alertasDetectadas = 0;
+    let enviadasAListaEspera = 0;
+
+    for (let i = 1; i < filas.length; i++) {
+      const fila = filas[i];
+
+      // Mapear CSV a nuestras columnas (ajustar según estructura del CSV real)
+      // Asumiendo que el CSV tiene: today, Completado por, Creamos ID, etc.
+      const completadoPor = fila[1] || '';  // Columna B del CSV
+      const creamosId = fila[2] || '';      // Columna C del CSV
+
+      // Verificar si ya existe (evitar duplicados)
+      let existe = false;
+      for (let j = 1; j < datosExistentes.length; j++) {
+        const nombreExistente = datosExistentes[j][1]; // Columna B: Completado por
+        if (nombreExistente && nombreExistente.toString().trim() === completadoPor.toString().trim()) {
+          existe = true;
+          break;
+        }
+      }
+
+      if (existe) {
+        continue; // Saltar duplicados
+      }
+
+      // Es una fila nueva, agregar a la hoja
+      const nuevaFila = sheet.getLastRow() + 1;
+
+      // Preparar datos (columnas A-G del CSV, columna H para dropdown)
+      const datosNuevos = [
+        fila[0] || new Date().toLocaleDateString('es-ES'),  // today
+        completadoPor,                                       // Completado por
+        creamosId,                                           // Creamos ID
+        fila[3] || '',                                       // Molestando
+        fila[4] || '',                                       // Preocupación
+        fila[5] || '',                                       // Pensamientos
+        fila[6] || '',                                       // activar_protocolo_suicidio
+        'No'                                                 // Enviar a Lista Espera
+      ];
+
+      // Insertar en la hoja
+      sheet.getRange(nuevaFila, 1, 1, 8).setValues([datosNuevos]);
+      filasNuevas++;
+
+      Logger.log('➕ Nueva fila agregada: ' + completadoPor);
+
+      // Verificar si tiene alerta de suicidio
+      const protocoloSuicidio = fila[6] || '';
+      if (protocoloSuicidio.toString().toLowerCase() === 'sí' ||
+          protocoloSuicidio.toString().toLowerCase() === 'si') {
+        // Marcar en rojo
+        sheet.getRange(nuevaFila, 1, 1, 8).setBackground('#ffcccc');
+
+        // Enviar alerta
+        enviarAlertaSuicidio(datosNuevos, headers);
+        alertasDetectadas++;
+
+        Logger.log('🆘 Alerta de suicidio detectada para: ' + completadoPor);
+      }
+
+      // ENVIAR AUTOMÁTICAMENTE A LISTA DE ESPERA
+      if (completadoPor && completadoPor.toString().trim() !== '') {
+        try {
+          enviarBienestarAListaEspera(sheet, nuevaFila);
+          enviadasAListaEspera++;
+          Logger.log('✅ Enviado automáticamente a Lista de Espera: ' + completadoPor);
+        } catch (error) {
+          Logger.log('⚠️ Error al enviar a Lista de Espera: ' + error.message);
+        }
+      }
+    }
+
+    // Log resumen
+    Logger.log('📊 RESUMEN DE IMPORTACIÓN:');
+    Logger.log('  • Filas nuevas: ' + filasNuevas);
+    Logger.log('  • Alertas de suicidio: ' + alertasDetectadas);
+    Logger.log('  • Enviadas a Lista de Espera: ' + enviadasAListaEspera);
+
+    // Notificar si hay datos nuevos
+    if (filasNuevas > 0) {
+      ss.toast(
+        '✅ IMPORTACIÓN COMPLETADA\n\n' +
+        '• ' + filasNuevas + ' registros nuevos\n' +
+        '• ' + alertasDetectadas + ' alertas de suicidio\n' +
+        '• ' + enviadasAListaEspera + ' enviados a Lista de Espera',
+        'Datos Importados',
+        10
+      );
+    }
+
+  } catch (error) {
+    Logger.log('❌ Error en importación automática: ' + error.message);
+    Logger.log('Stack: ' + error.stack);
+
+    // No mostrar toast para no molestar si es automático
+    // Solo registrar en el log
+  }
+}
+
+/**
+ * Instala el trigger de sincronización automática
+ * Ejecuta importarDatosKoboAutomatico() cada 10 minutos
+ */
+function instalarSincronizacionAutomatica() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+
+  // Verificar token
+  const token = props.getProperty('KOBO_API_TOKEN');
+  if (!token) {
+    ui.alert(
+      'Token No Configurado',
+      'Primero debes configurar el token de API de KoboToolbox.\n\n' +
+      'Usa: Menú → Bienestar → Configurar Token API',
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  const respuesta = ui.alert(
+    'Instalar Sincronización Automática',
+    '¿Deseas activar la sincronización automática?\n\n' +
+    'Esto hará que el sistema:\n' +
+    '• Importe datos nuevos de KoboToolbox cada 10 minutos\n' +
+    '• Detecte alertas de suicidio automáticamente\n' +
+    '• Envíe personas nuevas a Lista de Espera\n\n' +
+    'Solo procesará datos NUEVOS (evita duplicados)\n\n' +
+    '¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    // Eliminar triggers existentes para evitar duplicados
+    const triggers = ScriptApp.getProjectTriggers();
+    triggers.forEach(trigger => {
+      if (trigger.getHandlerFunction() === 'importarDatosKoboAutomatico') {
+        ScriptApp.deleteTrigger(trigger);
+      }
+    });
+
+    // Crear nuevo trigger cada 10 minutos
+    ScriptApp.newTrigger('importarDatosKoboAutomatico')
+      .timeBased()
+      .everyMinutes(10)
+      .create();
+
+    ui.alert(
+      '✅ Sincronización Activada',
+      'La sincronización automática está funcionando.\n\n' +
+      'El sistema importará datos nuevos cada 10 minutos.\n\n' +
+      'Puedes verificar el log en:\n' +
+      'Extensiones → Apps Script → Ver registros\n\n' +
+      'Para desactivar, usa:\n' +
+      'Menú → Bienestar → Desactivar Sincronización',
+      ui.ButtonSet.OK
+    );
+
+    Logger.log('✅ Trigger de sincronización automática instalado');
+
+  } catch (error) {
+    ui.alert('Error', 'Error al instalar sincronización: ' + error.message, ui.ButtonSet.OK);
+    Logger.log('❌ Error instalando sincronización: ' + error.message);
+  }
+}
+
+/**
+ * Desactiva la sincronización automática
+ */
+function desactivarSincronizacionAutomatica() {
+  const ui = SpreadsheetApp.getUi();
+
+  const respuesta = ui.alert(
+    'Desactivar Sincronización Automática',
+    '¿Estás seguro de desactivar la sincronización automática?\n\n' +
+    'Tendrás que importar datos manualmente.',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    // Eliminar todos los triggers de importación automática
+    const triggers = ScriptApp.getProjectTriggers();
+    let eliminados = 0;
+
+    triggers.forEach(trigger => {
+      if (trigger.getHandlerFunction() === 'importarDatosKoboAutomatico') {
+        ScriptApp.deleteTrigger(trigger);
+        eliminados++;
+      }
+    });
+
+    ui.alert(
+      '✅ Sincronización Desactivada',
+      'Se eliminaron ' + eliminados + ' triggers.\n\n' +
+      'La importación automática está desactivada.',
+      ui.ButtonSet.OK
+    );
+
+    Logger.log('✅ Sincronización automática desactivada (' + eliminados + ' triggers eliminados)');
+
+  } catch (error) {
+    ui.alert('Error', 'Error al desactivar: ' + error.message, ui.ButtonSet.OK);
+    Logger.log('❌ Error desactivando sincronización: ' + error.message);
   }
 }
 
