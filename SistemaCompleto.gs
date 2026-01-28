@@ -3550,7 +3550,7 @@ function configurarTokenKobo() {
 
 /**
  * Importa datos automáticamente desde KoboToolbox
- * Descarga el CSV y lo procesa automáticamente
+ * IMPORTA TODAS LAS COLUMNAS TAL COMO VIENEN DEL CSV
  */
 function importarDatosAutomatico() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -3559,10 +3559,8 @@ function importarDatosAutomatico() {
   ss.toast('Descargando datos de KoboToolbox...', 'Importando', -1);
 
   try {
-    // URL público del CSV
     const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esXsXNnaVYrYn27GemkBprf/data.csv';
 
-    // Intentar descargar el CSV
     Logger.log('🔄 Descargando CSV desde: ' + url);
 
     const response = UrlFetchApp.fetch(url, {
@@ -3574,29 +3572,60 @@ function importarDatosAutomatico() {
     Logger.log('📡 Código de respuesta: ' + responseCode);
 
     if (responseCode !== 200) {
-      ss.toast('', '', 1); // Cerrar toast
+      ss.toast('', '', 1);
       ui.alert(
         'Error al Descargar',
         'No se pudo descargar el CSV (código ' + responseCode + ').\n\n' +
-        'El link puede requerir autenticación.\n\n' +
-        'Por favor:\n' +
-        '1. Abre este link en tu navegador:\n' +
-        url + '\n\n' +
-        '2. Descarga el CSV\n' +
-        '3. Copia las columnas (sin "today" y sin "_uuid")\n' +
-        '4. Pega en la hoja de Bienestar\n' +
-        '5. Usa: Menú → Bienestar → Procesar Datos',
+        'Verifica que el enlace sea público.',
         ui.ButtonSet.OK
       );
       return;
     }
 
-    // Parsear el CSV
     const csvData = response.getContentText();
     Logger.log('✅ CSV descargado (' + csvData.length + ' caracteres)');
 
-    const filas = Utilities.parseCsv(csvData);
-    Logger.log('📊 Filas parseadas: ' + filas.length);
+    if (!csvData || csvData.trim().length === 0) {
+      ss.toast('', '', 1);
+      ui.alert('CSV Vacío', 'El CSV descargado está vacío', ui.ButtonSet.OK);
+      return;
+    }
+
+    // Parsear CSV con manejo de errores
+    let filas;
+    try {
+      filas = Utilities.parseCsv(csvData);
+      Logger.log('📊 Filas parseadas con parseCsv: ' + filas.length);
+    } catch (parseError) {
+      Logger.log('⚠️ parseCsv falló: ' + parseError.message);
+      Logger.log('📝 Intentando split manual...');
+
+      const lineas = csvData.split('\n').filter(l => l.trim().length > 0);
+      filas = lineas.map(linea => {
+        // Split por comas, respetando comillas
+        const resultado = [];
+        let actual = '';
+        let dentroComillas = false;
+
+        for (let i = 0; i < linea.length; i++) {
+          const char = linea[i];
+
+          if (char === '"') {
+            dentroComillas = !dentroComillas;
+          } else if (char === ',' && !dentroComillas) {
+            resultado.push(actual);
+            actual = '';
+          } else {
+            actual += char;
+          }
+        }
+        resultado.push(actual);
+
+        return resultado;
+      });
+
+      Logger.log('📊 Filas parseadas manualmente: ' + filas.length);
+    }
 
     if (filas.length <= 1) {
       ss.toast('', '', 1);
@@ -3604,126 +3633,154 @@ function importarDatosAutomatico() {
       return;
     }
 
-    // Crear o limpiar la hoja
+    // Crear o obtener la hoja
     let sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
     if (!sheet) {
-      sheet = crearFormularioBienestar();
+      sheet = ss.insertSheet('C_03_Formulario de Bienestar (2026)');
+      Logger.log('✅ Hoja creada');
     }
 
-    // Obtener datos existentes
-    const datosExistentes = sheet.getDataRange().getValues();
-    const headers = datosExistentes[0];
+    // Obtener encabezados del CSV (primera fila)
+    const headersCSV = filas[0];
+    const numColumnas = headersCSV.length;
 
-    // CSV tiene estas columnas (según la captura):
-    // 0: today, 1: Completado por, 2: Creamos ID, 3: molestando, 4: preocupación,
-    // 5: pensamientos, 6: activar_protocolo_suicidio, 7: _uuid
+    Logger.log('📋 Columnas detectadas: ' + numColumnas);
+    Logger.log('📋 Encabezados: ' + JSON.stringify(headersCSV).substring(0, 200));
+
+    // Verificar si la hoja está vacía
+    const ultimaFila = sheet.getLastRow();
+    const esHojaNueva = ultimaFila === 0;
+
+    if (esHojaNueva) {
+      // Escribir encabezados
+      sheet.getRange(1, 1, 1, numColumnas).setValues([headersCSV])
+        .setBackground('#d9534f')
+        .setFontColor('white')
+        .setFontWeight('bold')
+        .setHorizontalAlignment('center')
+        .setWrap(true);
+
+      for (let i = 1; i <= numColumnas; i++) {
+        sheet.setColumnWidth(i, 180);
+      }
+
+      sheet.setFrozenRows(1);
+      Logger.log('✅ Encabezados creados');
+    }
+
+    // Buscar índices de columnas importantes
+    const colCompletadoPor = headersCSV.findIndex(h =>
+      h && h.toString().toLowerCase().includes('completado')
+    );
+    const colProtocoloSuicidio = headersCSV.findIndex(h =>
+      h && h.toString().toLowerCase().includes('protocolo_suicidio')
+    );
+
+    Logger.log('📍 Índice Completado por: ' + colCompletadoPor);
+    Logger.log('📍 Índice Protocolo: ' + colProtocoloSuicidio);
 
     let filasNuevas = 0;
     let alertasDetectadas = 0;
     let enviadasAListaEspera = 0;
 
-    // Procesar cada fila del CSV (desde fila 1, ignorando encabezados)
+    // Procesar cada fila del CSV
     for (let i = 1; i < filas.length; i++) {
       const fila = filas[i];
 
-      // Extraer datos (ignorar columna 0 = "today" y columna 7 = "_uuid")
-      const completadoPor = fila[1] || '';  // Columna B del CSV
-      const creamosId = fila[2] || '';      // Columna C del CSV (puede tener " Sí" pegado)
-      const molestando = fila[3] || '';
-      const preocupacion = fila[4] || '';
-      const pensamientos = fila[5] || '';
-      const protocoloSuicidio = fila[6] || '';
+      // Saltar filas vacías
+      if (!fila || fila.length === 0 || !fila.join('').trim()) {
+        continue;
+      }
 
-      // Limpiar Creamos ID (quitar " Sí" si está pegado)
-      const creamosIdLimpio = creamosId.toString().replace(/\s+(Sí|Si|sí|si|Yes|yes)$/i, '').trim();
+      // Ajustar número de columnas
+      while (fila.length < numColumnas) {
+        fila.push('');
+      }
 
-      // Verificar si ya existe (por nombre)
+      // Verificar duplicados
       let existe = false;
-      for (let j = 1; j < datosExistentes.length; j++) {
-        const nombreExistente = datosExistentes[j][0]; // Columna A
-        if (nombreExistente && nombreExistente.toString().trim() === completadoPor.toString().trim()) {
-          existe = true;
-          Logger.log('⚠️ Duplicado omitido: ' + completadoPor);
-          break;
+      if (colCompletadoPor >= 0) {
+        const nombreNuevo = fila[colCompletadoPor];
+        if (nombreNuevo && nombreNuevo.toString().trim()) {
+          const datosActuales = sheet.getDataRange().getValues();
+
+          for (let j = 1; j < datosActuales.length; j++) {
+            const nombreExistente = datosActuales[j][colCompletadoPor];
+            if (nombreExistente && nombreExistente.toString().trim() === nombreNuevo.toString().trim()) {
+              existe = true;
+              Logger.log('⚠️ Duplicado: ' + nombreNuevo);
+              break;
+            }
+          }
         }
       }
 
-      if (existe) {
-        continue; // Saltar duplicados
-      }
+      if (existe) continue;
 
-      // Es nuevo, agregar a la hoja
+      // Agregar nueva fila
       const nuevaFila = sheet.getLastRow() + 1;
-
-      // Preparar datos (6 columnas de datos + 1 dropdown)
-      const datosNuevos = [
-        completadoPor,           // A
-        creamosIdLimpio,         // B
-        molestando,              // C
-        preocupacion,            // D
-        pensamientos,            // E
-        protocoloSuicidio,       // F
-        'No'                     // G: Enviar a Lista Espera
-      ];
-
-      // Insertar en la hoja
-      sheet.getRange(nuevaFila, 1, 1, 7).setValues([datosNuevos]);
+      sheet.getRange(nuevaFila, 1, 1, numColumnas).setValues([fila]);
       filasNuevas++;
 
-      Logger.log('➕ Nueva fila: ' + completadoPor);
+      Logger.log('➕ Nueva fila ' + nuevaFila);
 
       // Verificar alerta de suicidio
-      if (protocoloSuicidio.toString().toLowerCase() === 'sí' ||
-          protocoloSuicidio.toString().toLowerCase() === 'si') {
-        // Marcar en rojo
-        sheet.getRange(nuevaFila, 1, 1, 7).setBackground('#ffcccc');
+      if (colProtocoloSuicidio >= 0) {
+        const protocoloValor = fila[colProtocoloSuicidio];
+        if (protocoloValor && (
+          protocoloValor.toString().toLowerCase() === 'sí' ||
+          protocoloValor.toString().toLowerCase() === 'si'
+        )) {
+          sheet.getRange(nuevaFila, 1, 1, numColumnas).setBackground('#ffcccc');
 
-        // Enviar alerta
-        enviarAlertaSuicidio(datosNuevos, headers);
-        alertasDetectadas++;
-
-        Logger.log('🆘 Alerta: ' + completadoPor);
+          try {
+            enviarAlertaSuicidioFlexible(fila, headersCSV);
+            alertasDetectadas++;
+            Logger.log('🆘 Alerta detectada');
+          } catch (error) {
+            Logger.log('⚠️ Error enviando alerta: ' + error.message);
+          }
+        }
       }
 
-      // Enviar automáticamente a Lista de Espera
-      try {
-        enviarBienestarAListaEspera(sheet, nuevaFila);
-        enviadasAListaEspera++;
-        Logger.log('✅ Enviado a Lista: ' + completadoPor);
-      } catch (error) {
-        Logger.log('⚠️ Error enviando: ' + error.message);
+      // Enviar a Lista de Espera
+      if (colCompletadoPor >= 0) {
+        try {
+          enviarBienestarAListaEsperaFlexible(sheet, nuevaFila, headersCSV);
+          enviadasAListaEspera++;
+          Logger.log('✅ Enviado a lista');
+        } catch (error) {
+          Logger.log('⚠️ Error enviando a lista: ' + error.message);
+        }
       }
     }
 
-    ss.toast('', '', 1); // Cerrar toast
+    ss.toast('', '', 1);
 
-    // Mostrar resumen
     if (filasNuevas > 0) {
       ui.alert(
         '✅ IMPORTACIÓN COMPLETADA',
-        'Se importaron ' + filasNuevas + ' registros nuevos\n\n' +
-        '• Alertas de suicidio: ' + alertasDetectadas + '\n' +
-        '• Enviadas a Lista de Espera: ' + enviadasAListaEspera + '\n\n' +
-        'Revisa la hoja "Lista de Espera" para ver las personas.',
+        'Registros nuevos: ' + filasNuevas + '\n' +
+        'Columnas: ' + numColumnas + '\n' +
+        'Alertas: ' + alertasDetectadas + '\n' +
+        'Enviadas a Lista: ' + enviadasAListaEspera,
         ui.ButtonSet.OK
       );
     } else {
-      ss.toast('No hay datos nuevos para importar', 'Sin Cambios', 3);
+      ss.toast('No hay datos nuevos', 'Sin Cambios', 3);
     }
 
-    Logger.log('📊 Importación completada: ' + filasNuevas + ' nuevas, ' + alertasDetectadas + ' alertas, ' + enviadasAListaEspera + ' enviadas');
+    Logger.log('📊 Importación: ' + filasNuevas + ' nuevas');
 
   } catch (error) {
     ss.toast('', '', 1);
-    Logger.log('❌ Error en importación automática: ' + error.message);
+    Logger.log('❌ Error: ' + error.message);
     Logger.log('Stack: ' + error.stack);
 
     ui.alert(
       'Error al Importar',
-      'No se pudo importar automáticamente.\n\n' +
       'Error: ' + error.message + '\n\n' +
-      'Usa la importación manual:\n' +
-      'Menú → Bienestar → Instrucciones',
+      'Revisa el log (Ver → Registros)',
       ui.ButtonSet.OK
     );
   }
@@ -4799,5 +4856,119 @@ function enviarBienestarAListaEspera(sheetOrigen, fila) {
 
     // Resetear el dropdown
     sheetOrigen.getRange(fila, 7).setValue('No');
+  }
+}
+
+/**
+ * Versión flexible de enviarAlertaSuicidio que funciona con cualquier estructura de columnas
+ * @param {Array} registro - Array con todos los datos de la fila
+ * @param {Array} headers - Array con los nombres de las columnas
+ */
+function enviarAlertaSuicidioFlexible(registro, headers) {
+  // Simplemente llama a la función original que ya es flexible
+  return enviarAlertaSuicidio(registro, headers);
+}
+
+/**
+ * Versión flexible de enviarBienestarAListaEspera que detecta columnas dinámicamente
+ * @param {Sheet} sheetOrigen - La hoja de Bienestar  
+ * @param {number} fila - El número de fila a enviar
+ * @param {Array} headers - Array con los nombres de las columnas
+ */
+function enviarBienestarAListaEsperaFlexible(sheetOrigen, fila, headers) {
+  Logger.log('🔄 Enviando a Lista de Espera (modo flexible)...');
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const espera = ss.getSheetByName('Lista de Espera');
+
+    if (!espera) {
+      Logger.log('❌ No se encontró la hoja Lista de Espera');
+      return;
+    }
+
+    // Leer TODA la fila
+    const numColumnas = headers.length;
+    const datos = sheetOrigen.getRange(fila, 1, 1, numColumnas).getValues()[0];
+
+    // Buscar columnas importantes
+    const colCompletadoPor = headers.findIndex(h => 
+      h && h.toString().toLowerCase().includes('completado')
+    );
+    const colCreamosID = headers.findIndex(h =>
+      h && (h.toString().toLowerCase().includes('creamos') || h.toString().toLowerCase().includes('id'))
+    );
+    const colMolestando = headers.findIndex(h =>
+      h && h.toString().toLowerCase().includes('molestando')
+    );
+    const colPreocupacion = headers.findIndex(h =>
+      h && h.toString().toLowerCase().includes('preocupación')
+    );
+
+    // Extraer datos usando los índices encontrados
+    const nombre = colCompletadoPor >= 0 ? datos[colCompletadoPor] : '';
+    const creamosId = colCreamosID >= 0 ? datos[colCreamosID] : '';
+    const molestando = colMolestando >= 0 ? datos[colMolestando] : '';
+    const preocupacion = colPreocupacion >= 0 ? datos[colPreocupacion] : '';
+
+    // Validar que tenga nombre
+    if (!nombre || nombre.toString().trim() === '') {
+      Logger.log('⚠️ No se puede enviar: falta nombre');
+      return;
+    }
+
+    // Verificar duplicados
+    const datosEspera = espera.getDataRange().getValues();
+    for (let i = 1; i < datosEspera.length; i++) {
+      const nombreExistente = datosEspera[i][2]; // Columna C = Nombre
+      if (nombreExistente && nombreExistente.toString().trim() === nombre.toString().trim()) {
+        Logger.log('⚠️ Duplicado: ' + nombre);
+        return;
+      }
+    }
+
+    // Construir malestar principal
+    let malestarPrincipal = '';
+    if (preocupacion) malestarPrincipal = preocupacion.toString();
+    if (molestando) malestarPrincipal += (malestarPrincipal ? ' | ' : '') + molestando.toString();
+    if (!malestarPrincipal) malestarPrincipal = 'Desde Formulario de Bienestar';
+
+    // Buscar primera fila vacía
+    const primeraFilaVacia = espera.getLastRow() + 1;
+
+    // Preparar datos para Lista de Espera
+    const nuevaFila = [
+      '', // A: Fecha (auto)
+      '', // B: No. (auto)
+      nombre, // C: Nombre
+      creamosId || '', // D: Creamos ID
+      '', // E: Género
+      '', // F: Edad
+      malestarPrincipal, // G: Malestar
+      '', // H: Teléfono
+      'Formulario de Bienestar', // I: Derivación
+      'Sistema Automático', // J: Quien deriva
+      '', // K: Programa
+      'Apoyo Psicológico', // L: Servicio
+      '', // M: Terapeuta
+      'Pendiente' // N: Asistió
+    ];
+
+    // Insertar
+    espera.getRange(primeraFilaVacia, 1, 1, 14).setValues([nuevaFila]);
+
+    // Formatear
+    espera.getRange(primeraFilaVacia, 1, 1, 14)
+      .setBackground('#e8f5e9')
+      .setFontColor('black')
+      .setHorizontalAlignment('left');
+
+    // Marcar como procesada en Bienestar
+    sheetOrigen.getRange(fila, 1, 1, numColumnas).setBackground('#d4edda');
+
+    Logger.log('✅ Enviado a Lista de Espera: ' + nombre);
+
+  } catch (error) {
+    Logger.log('❌ Error en enviarBienestarAListaEsperaFlexible: ' + error.message);
   }
 }
