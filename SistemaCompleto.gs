@@ -956,6 +956,21 @@ function alEditar(e) {
       }
     }
   }
+
+  // CASO 5: Formulario de Bienestar - Enviar a Lista de Espera (columna M = 13)
+  if (hoja === 'C_03_Formulario de Bienestar (2026)' && columna === 13) {
+    if (val === 'Sí, enviar') {
+      Logger.log('✅ Detectado envío a Lista de Espera desde Bienestar');
+      Logger.log('▶️ EJECUTANDO enviarBienestarAListaEspera...');
+
+      try {
+        enviarBienestarAListaEspera(sheet, fila);
+        Logger.log('✅ enviarBienestarAListaEspera completado');
+      } catch (error) {
+        Logger.log('❌ ERROR en enviarBienestarAListaEspera: ' + error.toString());
+      }
+    }
+  }
 }
 
 /**
@@ -3253,10 +3268,6 @@ function crearFormularioBienestar() {
   sheet = ss.insertSheet('C_03_Formulario de Bienestar (2026)');
 
   const headers = [
-    '_id',
-    'start',
-    'end',
-    '_submission_time',
     'nombre_completo',
     'genero',
     'edad',
@@ -3268,7 +3279,8 @@ function crearFormularioBienestar() {
     'salud_mental/activar_protocolo_suicidio',
     'salud_mental/detalles_riesgo',
     'apoyo_necesario',
-    'comentarios_adicionales'
+    'comentarios_adicionales',
+    'Enviar a Lista de Espera'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -3278,10 +3290,17 @@ function crearFormularioBienestar() {
     .setHorizontalAlignment('center');
 
   // Anchos de columna
-  const widths = [100, 150, 150, 150, 200, 100, 80, 150, 200, 150, 150, 150, 200, 300, 250, 300];
+  const widths = [200, 100, 80, 150, 200, 150, 150, 150, 200, 300, 250, 300, 150];
   widths.forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
+
+  // Validación para "Enviar a Lista de Espera" (columna M = 13)
+  const validacionEnviar = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Sí, enviar', 'No'])
+    .setAllowInvalid(false)
+    .build();
+  sheet.getRange('M2:M200').setDataValidation(validacionEnviar);
 
   // Congelar primera fila
   sheet.setFrozenRows(1);
@@ -3595,5 +3614,158 @@ function instalarActualizaciones() {
       ui.ButtonSet.OK
     );
     Logger.log('❌ Error en instalarActualizaciones: ' + error.message);
+  }
+}
+
+/**
+ * Envía una persona desde Formulario de Bienestar a Lista de Espera
+ * @param {Sheet} sheetOrigen - La hoja de Bienestar
+ * @param {number} fila - El número de fila a enviar
+ */
+function enviarBienestarAListaEspera(sheetOrigen, fila) {
+  Logger.log('🔄 Iniciando envío desde Bienestar a Lista de Espera...');
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const espera = ss.getSheetByName('Lista de Espera');
+
+    if (!espera) {
+      ss.toast('❌ Error: No se encontró la hoja "Lista de Espera"', 'Error', 5);
+      Logger.log('❌ No se encontró la hoja Lista de Espera');
+      return;
+    }
+
+    // Leer los datos de la fila en Bienestar (columnas A-L, 12 columnas de datos)
+    const datos = sheetOrigen.getRange(fila, 1, 1, 12).getValues()[0];
+
+    const nombre = datos[0];  // nombre_completo (A)
+    const genero = datos[1];  // genero (B)
+    const edad = datos[2];    // edad (C)
+    const telefono = datos[3]; // telefono (D)
+    const email = datos[4];   // email (E)
+    const estadoAnimo = datos[5]; // salud_mental/estado_animo (F)
+    const nivelEstres = datos[6]; // salud_mental/nivel_estres (G)
+    const calidadSueno = datos[7]; // salud_mental/calidad_sueno (H)
+    const protocoloSuicidio = datos[8]; // salud_mental/activar_protocolo_suicidio (I)
+    const detallesRiesgo = datos[9]; // salud_mental/detalles_riesgo (J)
+    const apoyoNecesario = datos[10]; // apoyo_necesario (K)
+    const comentarios = datos[11]; // comentarios_adicionales (L)
+
+    // Validar que al menos tenga nombre
+    if (!nombre || nombre.toString().trim() === '') {
+      ss.toast('⚠️ No se puede enviar: falta el nombre', 'Advertencia', 4);
+      Logger.log('⚠️ No se puede enviar: falta el nombre');
+      sheetOrigen.getRange(fila, 13).setValue('No'); // Reset dropdown
+      return;
+    }
+
+    // VERIFICAR SI YA EXISTE en Lista de Espera (evitar duplicados)
+    const datosEspera = espera.getDataRange().getValues();
+    for (let i = 1; i < datosEspera.length; i++) {
+      const nombreExistente = datosEspera[i][2]; // Columna C = Nombre Completo
+      if (nombreExistente && nombreExistente.toString().trim() === nombre.toString().trim()) {
+        ss.toast(
+          '⚠️ DUPLICADO DETECTADO\n\n' +
+          nombre + ' ya está en Lista de Espera.',
+          'Ya Existe',
+          4
+        );
+        Logger.log('⚠️ Duplicado detectado: ' + nombre);
+
+        // Marcar en amarillo y resetear dropdown
+        sheetOrigen.getRange(fila, 1, 1, 13).setBackground('#fff3cd');
+        sheetOrigen.getRange(fila, 13).setValue('No');
+        return;
+      }
+    }
+
+    // Construir el "Malestar Principal" combinando la información relevante
+    let malestarPrincipal = '';
+    if (apoyoNecesario) {
+      malestarPrincipal = apoyoNecesario.toString();
+    }
+    if (estadoAnimo) {
+      malestarPrincipal += (malestarPrincipal ? ' | ' : '') + 'Ánimo: ' + estadoAnimo;
+    }
+    if (nivelEstres) {
+      malestarPrincipal += (malestarPrincipal ? ' | ' : '') + 'Estrés: ' + nivelEstres;
+    }
+    if (!malestarPrincipal) {
+      malestarPrincipal = 'Desde Formulario de Bienestar';
+    }
+
+    // Buscar la primera fila vacía en Lista de Espera (buscar en columna C)
+    let primeraFilaVacia = 2;
+    for (let i = 2; i <= datosEspera.length; i++) {
+      if (!datosEspera[i - 1][2] || datosEspera[i - 1][2].toString().trim() === '') {
+        primeraFilaVacia = i;
+        break;
+      }
+    }
+    if (primeraFilaVacia === 2 && datosEspera.length > 1 && datosEspera[1][2]) {
+      primeraFilaVacia = datosEspera.length + 1;
+    }
+
+    Logger.log('📝 Insertando en Lista de Espera fila ' + primeraFilaVacia);
+
+    // Preparar los datos para Lista de Espera
+    // Columnas: A=Fecha(auto), B=No.(auto), C=Nombre, D=CreamosID, E=Género, F=Edad,
+    //           G=Malestar, H=Teléfono, I=Derivación, J=Quien deriva, K=Programa,
+    //           L=Servicio, M=Terapeuta, N=Asistió
+    const nuevaFila = [
+      '', // A: Fecha Solicitud (auto)
+      '', // B: No. (auto)
+      nombre, // C: Nombre Completo
+      '', // D: Creamos ID (vacío por ahora)
+      genero || '', // E: Género
+      edad || '', // F: Edad
+      malestarPrincipal, // G: Malestar Principal
+      telefono || '', // H: Teléfono
+      'Formulario de Bienestar', // I: Derivación o Referencia
+      'Sistema Automático', // J: Nombre de quien deriva
+      '', // K: Programa de Creamos / Organización
+      'Apoyo Psicológico', // L: Servicio que solicita
+      '', // M: Terapeuta Asignado (vacío, se asigna después)
+      'Pendiente' // N: Asistió a Cita
+    ];
+
+    // Insertar en Lista de Espera
+    espera.getRange(primeraFilaVacia, 1, 1, 14).setValues([nuevaFila]);
+
+    // Formatear la fila
+    espera.getRange(primeraFilaVacia, 1, 1, 14)
+      .setBackground('#e8f5e9') // Verde claro
+      .setFontColor('black')
+      .setHorizontalAlignment('left');
+
+    // Marcar la fila en Bienestar como procesada (verde)
+    sheetOrigen.getRange(fila, 1, 1, 13).setBackground('#d4edda');
+
+    // Limpiar el dropdown o ponerlo en "No"
+    sheetOrigen.getRange(fila, 13).setValue('No');
+
+    Logger.log('✅ Persona enviada exitosamente a Lista de Espera');
+
+    ss.toast(
+      '✅ ENVIADO A LISTA DE ESPERA\n\n' +
+      '👤 ' + nombre + '\n' +
+      '📋 Fila ' + primeraFilaVacia + ' en Lista de Espera\n\n' +
+      'Ya puedes asignar terapeuta desde allí.',
+      'Enviado',
+      5
+    );
+
+  } catch (error) {
+    Logger.log('❌ Error en enviarBienestarAListaEspera: ' + error.message);
+    Logger.log('Stack: ' + error.stack);
+
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      '❌ Error al enviar a Lista de Espera:\n\n' + error.message,
+      'Error',
+      6
+    );
+
+    // Resetear el dropdown
+    sheetOrigen.getRange(fila, 13).setValue('No');
   }
 }
