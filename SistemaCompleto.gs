@@ -109,6 +109,10 @@ function onOpen() {
     .addItem('🔍 Diagnosticar Reporte', 'diagnosticarReporte')
     .addItem('📦 Compactar Lista Espera', 'compactarListaEspera')
     .addSeparator()
+    .addItem('📋 Importar Datos Bienestar (KoboToolbox)', 'importarDatosKobo')
+    .addItem('🆘 Verificar Alertas de Suicidio', 'verificarProtocoloSuicidio')
+    .addItem('🔄 Instalar Actualizaciones', 'instalarActualizaciones')
+    .addSeparator()
     .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
     .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos')
     .addToUi();
