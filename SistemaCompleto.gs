@@ -107,12 +107,9 @@ function onOpen() {
 
   // Submenú: Bienestar y Alertas
   const menuBienestar = ui.createMenu('🏥 Bienestar')
-    .addItem('🔑 Configurar Token API', 'configurarTokenKobo')
-    .addSeparator()
-    .addItem('📋 Importar Datos Manual', 'importarDatosKobo')
-    .addItem('🔄 Importar Datos Automático', 'importarDatosKoboAutomatico')
-    .addItem('⏰ Activar Sincronización Automática', 'instalarSincronizacionAutomatica')
-    .addItem('⏸️ Desactivar Sincronización', 'desactivarSincronizacionAutomatica')
+    .addItem('📋 Instrucciones de Importación', 'mostrarInstruccionesImportacion')
+    .addItem('🔄 Procesar Datos Nuevos', 'procesarDatosNuevosBienestar')
+    .addItem('⏰ Activar Procesamiento Automático', 'instalarProcesamientoAutomatico')
     .addSeparator()
     .addItem('🆘 Verificar Alertas de Suicidio', 'verificarProtocoloSuicidio')
     .addSeparator()
@@ -3548,55 +3545,182 @@ function configurarTokenKobo() {
 }
 
 /**
- * Importa datos desde KoboToolbox CSV manualmente (instrucciones)
+ * Muestra instrucciones simples para importar datos manualmente
  */
-function importarDatosKobo() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+function mostrarInstruccionesImportacion() {
   const ui = SpreadsheetApp.getUi();
+  const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esXsXNnaVYrYn27GemkBprf/data.csv';
+
+  ui.alert(
+    'Instrucciones de Importación',
+    'CÓMO IMPORTAR DATOS:\n\n' +
+    '1. Abre este link en tu navegador:\n' +
+    url + '\n\n' +
+    '2. Descarga el archivo CSV\n\n' +
+    '3. Abre el CSV\n\n' +
+    '4. Copia SOLO LOS DATOS (sin encabezados)\n\n' +
+    '5. Ve a la hoja "C_03_Formulario de Bienestar (2026)"\n\n' +
+    '6. Pega los datos empezando en la fila 2\n\n' +
+    '7. El sistema automáticamente:\n' +
+    '   • Detectará alertas de suicidio\n' +
+    '   • Enviará emails a terapeutas\n' +
+    '   • Enviará personas a Lista de Espera\n\n' +
+    'Si no se procesa automáticamente, usa:\n' +
+    'Menú → Bienestar → Procesar Datos Nuevos',
+    ui.ButtonSet.OK
+  );
+}
+
+/**
+ * Procesa datos nuevos en la hoja de Bienestar
+ * Detecta alertas, envía emails y transfiere a Lista de Espera
+ */
+function procesarDatosNuevosBienestar() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
+
+  if (!sheet) {
+    ss.toast('La hoja "C_03_Formulario de Bienestar (2026)" no existe', 'Error', 3);
+    return;
+  }
+
+  Logger.log('🔄 Procesando datos nuevos de Bienestar...');
 
   try {
-    const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esXsXNnaVYrYn27GemkBprf/data.csv';
+    const datos = sheet.getDataRange().getValues();
 
-    const respuesta = ui.alert(
-      'Importar Datos de KoboToolbox',
-      '¿Cómo deseas importar los datos?\n\n' +
-      'OPCIÓN 1: Manual\n' +
-      '- Descarga el CSV desde KoboToolbox\n' +
-      '- Copia y pega en la hoja de Bienestar\n\n' +
-      'OPCIÓN 2: Automático\n' +
-      '- Configura el token de API primero\n' +
-      '- Usa "Importar Automático" desde el menú\n\n' +
-      '¿Deseas ver las instrucciones manuales?',
-      ui.ButtonSet.YES_NO
-    );
+    if (datos.length <= 1) {
+      ss.toast('No hay datos para procesar', 'Sin Datos', 2);
+      return;
+    }
 
-    if (respuesta === ui.Button.YES) {
-      ui.alert(
-        'Instrucciones de Importación Manual',
-        'PASOS:\n\n' +
-        '1. Abre en tu navegador:\n' +
-        url + '\n\n' +
-        '2. Descarga el archivo CSV\n\n' +
-        '3. Abre el CSV en Excel o Google Sheets\n\n' +
-        '4. Copia los DATOS (sin encabezados)\n\n' +
-        '5. Pega en la hoja "C_03_Formulario de Bienestar (2026)"\n' +
-        '   empezando en la fila 2\n\n' +
-        '6. Usa "Verificar Alertas de Suicidio" desde el menú',
-        ui.ButtonSet.OK
+    let alertasEnviadas = 0;
+    let enviadasAListaEspera = 0;
+
+    // Procesar cada fila (empezando desde fila 2)
+    for (let i = 1; i < datos.length; i++) {
+      const fila = datos[i];
+      const filaNum = i + 1;
+
+      const completadoPor = fila[0];  // A: Completado por
+      const protocoloSuicidio = fila[5];  // F: activar_protocolo_suicidio
+      const enviarALista = fila[6];  // G: Enviar a Lista Espera
+
+      // Saltar filas vacías
+      if (!completadoPor || completadoPor.toString().trim() === '') {
+        continue;
+      }
+
+      // PASO 1: Verificar alerta de suicidio
+      if (protocoloSuicidio && (
+        protocoloSuicidio.toString().toLowerCase() === 'sí' ||
+        protocoloSuicidio.toString().toLowerCase() === 'si'
+      )) {
+        // Solo enviar si no está marcada en rojo (ya procesada)
+        const colorFondo = sheet.getRange(filaNum, 1).getBackground();
+
+        if (colorFondo !== '#ffcccc') {
+          // Enviar alerta
+          enviarAlertaSuicidio(fila, datos[0]);
+
+          // Marcar en rojo
+          sheet.getRange(filaNum, 1, 1, 7).setBackground('#ffcccc');
+          alertasEnviadas++;
+
+          Logger.log('🆘 Alerta enviada: ' + completadoPor);
+        }
+      }
+
+      // PASO 2: Enviar a Lista de Espera automáticamente
+      // Solo si no está marcada en verde (ya procesada)
+      const colorFondo = sheet.getRange(filaNum, 1).getBackground();
+
+      if (colorFondo !== '#d4edda' && colorFondo !== '#e8f5e9') {
+        try {
+          enviarBienestarAListaEspera(sheet, filaNum);
+          enviadasAListaEspera++;
+          Logger.log('✅ Enviado a Lista: ' + completadoPor);
+        } catch (error) {
+          Logger.log('⚠️ Error enviando a Lista: ' + completadoPor + ' - ' + error.message);
+        }
+      }
+    }
+
+    // Mostrar resumen
+    if (alertasEnviadas > 0 || enviadasAListaEspera > 0) {
+      ss.toast(
+        '✅ PROCESAMIENTO COMPLETADO\n\n' +
+        '• Alertas de suicidio: ' + alertasEnviadas + '\n' +
+        '• Enviadas a Lista de Espera: ' + enviadasAListaEspera,
+        'Procesado',
+        5
       );
+    } else {
+      ss.toast('Todos los datos ya fueron procesados', 'Sin Cambios', 3);
     }
 
-    // Crear la hoja si no existe
-    let sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
-    if (!sheet) {
-      sheet = crearFormularioBienestar();
-    }
-
-    Logger.log('Instrucciones de importación mostradas');
+    Logger.log('📊 Procesamiento completado: ' + alertasEnviadas + ' alertas, ' + enviadasAListaEspera + ' enviadas');
 
   } catch (error) {
-    ui.alert('Error', 'Error al importar: ' + error.message, ui.ButtonSet.OK);
-    Logger.log('❌ Error en importarDatosKobo: ' + error.message);
+    Logger.log('❌ Error en procesarDatosNuevosBienestar: ' + error.message);
+    ss.toast('Error al procesar: ' + error.message, 'Error', 5);
+  }
+}
+
+/**
+ * Instala un trigger para procesar automáticamente cada vez que se peguen datos
+ */
+function instalarProcesamientoAutomatico() {
+  const ui = SpreadsheetApp.getUi();
+
+  const respuesta = ui.alert(
+    'Activar Procesamiento Automático',
+    '¿Deseas activar el procesamiento automático?\n\n' +
+    'El sistema revisará cada 5 minutos si hay:\n' +
+    '• Nuevos datos sin procesar\n' +
+    '• Alertas de suicidio sin enviar\n' +
+    '• Personas sin enviar a Lista de Espera\n\n' +
+    'Y los procesará automáticamente.\n\n' +
+    '¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    // Eliminar triggers existentes
+    const triggers = ScriptApp.getProjectTriggers();
+    triggers.forEach(trigger => {
+      if (trigger.getHandlerFunction() === 'procesarDatosNuevosBienestar') {
+        ScriptApp.deleteTrigger(trigger);
+      }
+    });
+
+    // Crear nuevo trigger cada 5 minutos
+    ScriptApp.newTrigger('procesarDatosNuevosBienestar')
+      .timeBased()
+      .everyMinutes(5)
+      .create();
+
+    ui.alert(
+      '✅ Procesamiento Automático Activado',
+      'El sistema revisará cada 5 minutos.\n\n' +
+      'Ahora puedes:\n' +
+      '1. Pegar datos en la hoja de Bienestar\n' +
+      '2. Esperar 5 minutos\n' +
+      '3. El sistema procesará automáticamente\n\n' +
+      'También puedes procesar manualmente:\n' +
+      'Menú → Bienestar → Procesar Datos Nuevos',
+      ui.ButtonSet.OK
+    );
+
+    Logger.log('✅ Trigger de procesamiento automático instalado (cada 5 min)');
+
+  } catch (error) {
+    ui.alert('Error', 'Error al instalar: ' + error.message, ui.ButtonSet.OK);
+    Logger.log('❌ Error instalando trigger: ' + error.message);
   }
 }
 
