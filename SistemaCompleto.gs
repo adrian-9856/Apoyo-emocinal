@@ -981,8 +981,8 @@ function alEditar(e) {
     }
   }
 
-  // CASO 5: Formulario de Bienestar - Enviar a Lista de Espera (columna H = 8)
-  if (hoja === 'C_03_Formulario de Bienestar (2026)' && columna === 8) {
+  // CASO 5: Formulario de Bienestar - Enviar a Lista de Espera (columna G = 7)
+  if (hoja === 'C_03_Formulario de Bienestar (2026)' && columna === 7) {
     if (val === 'Sí, enviar') {
       Logger.log('✅ Detectado envío a Lista de Espera desde Bienestar');
       Logger.log('▶️ EJECUTANDO enviarBienestarAListaEspera...');
@@ -2911,29 +2911,25 @@ function crearDatosPruebaBienestar() {
     sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
   }
 
-  // Datos de prueba con las columnas del CSV real de KoboToolbox
-  // Columnas: A=today, B=Completado por, C=Creamos ID,
-  //           D=¿Hay algo que te está molestando...?, E=¿Cuál es su preocupación?,
-  //           F=En las últimas dos semanas..., G=activar_protocolo_suicidio, H=Enviar
-
-  const fechaHoy = new Date().toLocaleDateString('es-ES');
+  // Datos de prueba con las columnas del CSV real de KoboToolbox (sin "today")
+  // Columnas: A=Completado por, B=Creamos ID,
+  //           C=¿Hay algo que te está molestando...?, D=¿Cuál es su preocupación?,
+  //           E=En las últimas dos semanas..., F=activar_protocolo_suicidio, G=Enviar
 
   const datosPrueba = [
     // CASO 1: CON ALERTA DE SUICIDIO
     [
-      fechaHoy,                     // A: today
-      'María Rodríguez',            // B: Completado por
-      'MR-001',                     // C: Creamos ID
-      'Sí, me siento muy angustiada y no puedo controlar mis pensamientos', // D: molestando
-      'Ansiedad severa y pensamientos intrusivos', // E: preocupación
-      'Sí',                         // F: pensamientos de muerte
-      'Sí',                         // G: activar_protocolo_suicidio (ALERTA!)
-      'No'                          // H: Enviar a Lista Espera
+      'María Rodríguez',            // A: Completado por
+      'MR-001',                     // B: Creamos ID
+      'Sí, me siento muy angustiada y no puedo controlar mis pensamientos', // C: molestando
+      'Ansiedad severa y pensamientos intrusivos', // D: preocupación
+      'Sí',                         // E: pensamientos de muerte
+      'Sí',                         // F: activar_protocolo_suicidio (ALERTA!)
+      'No'                          // G: Enviar a Lista Espera
     ],
 
     // CASO 2: Normal - Ansiedad
     [
-      fechaHoy,
       'Carlos Méndez',
       'CM-002',
       'Sí, tengo mucho estrés en el trabajo',
@@ -2945,7 +2941,6 @@ function crearDatosPruebaBienestar() {
 
     // CASO 3: Normal - Problemas emocionales
     [
-      fechaHoy,
       'Ana Flores',
       'AF-003',
       'Sí, me siento triste desde hace varios días',
@@ -2957,7 +2952,6 @@ function crearDatosPruebaBienestar() {
 
     // CASO 4: Normal - Desarrollo personal
     [
-      fechaHoy,
       'Luis Torres',
       'LT-004',
       'No mucho, solo quiero mejorar mi manejo emocional',
@@ -2969,10 +2963,10 @@ function crearDatosPruebaBienestar() {
   ];
 
   // Insertar datos en filas 2-5
-  sheet.getRange(2, 1, datosPrueba.length, 8).setValues(datosPrueba);
+  sheet.getRange(2, 1, datosPrueba.length, 7).setValues(datosPrueba);
 
   // Marcar la fila con alerta en color diferente
-  sheet.getRange(2, 1, 1, 8).setBackground('#ffe6e6'); // Rojo claro para la alerta
+  sheet.getRange(2, 1, 1, 7).setBackground('#ffe6e6'); // Rojo claro para la alerta
 
   ss.toast(
     '✅ 4 DATOS DE PRUEBA CREADOS\n\n' +
@@ -2985,7 +2979,7 @@ function crearDatosPruebaBienestar() {
     'CÓMO PROBAR:\n' +
     '1. Use menú: Bienestar → Verificar Alertas de Suicidio\n' +
     '2. Revise su email para ver la alerta\n' +
-    '3. En columna H seleccione "Sí, enviar" para enviar a Lista de Espera',
+    '3. En columna G seleccione "Sí, enviar" para enviar a Lista de Espera',
     'Datos de Prueba Creados',
     -1
   );
@@ -3025,8 +3019,8 @@ function eliminarDatosPruebaBienestar() {
   try {
     // Limpiar filas 2-5 (datos de prueba)
     if (sheet.getLastRow() >= 5) {
-      sheet.getRange(2, 1, 4, 8).clearContent();
-      sheet.getRange(2, 1, 4, 8).setBackground(null);
+      sheet.getRange(2, 1, 4, 7).clearContent();
+      sheet.getRange(2, 1, 4, 7).setBackground(null);
 
       ss.toast(
         '✅ DATOS DE PRUEBA ELIMINADOS\n\n' +
@@ -3134,8 +3128,8 @@ function limpiarTodosLosDatos() {
     // Limpiar Formulario de Bienestar (desde fila 2)
     const bienestar = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
     if (bienestar && bienestar.getLastRow() > 1) {
-      bienestar.getRange(2, 1, bienestar.getLastRow() - 1, 8).clearContent();
-      bienestar.getRange(2, 1, bienestar.getLastRow() - 1, 8).setBackground(null);
+      bienestar.getRange(2, 1, bienestar.getLastRow() - 1, 7).clearContent();
+      bienestar.getRange(2, 1, bienestar.getLastRow() - 1, 7).setBackground(null);
     }
 
     // Actualizar reportes
@@ -3468,9 +3462,8 @@ function crearFormularioBienestar() {
 
   sheet = ss.insertSheet('C_03_Formulario de Bienestar (2026)');
 
-  // Columnas exactas del CSV de KoboToolbox
+  // Columnas exactas del CSV de KoboToolbox (sin "today")
   const headers = [
-    'today',
     'Completado por:',
     'Creamos ID',
     '¿Hay algo que te está molestando en relación con tus pensamientos, emociones, o decisiones?',
@@ -3488,17 +3481,17 @@ function crearFormularioBienestar() {
     .setWrap(true);
 
   // Anchos de columna
-  const widths = [120, 200, 150, 350, 350, 400, 200, 150];
+  const widths = [200, 150, 350, 350, 400, 200, 150];
   widths.forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
-  // Validación para "Enviar a Lista de Espera" (columna H = 8)
+  // Validación para "Enviar a Lista de Espera" (columna G = 7)
   const validacionEnviar = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Sí, enviar', 'No'])
     .setAllowInvalid(false)
     .build();
-  sheet.getRange('H2:H200').setDataValidation(validacionEnviar);
+  sheet.getRange('G2:G200').setDataValidation(validacionEnviar);
 
   // Congelar primera fila
   sheet.setFrozenRows(1);
@@ -3562,7 +3555,7 @@ function importarDatosKobo() {
   const ui = SpreadsheetApp.getUi();
 
   try {
-    const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/eshoqCSK2fAdzR6VYtPfZ3L/data.csv';
+    const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esXsXNnaVYrYn27GemkBprf/data.csv';
 
     const respuesta = ui.alert(
       'Importar Datos de KoboToolbox',
@@ -3626,7 +3619,7 @@ function importarDatosKoboAutomatico() {
     }
 
     // URL del CSV de KoboToolbox
-    const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/data.csv';
+    const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esXsXNnaVYrYn27GemkBprf/data.csv';
 
     // Descargar CSV con autenticación
     const options = {
@@ -3688,15 +3681,15 @@ function importarDatosKoboAutomatico() {
     for (let i = 1; i < filas.length; i++) {
       const fila = filas[i];
 
-      // Mapear CSV a nuestras columnas (ajustar según estructura del CSV real)
-      // Asumiendo que el CSV tiene: today, Completado por, Creamos ID, etc.
-      const completadoPor = fila[1] || '';  // Columna B del CSV
-      const creamosId = fila[2] || '';      // Columna C del CSV
+      // Mapear CSV a nuestras columnas (sin "today")
+      // CSV: 0=Completado por, 1=Creamos ID, 2=Molestando, 3=Preocupación, 4=Pensamientos, 5=activar_protocolo_suicidio
+      const completadoPor = fila[0] || '';  // Columna A del CSV
+      const creamosId = fila[1] || '';      // Columna B del CSV
 
       // Verificar si ya existe (evitar duplicados)
       let existe = false;
       for (let j = 1; j < datosExistentes.length; j++) {
-        const nombreExistente = datosExistentes[j][1]; // Columna B: Completado por
+        const nombreExistente = datosExistentes[j][0]; // Columna A: Completado por
         if (nombreExistente && nombreExistente.toString().trim() === completadoPor.toString().trim()) {
           existe = true;
           break;
@@ -3704,36 +3697,36 @@ function importarDatosKoboAutomatico() {
       }
 
       if (existe) {
+        Logger.log('⚠️ Duplicado omitido: ' + completadoPor);
         continue; // Saltar duplicados
       }
 
       // Es una fila nueva, agregar a la hoja
       const nuevaFila = sheet.getLastRow() + 1;
 
-      // Preparar datos (columnas A-G del CSV, columna H para dropdown)
+      // Preparar datos (columnas A-F del CSV, columna G para dropdown)
       const datosNuevos = [
-        fila[0] || new Date().toLocaleDateString('es-ES'),  // today
-        completadoPor,                                       // Completado por
-        creamosId,                                           // Creamos ID
-        fila[3] || '',                                       // Molestando
-        fila[4] || '',                                       // Preocupación
-        fila[5] || '',                                       // Pensamientos
-        fila[6] || '',                                       // activar_protocolo_suicidio
-        'No'                                                 // Enviar a Lista Espera
+        completadoPor,                                       // A: Completado por
+        creamosId,                                           // B: Creamos ID
+        fila[2] || '',                                       // C: Molestando
+        fila[3] || '',                                       // D: Preocupación
+        fila[4] || '',                                       // E: Pensamientos
+        fila[5] || '',                                       // F: activar_protocolo_suicidio
+        'No'                                                 // G: Enviar a Lista Espera
       ];
 
       // Insertar en la hoja
-      sheet.getRange(nuevaFila, 1, 1, 8).setValues([datosNuevos]);
+      sheet.getRange(nuevaFila, 1, 1, 7).setValues([datosNuevos]);
       filasNuevas++;
 
       Logger.log('➕ Nueva fila agregada: ' + completadoPor);
 
       // Verificar si tiene alerta de suicidio
-      const protocoloSuicidio = fila[6] || '';
+      const protocoloSuicidio = fila[5] || '';  // Columna F del CSV
       if (protocoloSuicidio.toString().toLowerCase() === 'sí' ||
           protocoloSuicidio.toString().toLowerCase() === 'si') {
         // Marcar en rojo
-        sheet.getRange(nuevaFila, 1, 1, 8).setBackground('#ffcccc');
+        sheet.getRange(nuevaFila, 1, 1, 7).setBackground('#ffcccc');
 
         // Enviar alerta
         enviarAlertaSuicidio(datosNuevos, headers);
@@ -4182,32 +4175,31 @@ function enviarBienestarAListaEspera(sheetOrigen, fila) {
       return;
     }
 
-    // Leer los datos de la fila en Bienestar (columnas A-G, 7 columnas de datos)
-    const datos = sheetOrigen.getRange(fila, 1, 1, 7).getValues()[0];
+    // Leer los datos de la fila en Bienestar (columnas A-F, 6 columnas de datos)
+    const datos = sheetOrigen.getRange(fila, 1, 1, 6).getValues()[0];
 
-    // Nuevas columnas del CSV real de KoboToolbox:
-    // A: today
-    // B: Completado por:
-    // C: Creamos ID
-    // D: ¿Hay algo que te está molestando en relación con tus pensamientos, emociones, o decisiones?
-    // E: ¿Cuál es su preocupación?
-    // F: En las últimas dos semanas, ¿ha tenido pensamientos de que estaría mejor muerto(a) o de lastimarse de alguna manera?
-    // G: activar_protocolo_suicidio
+    // Columnas del CSV real de KoboToolbox (sin "today"):
+    // A: Completado por:
+    // B: Creamos ID
+    // C: ¿Hay algo que te está molestando en relación con tus pensamientos, emociones, o decisiones?
+    // D: ¿Cuál es su preocupación?
+    // E: En las últimas dos semanas, ¿ha tenido pensamientos de que estaría mejor muerto(a) o de lastimarse de alguna manera?
+    // F: activar_protocolo_suicidio
+    // G: Enviar a Lista de Espera (dropdown, no se lee aquí)
 
-    const today = datos[0];               // A: today
-    const completadoPor = datos[1];       // B: Completado por:
-    const creamosId = datos[2];           // C: Creamos ID
-    const molestando = datos[3];          // D: ¿Hay algo que te está molestando...?
-    const preocupacion = datos[4];        // E: ¿Cuál es su preocupación?
-    const pensamientos = datos[5];        // F: En las últimas dos semanas...
-    const protocoloSuicidio = datos[6];   // G: activar_protocolo_suicidio
+    const completadoPor = datos[0];       // A: Completado por:
+    const creamosId = datos[1];           // B: Creamos ID
+    const molestando = datos[2];          // C: ¿Hay algo que te está molestando...?
+    const preocupacion = datos[3];        // D: ¿Cuál es su preocupación?
+    const pensamientos = datos[4];        // E: En las últimas dos semanas...
+    const protocoloSuicidio = datos[5];   // F: activar_protocolo_suicidio
 
     // Validar que al menos tenga "Completado por" como nombre
     const nombre = completadoPor;
     if (!nombre || nombre.toString().trim() === '') {
       ss.toast('⚠️ No se puede enviar: falta "Completado por"', 'Advertencia', 4);
       Logger.log('⚠️ No se puede enviar: falta "Completado por"');
-      sheetOrigen.getRange(fila, 8).setValue('No'); // Reset dropdown (columna H)
+      sheetOrigen.getRange(fila, 7).setValue('No'); // Reset dropdown (columna G)
       return;
     }
 
@@ -4225,8 +4217,8 @@ function enviarBienestarAListaEspera(sheetOrigen, fila) {
         Logger.log('⚠️ Duplicado detectado: ' + nombre);
 
         // Marcar en amarillo y resetear dropdown
-        sheetOrigen.getRange(fila, 1, 1, 8).setBackground('#fff3cd');
-        sheetOrigen.getRange(fila, 8).setValue('No');
+        sheetOrigen.getRange(fila, 1, 1, 7).setBackground('#fff3cd');
+        sheetOrigen.getRange(fila, 7).setValue('No');
         return;
       }
     }
@@ -4288,10 +4280,10 @@ function enviarBienestarAListaEspera(sheetOrigen, fila) {
       .setHorizontalAlignment('left');
 
     // Marcar la fila en Bienestar como procesada (verde)
-    sheetOrigen.getRange(fila, 1, 1, 8).setBackground('#d4edda');
+    sheetOrigen.getRange(fila, 1, 1, 7).setBackground('#d4edda');
 
     // Limpiar el dropdown o ponerlo en "No"
-    sheetOrigen.getRange(fila, 8).setValue('No');
+    sheetOrigen.getRange(fila, 7).setValue('No');
 
     Logger.log('✅ Persona enviada exitosamente a Lista de Espera');
 
@@ -4315,6 +4307,6 @@ function enviarBienestarAListaEspera(sheetOrigen, fila) {
     );
 
     // Resetear el dropdown
-    sheetOrigen.getRange(fila, 8).setValue('No');
+    sheetOrigen.getRange(fila, 7).setValue('No');
   }
 }
