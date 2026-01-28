@@ -107,6 +107,8 @@ function onOpen() {
 
   // Submenú: Bienestar y Alertas
   const menuBienestar = ui.createMenu('🏥 Bienestar')
+    .addItem('🔍 Diagnosticar Sistema', 'diagnosticarBienestar')
+    .addSeparator()
     .addItem('📋 Instrucciones de Importación', 'mostrarInstruccionesImportacion')
     .addItem('🔄 Procesar Datos Nuevos', 'procesarDatosNuevosBienestar')
     .addItem('⏰ Activar Procesamiento Automático', 'instalarProcesamientoAutomatico')
@@ -4010,6 +4012,135 @@ function desactivarSincronizacionAutomatica() {
     ui.alert('Error', 'Error al desactivar: ' + error.message, ui.ButtonSet.OK);
     Logger.log('❌ Error desactivando sincronización: ' + error.message);
   }
+}
+
+/**
+ * Diagnostica el estado del sistema de Bienestar
+ * Muestra qué está mal y cómo arreglarlo
+ */
+function diagnosticarBienestar() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  let diagnostico = '🔍 DIAGNÓSTICO DEL SISTEMA DE BIENESTAR\n\n';
+  let problemas = 0;
+
+  // 1. Verificar si existe la hoja
+  const sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
+
+  if (!sheet) {
+    diagnostico += '❌ PROBLEMA 1: La hoja no existe\n';
+    diagnostico += '   Solución: Menú → Bienestar → Crear Datos de Prueba\n';
+    diagnostico += '   (esto creará la hoja automáticamente)\n\n';
+    problemas++;
+
+    ui.alert('Diagnóstico', diagnostico, ui.ButtonSet.OK);
+    return;
+  }
+
+  diagnostico += '✅ La hoja existe\n\n';
+
+  // 2. Verificar columnas
+  const datos = sheet.getDataRange().getValues();
+
+  if (datos.length === 0) {
+    diagnostico += '❌ PROBLEMA 2: La hoja está vacía\n';
+    diagnostico += '   Solución: Pega los datos del CSV\n\n';
+    problemas++;
+  } else {
+    const headers = datos[0];
+
+    diagnostico += '📋 COLUMNAS DETECTADAS:\n';
+    for (let i = 0; i < Math.min(headers.length, 7); i++) {
+      const col = headers[i];
+      diagnostico += '   ' + String.fromCharCode(65 + i) + ': ' + (col || '(vacía)') + '\n';
+    }
+    diagnostico += '\n';
+
+    // Verificar columnas esperadas
+    const columnasEsperadas = [
+      'Completado por',
+      'Creamos ID',
+      'molestando',
+      'preocupación',
+      'últimas dos semanas',
+      'activar_protocolo_suicidio',
+      'Enviar a Lista'
+    ];
+
+    let columnasCorrectas = 0;
+    for (let i = 0; i < columnasEsperadas.length; i++) {
+      const esperada = columnasEsperadas[i].toLowerCase();
+      const actual = (headers[i] || '').toString().toLowerCase();
+
+      if (actual.includes(esperada.split(' ')[0])) {
+        columnasCorrectas++;
+      }
+    }
+
+    if (columnasCorrectas < 6) {
+      diagnostico += '⚠️ ADVERTENCIA: Las columnas no coinciden exactamente\n';
+      diagnostico += '   Esperadas: Completado por, Creamos ID, molestando, preocupación, etc.\n';
+      diagnostico += '   Asegúrate de copiar las columnas correctas del CSV\n\n';
+      problemas++;
+    } else {
+      diagnostico += '✅ Columnas correctas\n\n';
+    }
+
+    // 3. Verificar datos
+    if (datos.length <= 1) {
+      diagnostico += '❌ PROBLEMA 3: No hay datos (solo encabezados)\n';
+      diagnostico += '   Solución: Pega los DATOS desde la fila 2\n\n';
+      problemas++;
+    } else {
+      diagnostico += '✅ Hay ' + (datos.length - 1) + ' registros de datos\n\n';
+
+      // Mostrar primeros datos
+      diagnostico += '📊 PRIMER REGISTRO:\n';
+      for (let i = 0; i < Math.min(datos[1].length, 7); i++) {
+        const valor = datos[1][i] || '(vacío)';
+        const valorCorto = valor.toString().substring(0, 30);
+        diagnostico += '   ' + String.fromCharCode(65 + i) + ': ' + valorCorto;
+        if (valor.toString().length > 30) diagnostico += '...';
+        diagnostico += '\n';
+      }
+      diagnostico += '\n';
+
+      // Verificar si ya está procesado
+      const colorFondo = sheet.getRange(2, 1).getBackground();
+      if (colorFondo === '#ffcccc') {
+        diagnostico += '🔴 Este registro tiene alerta de suicidio (YA PROCESADO)\n\n';
+      } else if (colorFondo === '#d4edda' || colorFondo === '#e8f5e9') {
+        diagnostico += '🟢 Este registro ya fue enviado a Lista de Espera\n\n';
+      } else {
+        diagnostico += '⚪ Este registro NO ha sido procesado\n\n';
+      }
+    }
+  }
+
+  // 4. Verificar Lista de Espera
+  const listaEspera = ss.getSheetByName('Lista de Espera');
+  if (!listaEspera) {
+    diagnostico += '❌ PROBLEMA 4: No existe la hoja "Lista de Espera"\n';
+    diagnostico += '   Solución: Ejecuta "Instalar Sistema" primero\n\n';
+    problemas++;
+  } else {
+    diagnostico += '✅ La hoja "Lista de Espera" existe\n\n';
+  }
+
+  // Resumen
+  diagnostico += '═══════════════════════════════\n';
+  if (problemas === 0) {
+    diagnostico += '✅ TODO ESTÁ BIEN\n\n';
+    diagnostico += 'Puedes ejecutar:\n';
+    diagnostico += 'Menú → Bienestar → Procesar Datos Nuevos';
+  } else {
+    diagnostico += '⚠️ ' + problemas + ' PROBLEMAS DETECTADOS\n\n';
+    diagnostico += 'Revisa las soluciones arriba';
+  }
+
+  ui.alert('Diagnóstico', diagnostico, ui.ButtonSet.OK);
+  Logger.log('Diagnóstico completado: ' + problemas + ' problemas');
 }
 
 /**
