@@ -84,13 +84,15 @@
 
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu('🏥 Apoyo Emocional')
+
+  // Submenú: Instalación
+  const menuInstalacion = ui.createMenu('⚙️ Instalación')
     .addItem('🚀 Instalar Sistema', 'instalarSistema')
     .addItem('✅ Verificar Instalación', 'verificarInstalacion')
-    .addSeparator()
-    .addItem('📊 Actualizar Reportes', 'actualizarReportes')
-    .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
-    .addSeparator()
+    .addItem('🔄 Instalar Actualizaciones', 'instalarActualizaciones');
+
+  // Submenú: Configuración
+  const menuConfiguracion = ui.createMenu('🔧 Configuración')
     .addItem('📧 Configurar Email Director', 'configurarEmail')
     .addItem('👥 Configurar Emails Terapeutas', 'configurarEmailsTerapeutas')
     .addItem('✉️ Probar Envío de Email', 'probarEmail')
@@ -101,19 +103,33 @@ function onOpen() {
     .addSeparator()
     .addItem('⏰ Instalar Trigger de Tiempo', 'instalarTriggerTiempo')
     .addItem('📅 Instalar Recordatorio Mensual', 'instalarTriggerRecordatorioMensual')
-    .addItem('✏️ Instalar Trigger onEdit', 'instalarTriggerOnEdit')
-    .addSeparator()
-    .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
-    .addItem('🔧 Reparar Formulas Lista Espera', 'repararFormulasListaEspera')
-    .addItem('🔧 Actualizar Formulas Reporte', 'actualizarFormulasReporte')
-    .addItem('🔍 Diagnosticar Reporte', 'diagnosticarReporte')
-    .addItem('📦 Compactar Lista Espera', 'compactarListaEspera')
-    .addSeparator()
-    .addItem('📋 Importar Datos Bienestar (KoboToolbox)', 'importarDatosKobo')
+    .addItem('✏️ Instalar Trigger onEdit', 'instalarTriggerOnEdit');
+
+  // Submenú: Bienestar y Alertas
+  const menuBienestar = ui.createMenu('🏥 Bienestar')
+    .addItem('📋 Importar Datos KoboToolbox', 'importarDatosKobo')
     .addItem('🆘 Verificar Alertas de Suicidio', 'verificarProtocoloSuicidio')
-    .addItem('🔄 Instalar Actualizaciones', 'instalarActualizaciones')
+    .addItem('🧪 Crear Datos de Prueba', 'crearDatosPruebaBienestar');
+
+  // Submenú: Mantenimiento
+  const menuMantenimiento = ui.createMenu('🛠️ Mantenimiento')
+    .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
+    .addItem('🔧 Reparar Fórmulas Lista Espera', 'repararFormulasListaEspera')
+    .addItem('🔧 Actualizar Fórmulas Reporte', 'actualizarFormulasReporte')
+    .addItem('🔍 Diagnosticar Reporte', 'diagnosticarReporte')
+    .addItem('📦 Compactar Lista Espera', 'compactarListaEspera');
+
+  // Menú principal
+  ui.createMenu('🏥 Apoyo Emocional')
+    .addSubMenu(menuInstalacion)
+    .addSubMenu(menuConfiguracion)
     .addSeparator()
-    .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
+    .addItem('📊 Actualizar Reportes', 'actualizarReportes')
+    .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
+    .addSeparator()
+    .addSubMenu(menuBienestar)
+    .addSubMenu(menuMantenimiento)
+    .addSeparator()
     .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos')
     .addToUi();
 
@@ -2854,6 +2870,140 @@ function crearDatosPrueba() {
   );
 }
 
+/**
+ * Crea datos de prueba en la hoja de Formulario de Bienestar
+ * Incluye casos con y sin alerta de suicidio
+ */
+function crearDatosPruebaBienestar() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const respuesta = ui.alert(
+    'Crear Datos de Prueba - Bienestar',
+    '¿Desea crear datos de prueba en Formulario de Bienestar?\n\n' +
+    'Se crearán 4 casos:\n' +
+    '• 1 caso CON alerta de suicidio (envía email)\n' +
+    '• 3 casos normales sin alerta\n\n' +
+    'Esto le permitirá probar:\n' +
+    '- Sistema de alertas de suicidio\n' +
+    '- Envío de emails a terapeutas\n' +
+    '- Transferencia a Lista de Espera',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) {
+    return;
+  }
+
+  let sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
+
+  // Crear la hoja si no existe
+  if (!sheet) {
+    crearFormularioBienestar();
+    sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
+  }
+
+  // Datos de prueba
+  // Columnas: A=nombre, B=genero, C=edad, D=telefono, E=email,
+  //           F=estado_animo, G=nivel_estres, H=calidad_sueno,
+  //           I=activar_protocolo_suicidio, J=detalles_riesgo,
+  //           K=apoyo_necesario, L=comentarios, M=Enviar
+
+  const datosPrueba = [
+    // CASO 1: CON ALERTA DE SUICIDIO
+    [
+      'María Rodríguez',           // A: nombre
+      'Mujer',                      // B: genero
+      28,                           // C: edad
+      '555-0101',                   // D: telefono
+      'maria.test@example.com',     // E: email
+      'Muy bajo / Deprimido',       // F: estado_animo
+      'Muy alto',                   // G: nivel_estres
+      'Muy mala',                   // H: calidad_sueno
+      'Sí',                         // I: activar_protocolo_suicidio (ALERTA!)
+      'Pensamientos recurrentes, necesito ayuda urgente', // J: detalles_riesgo
+      'Apoyo psicológico urgente',  // K: apoyo_necesario
+      'Solicito atención lo antes posible', // L: comentarios
+      'No'                          // M: Enviar a Lista Espera
+    ],
+
+    // CASO 2: Normal - Ansiedad
+    [
+      'Carlos Méndez',
+      'Hombre',
+      35,
+      '555-0102',
+      'carlos.test@example.com',
+      'Normal',
+      'Alto',
+      'Regular',
+      'No',                         // Sin alerta
+      '',
+      'Manejo de ansiedad',
+      'Me gustaría mejorar mis técnicas de relajación',
+      'No'
+    ],
+
+    // CASO 3: Normal - Estrés laboral
+    [
+      'Ana Flores',
+      'Mujer',
+      42,
+      '555-0103',
+      'ana.test@example.com',
+      'Bajo',
+      'Muy alto',
+      'Mala',
+      'No',                         // Sin alerta
+      '',
+      'Estrés laboral',
+      'Problemas de sueño por trabajo',
+      'No'
+    ],
+
+    // CASO 4: Normal - Desarrollo personal
+    [
+      'Luis Torres',
+      'Hombre',
+      24,
+      '555-0104',
+      'luis.test@example.com',
+      'Bueno',
+      'Moderado',
+      'Buena',
+      'No',                         // Sin alerta
+      '',
+      'Desarrollo personal',
+      'Quiero mejorar mi autoestima',
+      'No'
+    ]
+  ];
+
+  // Insertar datos en filas 2-5
+  sheet.getRange(2, 1, datosPrueba.length, 13).setValues(datosPrueba);
+
+  // Marcar la fila con alerta en color diferente
+  sheet.getRange(2, 1, 1, 13).setBackground('#ffe6e6'); // Rojo claro para la alerta
+
+  ss.toast(
+    '✅ 4 DATOS DE PRUEBA CREADOS\n\n' +
+    'Ubicación: C_03_Formulario de Bienestar (2026)\n\n' +
+    'CASOS CREADOS:\n' +
+    '• Fila 2: María Rodríguez (CON ALERTA SUICIDIO)\n' +
+    '• Fila 3: Carlos Méndez (Normal)\n' +
+    '• Fila 4: Ana Flores (Normal)\n' +
+    '• Fila 5: Luis Torres (Normal)\n\n' +
+    'CÓMO PROBAR:\n' +
+    '1. Use menú: Bienestar → Verificar Alertas de Suicidio\n' +
+    '2. Revise su email para ver la alerta\n' +
+    '3. En columna M seleccione "Sí, enviar" para enviar a Lista de Espera',
+    'Datos de Prueba Creados',
+    -1
+  );
+
+  Logger.log('✅ Datos de prueba creados en Formulario de Bienestar');
+}
+
 function limpiarTodosLosDatos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
@@ -2870,7 +3020,8 @@ function limpiarTodosLosDatos() {
     '- Deserciones\n' +
     '- Intervención de casos\n' +
     '- Personas no asistidas\n' +
-    '- Reportes Mensuales',
+    '- Reportes Mensuales\n' +
+    '- Formulario de Bienestar (2026)',
     ui.ButtonSet.YES_NO
   );
 
@@ -2935,6 +3086,13 @@ function limpiarTodosLosDatos() {
     const mensuales = ss.getSheetByName('Reportes Mensuales');
     if (mensuales.getLastRow() > 1) {
       mensuales.getRange(2, 1, mensuales.getLastRow() - 1, 12).clearContent();
+    }
+
+    // Limpiar Formulario de Bienestar (desde fila 2)
+    const bienestar = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
+    if (bienestar && bienestar.getLastRow() > 1) {
+      bienestar.getRange(2, 1, bienestar.getLastRow() - 1, 13).clearContent();
+      bienestar.getRange(2, 1, bienestar.getLastRow() - 1, 13).setBackground(null);
     }
 
     // Actualizar reportes
