@@ -109,7 +109,9 @@ function onOpen() {
   const menuBienestar = ui.createMenu('🏥 Bienestar')
     .addItem('📋 Importar Datos KoboToolbox', 'importarDatosKobo')
     .addItem('🆘 Verificar Alertas de Suicidio', 'verificarProtocoloSuicidio')
-    .addItem('🧪 Crear Datos de Prueba', 'crearDatosPruebaBienestar');
+    .addSeparator()
+    .addItem('🧪 Crear Datos de Prueba', 'crearDatosPruebaBienestar')
+    .addItem('🗑️ Eliminar Datos de Prueba', 'eliminarDatosPruebaBienestar');
 
   // Submenú: Mantenimiento
   const menuMantenimiento = ui.createMenu('🛠️ Mantenimiento')
@@ -973,8 +975,8 @@ function alEditar(e) {
     }
   }
 
-  // CASO 5: Formulario de Bienestar - Enviar a Lista de Espera (columna M = 13)
-  if (hoja === 'C_03_Formulario de Bienestar (2026)' && columna === 13) {
+  // CASO 5: Formulario de Bienestar - Enviar a Lista de Espera (columna H = 8)
+  if (hoja === 'C_03_Formulario de Bienestar (2026)' && columna === 8) {
     if (val === 'Sí, enviar') {
       Logger.log('✅ Detectado envío a Lista de Espera desde Bienestar');
       Logger.log('▶️ EJECUTANDO enviarBienestarAListaEspera...');
@@ -2903,87 +2905,68 @@ function crearDatosPruebaBienestar() {
     sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
   }
 
-  // Datos de prueba
-  // Columnas: A=nombre, B=genero, C=edad, D=telefono, E=email,
-  //           F=estado_animo, G=nivel_estres, H=calidad_sueno,
-  //           I=activar_protocolo_suicidio, J=detalles_riesgo,
-  //           K=apoyo_necesario, L=comentarios, M=Enviar
+  // Datos de prueba con las columnas del CSV real de KoboToolbox
+  // Columnas: A=today, B=Completado por, C=Creamos ID,
+  //           D=¿Hay algo que te está molestando...?, E=¿Cuál es su preocupación?,
+  //           F=En las últimas dos semanas..., G=activar_protocolo_suicidio, H=Enviar
+
+  const fechaHoy = new Date().toLocaleDateString('es-ES');
 
   const datosPrueba = [
     // CASO 1: CON ALERTA DE SUICIDIO
     [
-      'María Rodríguez',           // A: nombre
-      'Mujer',                      // B: genero
-      28,                           // C: edad
-      '555-0101',                   // D: telefono
-      'maria.test@example.com',     // E: email
-      'Muy bajo / Deprimido',       // F: estado_animo
-      'Muy alto',                   // G: nivel_estres
-      'Muy mala',                   // H: calidad_sueno
-      'Sí',                         // I: activar_protocolo_suicidio (ALERTA!)
-      'Pensamientos recurrentes, necesito ayuda urgente', // J: detalles_riesgo
-      'Apoyo psicológico urgente',  // K: apoyo_necesario
-      'Solicito atención lo antes posible', // L: comentarios
-      'No'                          // M: Enviar a Lista Espera
+      fechaHoy,                     // A: today
+      'María Rodríguez',            // B: Completado por
+      'MR-001',                     // C: Creamos ID
+      'Sí, me siento muy angustiada y no puedo controlar mis pensamientos', // D: molestando
+      'Ansiedad severa y pensamientos intrusivos', // E: preocupación
+      'Sí',                         // F: pensamientos de muerte
+      'Sí',                         // G: activar_protocolo_suicidio (ALERTA!)
+      'No'                          // H: Enviar a Lista Espera
     ],
 
     // CASO 2: Normal - Ansiedad
     [
+      fechaHoy,
       'Carlos Méndez',
-      'Hombre',
-      35,
-      '555-0102',
-      'carlos.test@example.com',
-      'Normal',
-      'Alto',
-      'Regular',
+      'CM-002',
+      'Sí, tengo mucho estrés en el trabajo',
+      'Estrés laboral y problemas para dormir',
+      'No',                         // Sin pensamientos de muerte
       'No',                         // Sin alerta
-      '',
-      'Manejo de ansiedad',
-      'Me gustaría mejorar mis técnicas de relajación',
       'No'
     ],
 
-    // CASO 3: Normal - Estrés laboral
+    // CASO 3: Normal - Problemas emocionales
     [
+      fechaHoy,
       'Ana Flores',
-      'Mujer',
-      42,
-      '555-0103',
-      'ana.test@example.com',
-      'Bajo',
-      'Muy alto',
-      'Mala',
-      'No',                         // Sin alerta
-      '',
-      'Estrés laboral',
-      'Problemas de sueño por trabajo',
+      'AF-003',
+      'Sí, me siento triste desde hace varios días',
+      'Tristeza y falta de motivación',
+      'No',
+      'No',
       'No'
     ],
 
     // CASO 4: Normal - Desarrollo personal
     [
+      fechaHoy,
       'Luis Torres',
-      'Hombre',
-      24,
-      '555-0104',
-      'luis.test@example.com',
-      'Bueno',
-      'Moderado',
-      'Buena',
-      'No',                         // Sin alerta
-      '',
-      'Desarrollo personal',
-      'Quiero mejorar mi autoestima',
+      'LT-004',
+      'No mucho, solo quiero mejorar mi manejo emocional',
+      'Autoestima y relaciones interpersonales',
+      'No',
+      'No',
       'No'
     ]
   ];
 
   // Insertar datos en filas 2-5
-  sheet.getRange(2, 1, datosPrueba.length, 13).setValues(datosPrueba);
+  sheet.getRange(2, 1, datosPrueba.length, 8).setValues(datosPrueba);
 
   // Marcar la fila con alerta en color diferente
-  sheet.getRange(2, 1, 1, 13).setBackground('#ffe6e6'); // Rojo claro para la alerta
+  sheet.getRange(2, 1, 1, 8).setBackground('#ffe6e6'); // Rojo claro para la alerta
 
   ss.toast(
     '✅ 4 DATOS DE PRUEBA CREADOS\n\n' +
@@ -2996,12 +2979,66 @@ function crearDatosPruebaBienestar() {
     'CÓMO PROBAR:\n' +
     '1. Use menú: Bienestar → Verificar Alertas de Suicidio\n' +
     '2. Revise su email para ver la alerta\n' +
-    '3. En columna M seleccione "Sí, enviar" para enviar a Lista de Espera',
+    '3. En columna H seleccione "Sí, enviar" para enviar a Lista de Espera',
     'Datos de Prueba Creados',
     -1
   );
 
   Logger.log('✅ Datos de prueba creados en Formulario de Bienestar');
+}
+
+/**
+ * Elimina los datos de prueba de la hoja de Formulario de Bienestar
+ * Solo elimina las filas 2-5 que fueron creadas por crearDatosPruebaBienestar()
+ */
+function eliminarDatosPruebaBienestar() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
+
+  if (!sheet) {
+    ss.toast('La hoja "C_03_Formulario de Bienestar (2026)" no existe', 'Error', 3);
+    return;
+  }
+
+  const respuesta = ui.alert(
+    '🗑️ Eliminar Datos de Prueba',
+    '¿Está seguro de eliminar los datos de prueba?\n\n' +
+    'Se eliminarán las filas 2-5 de la hoja de Bienestar\n' +
+    '(María Rodríguez, Carlos Méndez, Ana Flores, Luis Torres)\n\n' +
+    'Esta acción NO se puede deshacer.',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) {
+    ss.toast('❌ Eliminación cancelada', 'Cancelado', 2);
+    return;
+  }
+
+  try {
+    // Limpiar filas 2-5 (datos de prueba)
+    if (sheet.getLastRow() >= 5) {
+      sheet.getRange(2, 1, 4, 8).clearContent();
+      sheet.getRange(2, 1, 4, 8).setBackground(null);
+
+      ss.toast(
+        '✅ DATOS DE PRUEBA ELIMINADOS\n\n' +
+        'Se eliminaron las filas 2-5 de Bienestar\n\n' +
+        'La hoja está lista para datos reales.',
+        'Eliminado',
+        4
+      );
+
+      Logger.log('✅ Datos de prueba eliminados de Bienestar');
+    } else {
+      ss.toast('No hay datos de prueba para eliminar', 'Sin Datos', 3);
+    }
+
+  } catch (error) {
+    ss.toast('❌ Error: ' + error.message, 'Error', 5);
+    Logger.log('Error eliminando datos de prueba: ' + error.message);
+  }
 }
 
 function limpiarTodosLosDatos() {
@@ -3091,8 +3128,8 @@ function limpiarTodosLosDatos() {
     // Limpiar Formulario de Bienestar (desde fila 2)
     const bienestar = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
     if (bienestar && bienestar.getLastRow() > 1) {
-      bienestar.getRange(2, 1, bienestar.getLastRow() - 1, 13).clearContent();
-      bienestar.getRange(2, 1, bienestar.getLastRow() - 1, 13).setBackground(null);
+      bienestar.getRange(2, 1, bienestar.getLastRow() - 1, 8).clearContent();
+      bienestar.getRange(2, 1, bienestar.getLastRow() - 1, 8).setBackground(null);
     }
 
     // Actualizar reportes
@@ -3425,19 +3462,15 @@ function crearFormularioBienestar() {
 
   sheet = ss.insertSheet('C_03_Formulario de Bienestar (2026)');
 
+  // Columnas exactas del CSV de KoboToolbox
   const headers = [
-    'nombre_completo',
-    'genero',
-    'edad',
-    'telefono',
-    'email',
-    'salud_mental/estado_animo',
-    'salud_mental/nivel_estres',
-    'salud_mental/calidad_sueno',
-    'salud_mental/activar_protocolo_suicidio',
-    'salud_mental/detalles_riesgo',
-    'apoyo_necesario',
-    'comentarios_adicionales',
+    'today',
+    'Completado por:',
+    'Creamos ID',
+    '¿Hay algo que te está molestando en relación con tus pensamientos, emociones, o decisiones?',
+    '¿Cuál es su preocupación?',
+    'En las últimas dos semanas, ¿ha tenido pensamientos de que estaría mejor muerto(a) o de lastimarse de alguna manera?',
+    'activar_protocolo_suicidio',
     'Enviar a Lista de Espera'
   ];
 
@@ -3445,20 +3478,21 @@ function crearFormularioBienestar() {
     .setBackground('#d9534f')
     .setFontColor('white')
     .setFontWeight('bold')
-    .setHorizontalAlignment('center');
+    .setHorizontalAlignment('center')
+    .setWrap(true);
 
   // Anchos de columna
-  const widths = [200, 100, 80, 150, 200, 150, 150, 150, 200, 300, 250, 300, 150];
+  const widths = [120, 200, 150, 350, 350, 400, 200, 150];
   widths.forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
-  // Validación para "Enviar a Lista de Espera" (columna M = 13)
+  // Validación para "Enviar a Lista de Espera" (columna H = 8)
   const validacionEnviar = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Sí, enviar', 'No'])
     .setAllowInvalid(false)
     .build();
-  sheet.getRange('M2:M200').setDataValidation(validacionEnviar);
+  sheet.getRange('H2:H200').setDataValidation(validacionEnviar);
 
   // Congelar primera fila
   sheet.setFrozenRows(1);
@@ -3793,27 +3827,32 @@ function enviarBienestarAListaEspera(sheetOrigen, fila) {
       return;
     }
 
-    // Leer los datos de la fila en Bienestar (columnas A-L, 12 columnas de datos)
-    const datos = sheetOrigen.getRange(fila, 1, 1, 12).getValues()[0];
+    // Leer los datos de la fila en Bienestar (columnas A-G, 7 columnas de datos)
+    const datos = sheetOrigen.getRange(fila, 1, 1, 7).getValues()[0];
 
-    const nombre = datos[0];  // nombre_completo (A)
-    const genero = datos[1];  // genero (B)
-    const edad = datos[2];    // edad (C)
-    const telefono = datos[3]; // telefono (D)
-    const email = datos[4];   // email (E)
-    const estadoAnimo = datos[5]; // salud_mental/estado_animo (F)
-    const nivelEstres = datos[6]; // salud_mental/nivel_estres (G)
-    const calidadSueno = datos[7]; // salud_mental/calidad_sueno (H)
-    const protocoloSuicidio = datos[8]; // salud_mental/activar_protocolo_suicidio (I)
-    const detallesRiesgo = datos[9]; // salud_mental/detalles_riesgo (J)
-    const apoyoNecesario = datos[10]; // apoyo_necesario (K)
-    const comentarios = datos[11]; // comentarios_adicionales (L)
+    // Nuevas columnas del CSV real de KoboToolbox:
+    // A: today
+    // B: Completado por:
+    // C: Creamos ID
+    // D: ¿Hay algo que te está molestando en relación con tus pensamientos, emociones, o decisiones?
+    // E: ¿Cuál es su preocupación?
+    // F: En las últimas dos semanas, ¿ha tenido pensamientos de que estaría mejor muerto(a) o de lastimarse de alguna manera?
+    // G: activar_protocolo_suicidio
 
-    // Validar que al menos tenga nombre
+    const today = datos[0];               // A: today
+    const completadoPor = datos[1];       // B: Completado por:
+    const creamosId = datos[2];           // C: Creamos ID
+    const molestando = datos[3];          // D: ¿Hay algo que te está molestando...?
+    const preocupacion = datos[4];        // E: ¿Cuál es su preocupación?
+    const pensamientos = datos[5];        // F: En las últimas dos semanas...
+    const protocoloSuicidio = datos[6];   // G: activar_protocolo_suicidio
+
+    // Validar que al menos tenga "Completado por" como nombre
+    const nombre = completadoPor;
     if (!nombre || nombre.toString().trim() === '') {
-      ss.toast('⚠️ No se puede enviar: falta el nombre', 'Advertencia', 4);
-      Logger.log('⚠️ No se puede enviar: falta el nombre');
-      sheetOrigen.getRange(fila, 13).setValue('No'); // Reset dropdown
+      ss.toast('⚠️ No se puede enviar: falta "Completado por"', 'Advertencia', 4);
+      Logger.log('⚠️ No se puede enviar: falta "Completado por"');
+      sheetOrigen.getRange(fila, 8).setValue('No'); // Reset dropdown (columna H)
       return;
     }
 
@@ -3831,22 +3870,19 @@ function enviarBienestarAListaEspera(sheetOrigen, fila) {
         Logger.log('⚠️ Duplicado detectado: ' + nombre);
 
         // Marcar en amarillo y resetear dropdown
-        sheetOrigen.getRange(fila, 1, 1, 13).setBackground('#fff3cd');
-        sheetOrigen.getRange(fila, 13).setValue('No');
+        sheetOrigen.getRange(fila, 1, 1, 8).setBackground('#fff3cd');
+        sheetOrigen.getRange(fila, 8).setValue('No');
         return;
       }
     }
 
     // Construir el "Malestar Principal" combinando la información relevante
     let malestarPrincipal = '';
-    if (apoyoNecesario) {
-      malestarPrincipal = apoyoNecesario.toString();
+    if (preocupacion) {
+      malestarPrincipal = preocupacion.toString();
     }
-    if (estadoAnimo) {
-      malestarPrincipal += (malestarPrincipal ? ' | ' : '') + 'Ánimo: ' + estadoAnimo;
-    }
-    if (nivelEstres) {
-      malestarPrincipal += (malestarPrincipal ? ' | ' : '') + 'Estrés: ' + nivelEstres;
+    if (molestando) {
+      malestarPrincipal += (malestarPrincipal ? ' | ' : '') + molestando.toString();
     }
     if (!malestarPrincipal) {
       malestarPrincipal = 'Desde Formulario de Bienestar';
@@ -3874,11 +3910,11 @@ function enviarBienestarAListaEspera(sheetOrigen, fila) {
       '', // A: Fecha Solicitud (auto)
       '', // B: No. (auto)
       nombre, // C: Nombre Completo
-      '', // D: Creamos ID (vacío por ahora)
-      genero || '', // E: Género
-      edad || '', // F: Edad
+      creamosId || '', // D: Creamos ID (desde CSV)
+      '', // E: Género (no disponible en CSV)
+      '', // F: Edad (no disponible en CSV)
       malestarPrincipal, // G: Malestar Principal
-      telefono || '', // H: Teléfono
+      '', // H: Teléfono (no disponible en CSV)
       'Formulario de Bienestar', // I: Derivación o Referencia
       'Sistema Automático', // J: Nombre de quien deriva
       '', // K: Programa de Creamos / Organización
@@ -3897,10 +3933,10 @@ function enviarBienestarAListaEspera(sheetOrigen, fila) {
       .setHorizontalAlignment('left');
 
     // Marcar la fila en Bienestar como procesada (verde)
-    sheetOrigen.getRange(fila, 1, 1, 13).setBackground('#d4edda');
+    sheetOrigen.getRange(fila, 1, 1, 8).setBackground('#d4edda');
 
     // Limpiar el dropdown o ponerlo en "No"
-    sheetOrigen.getRange(fila, 13).setValue('No');
+    sheetOrigen.getRange(fila, 8).setValue('No');
 
     Logger.log('✅ Persona enviada exitosamente a Lista de Espera');
 
@@ -3924,6 +3960,6 @@ function enviarBienestarAListaEspera(sheetOrigen, fila) {
     );
 
     // Resetear el dropdown
-    sheetOrigen.getRange(fila, 13).setValue('No');
+    sheetOrigen.getRange(fila, 8).setValue('No');
   }
 }
