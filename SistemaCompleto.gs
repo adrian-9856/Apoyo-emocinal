@@ -105,20 +105,10 @@ function onOpen() {
     .addItem('📅 Instalar Recordatorio Mensual', 'instalarTriggerRecordatorioMensual')
     .addItem('✏️ Instalar Trigger onEdit', 'instalarTriggerOnEdit');
 
-  // Submenú: Bienestar y Alertas
+  // Submenú: Bienestar (Importación Automática desde KoboToolbox)
   const menuBienestar = ui.createMenu('🏥 Bienestar')
-    .addItem('🔍 Diagnosticar Sistema', 'diagnosticarBienestar')
-    .addSeparator()
     .addItem('⚡ Importar Datos Ahora', 'importarDatosAutomatico')
-    .addItem('⏰ Activar Importación Automática', 'instalarImportacionAutomatica')
-    .addSeparator()
-    .addItem('📋 Instrucciones Manual', 'mostrarInstruccionesImportacion')
-    .addItem('🔄 Procesar Datos Pegados', 'procesarDatosNuevosBienestar')
-    .addSeparator()
-    .addItem('🆘 Verificar Alertas de Suicidio', 'verificarProtocoloSuicidio')
-    .addSeparator()
-    .addItem('🧪 Crear Datos de Prueba', 'crearDatosPruebaBienestar')
-    .addItem('🗑️ Eliminar Datos de Prueba', 'eliminarDatosPruebaBienestar');
+    .addItem('⏰ Activar Importación Automática (cada 10 min)', 'instalarImportacionAutomatica');
 
   // Submenú: Mantenimiento
   const menuMantenimiento = ui.createMenu('🛠️ Mantenimiento')
@@ -2883,26 +2873,6 @@ function crearDatosPrueba() {
  * Crea datos de prueba en la hoja de Formulario de Bienestar
  * Incluye casos con y sin alerta de suicidio
  */
-function crearDatosPruebaBienestar() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
-
-  const respuesta = ui.alert(
-    'Crear Datos de Prueba - Bienestar',
-    '¿Desea crear datos de prueba en Formulario de Bienestar?\n\n' +
-    'Se crearán 4 casos:\n' +
-    '• 1 caso CON alerta de suicidio (envía email)\n' +
-    '• 3 casos normales sin alerta\n\n' +
-    'Esto le permitirá probar:\n' +
-    '- Sistema de alertas de suicidio\n' +
-    '- Envío de emails a terapeutas\n' +
-    '- Transferencia a Lista de Espera',
-    ui.ButtonSet.YES_NO
-  );
-
-  if (respuesta !== ui.Button.YES) {
-    return;
-  }
 
   let sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
 
@@ -2992,16 +2962,6 @@ function crearDatosPruebaBienestar() {
  * Elimina los datos de prueba de la hoja de Formulario de Bienestar
  * Solo elimina las filas 2-5 que fueron creadas por crearDatosPruebaBienestar()
  */
-function eliminarDatosPruebaBienestar() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
-
-  const sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
-
-  if (!sheet) {
-    ss.toast('La hoja "C_03_Formulario de Bienestar (2026)" no existe', 'Error', 3);
-    return;
-  }
 
   const respuesta = ui.alert(
     '🗑️ Eliminar Datos de Prueba',
@@ -3451,15 +3411,6 @@ function compactarListaEspera() {
 /**
  * Crea la hoja de Formulario de Bienestar (2026)
  */
-function crearFormularioBienestar() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-  // Verificar si ya existe
-  let sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
-  if (sheet) {
-    ss.toast('La hoja ya existe', 'Info', 2);
-    return sheet;
-  }
 
   sheet = ss.insertSheet('C_03_Formulario de Bienestar (2026)');
 
@@ -3505,47 +3456,6 @@ function crearFormularioBienestar() {
 /**
  * Configura el token de API de KoboToolbox para importación automática
  */
-function configurarTokenKobo() {
-  const ui = SpreadsheetApp.getUi();
-  const props = PropertiesService.getDocumentProperties();
-
-  // Obtener token actual
-  const tokenActual = props.getProperty('KOBO_API_TOKEN') || '(no configurado)';
-
-  const respuesta = ui.prompt(
-    'Configurar Token de API - KoboToolbox',
-    'Para importar automáticamente datos de KoboToolbox, necesitas un token de API.\n\n' +
-    'Token actual: ' + tokenActual + '\n\n' +
-    '¿Cómo obtener el token?\n' +
-    '1. Ve a: https://kf.kobotoolbox.org/\n' +
-    '2. Clic en tu perfil → Account Settings\n' +
-    '3. Copia el "API Token"\n\n' +
-    'Ingresa el token de API:',
-    ui.ButtonSet.OK_CANCEL
-  );
-
-  if (respuesta.getSelectedButton() === ui.Button.OK) {
-    const token = respuesta.getResponseText().trim();
-
-    if (token && token.length > 10) {
-      props.setProperty('KOBO_API_TOKEN', token);
-
-      ui.alert(
-        '✅ Token Configurado',
-        'El token de API de KoboToolbox se guardó correctamente.\n\n' +
-        'Ahora puedes usar:\n' +
-        '• Importar Datos Automático (desde el menú)\n' +
-        '• Instalar Sincronización Automática\n\n' +
-        'El sistema importará datos nuevos y los enviará\n' +
-        'automáticamente a Lista de Espera.',
-        ui.ButtonSet.OK
-      );
-
-      Logger.log('✅ Token de KoboToolbox configurado');
-    } else {
-      ui.alert('Error', 'El token ingresado no es válido', ui.ButtonSet.OK);
-    }
-  }
 }
 
 /**
@@ -3847,37 +3757,11 @@ function instalarImportacionAutomatica() {
 /**
  * Muestra instrucciones simples para importar datos manualmente
  */
-function mostrarInstruccionesImportacion() {
-  const ui = SpreadsheetApp.getUi();
-  const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esXsXNnaVYrYn27GemkBprf/data.csv';
-
-  ui.alert(
-    'Instrucciones de Importación',
-    'CÓMO IMPORTAR DATOS:\n\n' +
-    '1. Abre este link en tu navegador:\n' +
-    url + '\n\n' +
-    '2. Descarga el archivo CSV\n\n' +
-    '3. Abre el CSV\n\n' +
-    '4. Copia columnas B-G (sin "today" y "_uuid")\n\n' +
-    '5. Ve a la hoja "C_03_Formulario de Bienestar (2026)"\n\n' +
-    '6. Pega los datos empezando en la fila 2\n\n' +
-    '7. Usa: Menú → Bienestar → Procesar Datos',
-    ui.ButtonSet.OK
-  );
-}
 
 /**
  * Procesa datos nuevos en la hoja de Bienestar
  * Detecta alertas, envía emails y transfiere a Lista de Espera
  */
-function procesarDatosNuevosBienestar() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
-
-  if (!sheet) {
-    ss.toast('La hoja "C_03_Formulario de Bienestar (2026)" no existe', 'Error', 3);
-    return;
-  }
 
   Logger.log('🔄 Procesando datos nuevos de Bienestar...');
 
@@ -3965,24 +3849,6 @@ function procesarDatosNuevosBienestar() {
 /**
  * Instala un trigger para procesar automáticamente cada vez que se peguen datos
  */
-function instalarProcesamientoAutomatico() {
-  const ui = SpreadsheetApp.getUi();
-
-  const respuesta = ui.alert(
-    'Activar Procesamiento Automático',
-    '¿Deseas activar el procesamiento automático?\n\n' +
-    'El sistema revisará cada 5 minutos si hay:\n' +
-    '• Nuevos datos sin procesar\n' +
-    '• Alertas de suicidio sin enviar\n' +
-    '• Personas sin enviar a Lista de Espera\n\n' +
-    'Y los procesará automáticamente.\n\n' +
-    '¿Continuar?',
-    ui.ButtonSet.YES_NO
-  );
-
-  if (respuesta !== ui.Button.YES) {
-    return;
-  }
 
   try {
     // Eliminar triggers existentes
@@ -4023,195 +3889,12 @@ function instalarProcesamientoAutomatico() {
  * Importa automáticamente datos nuevos desde KoboToolbox
  * Esta función se ejecuta periódicamente con el trigger
  */
-function importarDatosKoboAutomatico() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const props = PropertiesService.getDocumentProperties();
-
-  Logger.log('🔄 Iniciando importación automática de KoboToolbox...');
-
-  try {
-    // Verificar token de API
-    const token = props.getProperty('KOBO_API_TOKEN');
-    if (!token) {
-      Logger.log('⚠️ No hay token de API configurado. Usa: Menú → Bienestar → Configurar Token API');
-      return;
-    }
-
-    // URL del CSV de KoboToolbox
-    const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esXsXNnaVYrYn27GemkBprf/data.csv';
-
-    // Descargar CSV con autenticación
-    const options = {
-      method: 'get',
-      headers: {
-        'Authorization': 'Token ' + token
-      },
-      muteHttpExceptions: true
-    };
-
-    const response = UrlFetchApp.fetch(url, options);
-    const responseCode = response.getResponseCode();
-
-    if (responseCode !== 200) {
-      Logger.log('❌ Error al descargar CSV: HTTP ' + responseCode);
-      Logger.log('Respuesta: ' + response.getContentText());
-      return;
-    }
-
-    const csvData = response.getContentText();
-    Logger.log('✅ CSV descargado (' + csvData.length + ' caracteres)');
-
-    // Parsear CSV
-    const filas = Utilities.parseCsv(csvData);
-
-    if (filas.length <= 1) {
-      Logger.log('ℹ️ No hay datos nuevos en KoboToolbox');
-      return;
-    }
-
-    // Obtener o crear hoja de Bienestar
-    let sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
-    if (!sheet) {
-      sheet = crearFormularioBienestar();
-    }
-
-    // Obtener datos existentes
-    const datosExistentes = sheet.getDataRange().getValues();
-    const headers = datosExistentes[0];
-
-    // Encontrar índice de columnas importantes
-    let colCompletadoPor = -1;
-    let colCreamos = -1;
-
-    for (let i = 0; i < headers.length; i++) {
-      if (headers[i].toString().toLowerCase().includes('completado')) {
-        colCompletadoPor = i;
-      }
-      if (headers[i].toString().toLowerCase().includes('creamos')) {
-        colCreamos = i;
-      }
-    }
-
-    // Procesar solo filas nuevas
-    let filasNuevas = 0;
-    let alertasDetectadas = 0;
-    let enviadasAListaEspera = 0;
-
-    for (let i = 1; i < filas.length; i++) {
-      const fila = filas[i];
-
-      // Mapear CSV a nuestras columnas (sin "today")
-      // CSV: 0=Completado por, 1=Creamos ID, 2=Molestando, 3=Preocupación, 4=Pensamientos, 5=activar_protocolo_suicidio
-      const completadoPor = fila[0] || '';  // Columna A del CSV
-      const creamosId = fila[1] || '';      // Columna B del CSV
-
-      // Verificar si ya existe (evitar duplicados)
-      let existe = false;
-      for (let j = 1; j < datosExistentes.length; j++) {
-        const nombreExistente = datosExistentes[j][0]; // Columna A: Completado por
-        if (nombreExistente && nombreExistente.toString().trim() === completadoPor.toString().trim()) {
-          existe = true;
-          break;
-        }
-      }
-
-      if (existe) {
-        Logger.log('⚠️ Duplicado omitido: ' + completadoPor);
-        continue; // Saltar duplicados
-      }
-
-      // Es una fila nueva, agregar a la hoja
-      const nuevaFila = sheet.getLastRow() + 1;
-
-      // Preparar datos (columnas A-F del CSV, columna G para dropdown)
-      const datosNuevos = [
-        completadoPor,                                       // A: Completado por
-        creamosId,                                           // B: Creamos ID
-        fila[2] || '',                                       // C: Molestando
-        fila[3] || '',                                       // D: Preocupación
-        fila[4] || '',                                       // E: Pensamientos
-        fila[5] || '',                                       // F: activar_protocolo_suicidio
-        'No'                                                 // G: Enviar a Lista Espera
-      ];
-
-      // Insertar en la hoja
-      sheet.getRange(nuevaFila, 1, 1, 7).setValues([datosNuevos]);
-      filasNuevas++;
-
-      Logger.log('➕ Nueva fila agregada: ' + completadoPor);
-
-      // Verificar si tiene alerta de suicidio
-      const protocoloSuicidio = fila[5] || '';  // Columna F del CSV
-      if (protocoloSuicidio.toString().toLowerCase() === 'sí' ||
-          protocoloSuicidio.toString().toLowerCase() === 'si') {
-        // Marcar en rojo
-        sheet.getRange(nuevaFila, 1, 1, 7).setBackground('#ffcccc');
-
-        // Enviar alerta
-        enviarAlertaSuicidio(datosNuevos, headers);
-        alertasDetectadas++;
-
-        Logger.log('🆘 Alerta de suicidio detectada para: ' + completadoPor);
-      }
-
-      // ENVIAR AUTOMÁTICAMENTE A LISTA DE ESPERA
-      if (completadoPor && completadoPor.toString().trim() !== '') {
-        try {
-          enviarBienestarAListaEspera(sheet, nuevaFila);
-          enviadasAListaEspera++;
-          Logger.log('✅ Enviado automáticamente a Lista de Espera: ' + completadoPor);
-        } catch (error) {
-          Logger.log('⚠️ Error al enviar a Lista de Espera: ' + error.message);
-        }
-      }
-    }
-
-    // Log resumen
-    Logger.log('📊 RESUMEN DE IMPORTACIÓN:');
-    Logger.log('  • Filas nuevas: ' + filasNuevas);
-    Logger.log('  • Alertas de suicidio: ' + alertasDetectadas);
-    Logger.log('  • Enviadas a Lista de Espera: ' + enviadasAListaEspera);
-
-    // Notificar si hay datos nuevos
-    if (filasNuevas > 0) {
-      ss.toast(
-        '✅ IMPORTACIÓN COMPLETADA\n\n' +
-        '• ' + filasNuevas + ' registros nuevos\n' +
-        '• ' + alertasDetectadas + ' alertas de suicidio\n' +
-        '• ' + enviadasAListaEspera + ' enviados a Lista de Espera',
-        'Datos Importados',
-        10
-      );
-    }
-
-  } catch (error) {
-    Logger.log('❌ Error en importación automática: ' + error.message);
-    Logger.log('Stack: ' + error.stack);
-
-    // No mostrar toast para no molestar si es automático
-    // Solo registrar en el log
-  }
 }
 
 /**
  * Instala el trigger de sincronización automática
  * Ejecuta importarDatosKoboAutomatico() cada 10 minutos
  */
-function instalarSincronizacionAutomatica() {
-  const ui = SpreadsheetApp.getUi();
-  const props = PropertiesService.getDocumentProperties();
-
-  // Verificar token
-  const token = props.getProperty('KOBO_API_TOKEN');
-  if (!token) {
-    ui.alert(
-      'Token No Configurado',
-      'Primero debes configurar el token de API de KoboToolbox.\n\n' +
-      'Usa: Menú → Bienestar → Configurar Token API',
-      ui.ButtonSet.OK
-    );
-    return;
-  }
 
   const respuesta = ui.alert(
     'Instalar Sincronización Automática',
@@ -4311,25 +3994,6 @@ function desactivarSincronizacionAutomatica() {
  * Diagnostica el estado del sistema de Bienestar
  * Muestra qué está mal y cómo arreglarlo
  */
-function diagnosticarBienestar() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
-
-  let diagnostico = '🔍 DIAGNÓSTICO DEL SISTEMA DE BIENESTAR\n\n';
-  let problemas = 0;
-
-  // 1. Verificar si existe la hoja
-  const sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
-
-  if (!sheet) {
-    diagnostico += '❌ PROBLEMA 1: La hoja no existe\n';
-    diagnostico += '   Solución: Menú → Bienestar → Crear Datos de Prueba\n';
-    diagnostico += '   (esto creará la hoja automáticamente)\n\n';
-    problemas++;
-
-    ui.alert('Diagnóstico', diagnostico, ui.ButtonSet.OK);
-    return;
-  }
 
   diagnostico += '✅ La hoja existe\n\n';
 
@@ -4440,15 +4104,6 @@ function diagnosticarBienestar() {
  * Verifica si hay alertas de protocolo de suicidio
  * Esta función debe ejecutarse automáticamente cuando se agreguen nuevos datos
  */
-function verificarProtocoloSuicidio() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
-
-  if (!sheet) {
-    Logger.log('⚠️ Hoja de Bienestar no encontrada');
-    ss.toast('La hoja "C_03_Formulario de Bienestar (2026)" no existe', 'Error', 3);
-    return;
-  }
 
   try {
     const datos = sheet.getDataRange().getValues();
@@ -4710,153 +4365,6 @@ function instalarActualizaciones() {
  * @param {Sheet} sheetOrigen - La hoja de Bienestar
  * @param {number} fila - El número de fila a enviar
  */
-function enviarBienestarAListaEspera(sheetOrigen, fila) {
-  Logger.log('🔄 Iniciando envío desde Bienestar a Lista de Espera...');
-
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const espera = ss.getSheetByName('Lista de Espera');
-
-    if (!espera) {
-      ss.toast('❌ Error: No se encontró la hoja "Lista de Espera"', 'Error', 5);
-      Logger.log('❌ No se encontró la hoja Lista de Espera');
-      return;
-    }
-
-    // Leer los datos de la fila en Bienestar (columnas A-F, 6 columnas de datos)
-    const datos = sheetOrigen.getRange(fila, 1, 1, 6).getValues()[0];
-
-    // Columnas del CSV real de KoboToolbox (sin "today"):
-    // A: Completado por:
-    // B: Creamos ID
-    // C: ¿Hay algo que te está molestando en relación con tus pensamientos, emociones, o decisiones?
-    // D: ¿Cuál es su preocupación?
-    // E: En las últimas dos semanas, ¿ha tenido pensamientos de que estaría mejor muerto(a) o de lastimarse de alguna manera?
-    // F: activar_protocolo_suicidio
-    // G: Enviar a Lista de Espera (dropdown, no se lee aquí)
-
-    const completadoPor = datos[0];       // A: Completado por:
-    const creamosId = datos[1];           // B: Creamos ID
-    const molestando = datos[2];          // C: ¿Hay algo que te está molestando...?
-    const preocupacion = datos[3];        // D: ¿Cuál es su preocupación?
-    const pensamientos = datos[4];        // E: En las últimas dos semanas...
-    const protocoloSuicidio = datos[5];   // F: activar_protocolo_suicidio
-
-    // Validar que al menos tenga "Completado por" como nombre
-    const nombre = completadoPor;
-    if (!nombre || nombre.toString().trim() === '') {
-      ss.toast('⚠️ No se puede enviar: falta "Completado por"', 'Advertencia', 4);
-      Logger.log('⚠️ No se puede enviar: falta "Completado por"');
-      sheetOrigen.getRange(fila, 7).setValue('No'); // Reset dropdown (columna G)
-      return;
-    }
-
-    // VERIFICAR SI YA EXISTE en Lista de Espera (evitar duplicados)
-    const datosEspera = espera.getDataRange().getValues();
-    for (let i = 1; i < datosEspera.length; i++) {
-      const nombreExistente = datosEspera[i][2]; // Columna C = Nombre Completo
-      if (nombreExistente && nombreExistente.toString().trim() === nombre.toString().trim()) {
-        ss.toast(
-          '⚠️ DUPLICADO DETECTADO\n\n' +
-          nombre + ' ya está en Lista de Espera.',
-          'Ya Existe',
-          4
-        );
-        Logger.log('⚠️ Duplicado detectado: ' + nombre);
-
-        // Marcar en amarillo y resetear dropdown
-        sheetOrigen.getRange(fila, 1, 1, 7).setBackground('#fff3cd');
-        sheetOrigen.getRange(fila, 7).setValue('No');
-        return;
-      }
-    }
-
-    // Construir el "Malestar Principal" combinando la información relevante
-    let malestarPrincipal = '';
-    if (preocupacion) {
-      malestarPrincipal = preocupacion.toString();
-    }
-    if (molestando) {
-      malestarPrincipal += (malestarPrincipal ? ' | ' : '') + molestando.toString();
-    }
-    if (!malestarPrincipal) {
-      malestarPrincipal = 'Desde Formulario de Bienestar';
-    }
-
-    // Buscar la primera fila vacía en Lista de Espera (buscar en columna C)
-    let primeraFilaVacia = 2;
-    for (let i = 2; i <= datosEspera.length; i++) {
-      if (!datosEspera[i - 1][2] || datosEspera[i - 1][2].toString().trim() === '') {
-        primeraFilaVacia = i;
-        break;
-      }
-    }
-    if (primeraFilaVacia === 2 && datosEspera.length > 1 && datosEspera[1][2]) {
-      primeraFilaVacia = datosEspera.length + 1;
-    }
-
-    Logger.log('📝 Insertando en Lista de Espera fila ' + primeraFilaVacia);
-
-    // Preparar los datos para Lista de Espera
-    // Columnas: A=Fecha(auto), B=No.(auto), C=Nombre, D=CreamosID, E=Género, F=Edad,
-    //           G=Malestar, H=Teléfono, I=Derivación, J=Quien deriva, K=Programa,
-    //           L=Servicio, M=Terapeuta, N=Asistió
-    const nuevaFila = [
-      '', // A: Fecha Solicitud (auto)
-      '', // B: No. (auto)
-      nombre, // C: Nombre Completo
-      creamosId || '', // D: Creamos ID (desde CSV)
-      '', // E: Género (no disponible en CSV)
-      '', // F: Edad (no disponible en CSV)
-      malestarPrincipal, // G: Malestar Principal
-      '', // H: Teléfono (no disponible en CSV)
-      'Formulario de Bienestar', // I: Derivación o Referencia
-      'Sistema Automático', // J: Nombre de quien deriva
-      '', // K: Programa de Creamos / Organización
-      'Apoyo Psicológico', // L: Servicio que solicita
-      '', // M: Terapeuta Asignado (vacío, se asigna después)
-      'Pendiente' // N: Asistió a Cita
-    ];
-
-    // Insertar en Lista de Espera
-    espera.getRange(primeraFilaVacia, 1, 1, 14).setValues([nuevaFila]);
-
-    // Formatear la fila
-    espera.getRange(primeraFilaVacia, 1, 1, 14)
-      .setBackground('#e8f5e9') // Verde claro
-      .setFontColor('black')
-      .setHorizontalAlignment('left');
-
-    // Marcar la fila en Bienestar como procesada (verde)
-    sheetOrigen.getRange(fila, 1, 1, 7).setBackground('#d4edda');
-
-    // Limpiar el dropdown o ponerlo en "No"
-    sheetOrigen.getRange(fila, 7).setValue('No');
-
-    Logger.log('✅ Persona enviada exitosamente a Lista de Espera');
-
-    ss.toast(
-      '✅ ENVIADO A LISTA DE ESPERA\n\n' +
-      '👤 ' + nombre + '\n' +
-      '📋 Fila ' + primeraFilaVacia + ' en Lista de Espera\n\n' +
-      'Ya puedes asignar terapeuta desde allí.',
-      'Enviado',
-      5
-    );
-
-  } catch (error) {
-    Logger.log('❌ Error en enviarBienestarAListaEspera: ' + error.message);
-    Logger.log('Stack: ' + error.stack);
-
-    SpreadsheetApp.getActiveSpreadsheet().toast(
-      '❌ Error al enviar a Lista de Espera:\n\n' + error.message,
-      'Error',
-      6
-    );
-
-    // Resetear el dropdown
-    sheetOrigen.getRange(fila, 7).setValue('No');
-  }
 }
 
 /**
