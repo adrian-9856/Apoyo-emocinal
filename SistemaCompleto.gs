@@ -107,6 +107,8 @@ function onOpen() {
 
   // Submenú: Bienestar (Importación Automática desde KoboToolbox)
   const menuBienestar = ui.createMenu('🏥 Bienestar')
+    .addItem('🔍 Probar Importación (Diagnóstico)', 'probarImportacionBienestar')
+    .addSeparator()
     .addItem('⚡ Importar Datos Ahora', 'importarDatosAutomatico')
     .addItem('⏰ Activar Importación Automática (cada 10 min)', 'instalarImportacionAutomatica');
 
@@ -4479,4 +4481,110 @@ function enviarBienestarAListaEsperaFlexible(sheetOrigen, fila, headers) {
   } catch (error) {
     Logger.log('❌ Error en enviarBienestarAListaEsperaFlexible: ' + error.message);
   }
+}
+
+/**
+ * Función de prueba para diagnosticar problemas de importación
+ * TEMPORAL - Para ayudar a diagnosticar
+ */
+function probarImportacionBienestar() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  
+  let diagnostico = '🔍 PRUEBA DE IMPORTACIÓN\n\n';
+  
+  try {
+    const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esXsXNnaVYrYn27GemkBprf/data.csv';
+    
+    diagnostico += '1️⃣ URL: ' + url.substring(0, 60) + '...\n\n';
+    
+    // Intentar descargar
+    diagnostico += '2️⃣ Descargando CSV...\n';
+    const response = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+    
+    const codigo = response.getResponseCode();
+    diagnostico += '   Código HTTP: ' + codigo + '\n\n';
+    
+    if (codigo !== 200) {
+      diagnostico += '❌ ERROR: No se pudo descargar\n\n';
+      diagnostico += 'Posibles causas:\n';
+      diagnostico += '• El CSV no es público\n';
+      diagnostico += '• La URL cambió\n';
+      diagnostico += '• Necesita autenticación\n\n';
+      diagnostico += 'SOLUCIÓN:\n';
+      diagnostico += '1. Ve a KoboToolbox\n';
+      diagnostico += '2. Abre tu formulario\n';
+      diagnostico += '3. Settings → Sharing\n';
+      diagnostico += '4. Habilita "Share data publicly"\n';
+      diagnostico += '5. Copia la nueva URL\n';
+      diagnostico += '6. Actualiza el código\n';
+      
+      ui.alert('Error al Descargar', diagnostico, ui.ButtonSet.OK);
+      return;
+    }
+    
+    // Ver contenido
+    const csv = response.getContentText();
+    diagnostico += '3️⃣ CSV descargado: ' + csv.length + ' caracteres\n\n';
+    
+    if (!csv || csv.trim().length === 0) {
+      diagnostico += '❌ ERROR: El CSV está vacío\n';
+      ui.alert('CSV Vacío', diagnostico, ui.ButtonSet.OK);
+      return;
+    }
+    
+    // Parsear
+    diagnostico += '4️⃣ Parseando CSV...\n';
+    let filas;
+    try {
+      filas = Utilities.parseCsv(csv);
+      diagnostico += '   ✅ Parseado con parseCsv\n';
+    } catch (e) {
+      diagnostico += '   ⚠️ parseCsv falló, usando fallback\n';
+      filas = csv.split('\n').filter(l => l.trim().length > 0).map(l => l.split(','));
+    }
+    
+    diagnostico += '   Total filas: ' + filas.length + '\n\n';
+    
+    if (filas.length === 0) {
+      diagnostico += '❌ ERROR: No hay filas\n';
+      ui.alert('Sin Datos', diagnostico, ui.ButtonSet.OK);
+      return;
+    }
+    
+    // Mostrar encabezados
+    diagnostico += '5️⃣ Encabezados (primeras 5 columnas):\n';
+    const headers = filas[0];
+    for (let i = 0; i < Math.min(5, headers.length); i++) {
+      diagnostico += '   ' + (i+1) + '. ' + headers[i] + '\n';
+    }
+    diagnostico += '   ... (total: ' + headers.length + ' columnas)\n\n';
+    
+    // Mostrar primera fila de datos
+    if (filas.length > 1) {
+      diagnostico += '6️⃣ Primera fila de datos:\n';
+      const primeraFila = filas[1];
+      for (let i = 0; i < Math.min(3, primeraFila.length); i++) {
+        const valor = primeraFila[i] || '(vacío)';
+        diagnostico += '   ' + headers[i] + ': ' + valor.substring(0, 30) + '\n';
+      }
+      diagnostico += '\n';
+      diagnostico += '✅ TODO FUNCIONA CORRECTAMENTE\n\n';
+      diagnostico += 'El CSV se puede descargar y parsear.\n';
+      diagnostico += 'Total registros disponibles: ' + (filas.length - 1) + '\n';
+    } else {
+      diagnostico += '⚠️ El CSV solo tiene encabezados, no hay datos\n';
+    }
+    
+  } catch (error) {
+    diagnostico += '\n❌ ERROR GENERAL:\n';
+    diagnostico += error.message + '\n\n';
+    diagnostico += 'Stack:\n' + error.stack;
+  }
+  
+  ui.alert('Diagnóstico de Importación', diagnostico, ui.ButtonSet.OK);
+  Logger.log(diagnostico);
 }
