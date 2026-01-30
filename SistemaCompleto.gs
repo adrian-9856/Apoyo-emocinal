@@ -29,7 +29,9 @@ function onOpen() {
       .addItem('🔍 Probar Importación (Diagnóstico)', 'probarImportacionBienestar')
       .addSeparator()
       .addItem('⚡ Importar Datos Ahora', 'importarDatosAutomatico')
-      .addItem('⏰ Activar Importación Automática (cada 10 min)', 'instalarImportacionAutomatica');
+      .addItem('⏰ Activar Importación Rápida (cada 1 min)', 'instalarImportacionAutomatica')
+      .addSeparator()
+      .addItem('🗑️ Limpiar Hoja de Bienestar', 'limpiarHojaBienestar');
 
     // Submenú: Mantenimiento
     const menuMantenimiento = ui.createMenu('🛠️ Mantenimiento')
@@ -3677,19 +3679,21 @@ function importarDatosAutomatico() {
 }
 
 /**
- * Instala un trigger para importar automáticamente cada 10 minutos
+ * Instala un trigger para importar automáticamente cada 1 minuto
  */
 function instalarImportacionAutomatica() {
   const ui = SpreadsheetApp.getUi();
 
   const respuesta = ui.alert(
-    'Activar Importación Automática',
-    '¿Deseas activar la importación automática de KoboToolbox?\n\n' +
-    'El sistema descargará datos nuevos cada 10 minutos:\n' +
-    '• Descarga CSV desde KoboToolbox\n' +
-    '• Detecta nuevas personas\n' +
-    '• Procesa alertas de suicidio\n' +
+    'Activar Importación Rápida',
+    '¿Deseas activar la importación rápida de KoboToolbox?\n\n' +
+    '⚡ VELOCIDAD MÁXIMA: cada 1 minuto\n\n' +
+    'El sistema:\n' +
+    '• Descarga CSV cada minuto\n' +
+    '• Detecta nuevas personas INMEDIATAMENTE\n' +
+    '• Procesa alertas de suicidio AL INSTANTE\n' +
     '• Envía a Lista de Espera automáticamente\n\n' +
+    '💡 Perfecto para pruebas y respuesta rápida\n\n' +
     '¿Continuar?',
     ui.ButtonSet.YES_NO
   );
@@ -3707,26 +3711,27 @@ function instalarImportacionAutomatica() {
       }
     });
 
-    // Crear nuevo trigger cada 10 minutos
+    // Crear nuevo trigger cada 1 minuto
     ScriptApp.newTrigger('importarDatosAutomatico')
       .timeBased()
-      .everyMinutes(10)
+      .everyMinutes(1)
       .create();
 
     ui.alert(
-      '✅ Importación Automática Activada',
-      'El sistema importará datos cada 10 minutos.\n\n' +
+      '✅ Importación Rápida Activada',
+      '⚡ El sistema importará datos CADA 1 MINUTO\n\n' +
       'Ahora el sistema:\n' +
       '1. Descargará el CSV de KoboToolbox\n' +
       '2. Detectará personas nuevas\n' +
       '3. Procesará alertas de suicidio\n' +
       '4. Enviará a Lista de Espera\n\n' +
+      '🚀 Máxima velocidad de respuesta\n\n' +
       'También puedes importar manualmente:\n' +
       'Menú → Bienestar → Importar Datos Ahora',
       ui.ButtonSet.OK
     );
 
-    Logger.log('✅ Trigger de importación automática instalado (cada 10 min)');
+    Logger.log('✅ Trigger de importación rápida instalado (cada 1 min)');
 
   } catch (error) {
     ui.alert('Error', 'Error al instalar trigger: ' + error.message, ui.ButtonSet.OK);
@@ -3775,6 +3780,66 @@ function desactivarSincronizacionAutomatica() {
   } catch (error) {
     ui.alert('Error', 'Error al desactivar: ' + error.message, ui.ButtonSet.OK);
     Logger.log('❌ Error desactivando sincronización: ' + error.message);
+  }
+}
+
+/**
+ * Limpia completamente la hoja de Bienestar para empezar de cero
+ */
+function limpiarHojaBienestar() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const confirmacion = ui.alert(
+    '🗑️ Limpiar Hoja de Bienestar',
+    '⚠️ ADVERTENCIA\n\n' +
+    'Esta acción eliminará COMPLETAMENTE la hoja:\n' +
+    '"C_03_Formulario de Bienestar (2026)"\n\n' +
+    'Se perderán todos los datos actuales.\n\n' +
+    '💡 Usa esto para empezar desde cero con pruebas.\n\n' +
+    '¿Estás seguro?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmacion !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    const nombreHoja = 'C_03_Formulario de Bienestar (2026)';
+    const sheet = ss.getSheetByName(nombreHoja);
+
+    if (sheet) {
+      ss.deleteSheet(sheet);
+      Logger.log('✅ Hoja eliminada: ' + nombreHoja);
+
+      ui.alert(
+        '✅ Hoja Eliminada',
+        'La hoja "' + nombreHoja + '" ha sido eliminada.\n\n' +
+        '🔄 En la próxima importación se creará automáticamente\n' +
+        'una hoja nueva y limpia.\n\n' +
+        'Ahora puedes:\n' +
+        '1. Llenar nuevos formularios en KoboToolbox\n' +
+        '2. Importar datos manualmente o esperar la importación automática\n' +
+        '3. Ver los datos aparecer en tiempo real',
+        ui.ButtonSet.OK
+      );
+    } else {
+      ui.alert(
+        'ℹ️ Hoja No Encontrada',
+        'La hoja "' + nombreHoja + '" no existe.\n\n' +
+        'Se creará automáticamente en la próxima importación.',
+        ui.ButtonSet.OK
+      );
+    }
+
+  } catch (error) {
+    ui.alert(
+      '❌ Error',
+      'Error al eliminar la hoja:\n\n' + error.message,
+      ui.ButtonSet.OK
+    );
+    Logger.log('❌ Error eliminando hoja: ' + error.message);
   }
 }
 
