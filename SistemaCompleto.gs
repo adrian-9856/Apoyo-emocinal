@@ -1,61 +1,67 @@
 
 function onOpen() {
-  const ui = SpreadsheetApp.getUi();
-
-  // Submenú: Instalación
-  const menuInstalacion = ui.createMenu('⚙️ Instalación')
-    .addItem('🚀 Instalar Sistema', 'instalarSistema')
-    .addItem('✅ Verificar Instalación', 'verificarInstalacion')
-    .addItem('🔄 Instalar Actualizaciones', 'instalarActualizaciones');
-
-  // Submenú: Configuración
-  const menuConfiguracion = ui.createMenu('🔧 Configuración')
-    .addItem('📧 Configurar Email Director', 'configurarEmail')
-    .addItem('👥 Configurar Emails Terapeutas', 'configurarEmailsTerapeutas')
-    .addItem('✉️ Probar Envío de Email', 'probarEmail')
-    .addSeparator()
-    .addItem('➕ Agregar Grupo de Asistencia', 'configurarAsistencia')
-    .addItem('📋 Ver/Gestionar Grupos', 'verGruposAsistencia')
-    .addItem('🔄 Probar Conexión Asistencia', 'probarAsistencia')
-    .addSeparator()
-    .addItem('⏰ Instalar Trigger de Tiempo', 'instalarTriggerTiempo')
-    .addItem('📅 Instalar Recordatorio Mensual', 'instalarTriggerRecordatorioMensual')
-    .addItem('✏️ Instalar Trigger onEdit', 'instalarTriggerOnEdit');
-
-  // Submenú: Bienestar (Importación Automática desde KoboToolbox)
-  const menuBienestar = ui.createMenu('🏥 Bienestar')
-    .addItem('🔍 Probar Importación (Diagnóstico)', 'probarImportacionBienestar')
-    .addSeparator()
-    .addItem('⚡ Importar Datos Ahora', 'importarDatosAutomatico')
-    .addItem('⏰ Activar Importación Automática (cada 10 min)', 'instalarImportacionAutomatica');
-
-  // Submenú: Mantenimiento
-  const menuMantenimiento = ui.createMenu('🛠️ Mantenimiento')
-    .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
-    .addItem('🔧 Reparar Fórmulas Lista Espera', 'repararFormulasListaEspera')
-    .addItem('🔧 Actualizar Fórmulas Reporte', 'actualizarFormulasReporte')
-    .addItem('🔍 Diagnosticar Reporte', 'diagnosticarReporte')
-    .addItem('📦 Compactar Lista Espera', 'compactarListaEspera');
-
-  // Menú principal
-  ui.createMenu('🏥 Apoyo Emocional')
-    .addSubMenu(menuInstalacion)
-    .addSubMenu(menuConfiguracion)
-    .addSeparator()
-    .addItem('📊 Actualizar Reportes', 'actualizarReportes')
-    .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
-    .addSeparator()
-    .addSubMenu(menuBienestar)
-    .addSubMenu(menuMantenimiento)
-    .addSeparator()
-    .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos')
-    .addToUi();
-
-  // Ejecutar mantenimiento automático al abrir
   try {
-    mantenimientoAutomatico();
+    const ui = SpreadsheetApp.getUi();
+
+    // Submenú: Instalación
+    const menuInstalacion = ui.createMenu('⚙️ Instalación')
+      .addItem('🚀 Instalar Sistema', 'instalarSistema')
+      .addItem('✅ Verificar Instalación', 'verificarInstalacion')
+      .addItem('🔄 Instalar Actualizaciones', 'instalarActualizaciones');
+
+    // Submenú: Configuración
+    const menuConfiguracion = ui.createMenu('🔧 Configuración')
+      .addItem('📧 Configurar Email Director', 'configurarEmail')
+      .addItem('👥 Configurar Emails Terapeutas', 'configurarEmailsTerapeutas')
+      .addItem('✉️ Probar Envío de Email', 'probarEmail')
+      .addSeparator()
+      .addItem('➕ Agregar Grupo de Asistencia', 'configurarAsistencia')
+      .addItem('📋 Ver/Gestionar Grupos', 'verGruposAsistencia')
+      .addItem('🔄 Probar Conexión Asistencia', 'probarAsistencia')
+      .addSeparator()
+      .addItem('⏰ Instalar Trigger de Tiempo', 'instalarTriggerTiempo')
+      .addItem('📅 Instalar Recordatorio Mensual', 'instalarTriggerRecordatorioMensual')
+      .addItem('✏️ Instalar Trigger onEdit', 'instalarTriggerOnEdit');
+
+    // Submenú: Bienestar (Importación Automática desde KoboToolbox)
+    const menuBienestar = ui.createMenu('🏥 Bienestar')
+      .addItem('🔍 Probar Importación (Diagnóstico)', 'probarImportacionBienestar')
+      .addSeparator()
+      .addItem('⚡ Importar Datos Ahora', 'importarDatosAutomatico')
+      .addItem('⏰ Activar Importación Automática (cada 10 min)', 'instalarImportacionAutomatica');
+
+    // Submenú: Mantenimiento
+    const menuMantenimiento = ui.createMenu('🛠️ Mantenimiento')
+      .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
+      .addItem('🔧 Reparar Fórmulas Lista Espera', 'repararFormulasListaEspera')
+      .addItem('🔧 Actualizar Fórmulas Reporte', 'actualizarFormulasReporte')
+      .addItem('🔍 Diagnosticar Reporte', 'diagnosticarReporte')
+      .addItem('📦 Compactar Lista Espera', 'compactarListaEspera');
+
+    // Menú principal
+    ui.createMenu('🏥 Apoyo Emocional')
+      .addSubMenu(menuInstalacion)
+      .addSubMenu(menuConfiguracion)
+      .addSeparator()
+      .addItem('📊 Actualizar Reportes', 'actualizarReportes')
+      .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
+      .addSeparator()
+      .addSubMenu(menuBienestar)
+      .addSubMenu(menuMantenimiento)
+      .addSeparator()
+      .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos')
+      .addToUi();
+
+    // Ejecutar mantenimiento automático al abrir
+    try {
+      mantenimientoAutomatico();
+    } catch (error) {
+      Logger.log('Error en mantenimiento automático: ' + error.message);
+    }
   } catch (error) {
-    Logger.log('Error en mantenimiento automático: ' + error.message);
+    // Si getUi() no está disponible (ejecutándose desde trigger instalable o editor)
+    // solo registrar el error y continuar
+    Logger.log('onOpen ejecutado desde contexto sin UI disponible: ' + error.message);
   }
 }
 
