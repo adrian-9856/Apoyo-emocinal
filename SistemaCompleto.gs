@@ -3492,49 +3492,6 @@ function instalarImportacionAutomatica() {
   }
 }
 
-
-}
-
-
-}
-
-
-
-
-  try {
-    // Eliminar triggers existentes para evitar duplicados
-    const triggers = ScriptApp.getProjectTriggers();
-    triggers.forEach(trigger => {
-      if (trigger.getHandlerFunction() === 'importarDatosKoboAutomatico') {
-        ScriptApp.deleteTrigger(trigger);
-      }
-    });
-
-    // Crear nuevo trigger cada 10 minutos
-    ScriptApp.newTrigger('importarDatosKoboAutomatico')
-      .timeBased()
-      .everyMinutes(10)
-      .create();
-
-    ui.alert(
-      '✅ Sincronización Activada',
-      'La sincronización automática está funcionando.\n\n' +
-      'El sistema importará datos nuevos cada 10 minutos.\n\n' +
-      'Puedes verificar el log en:\n' +
-      'Extensiones → Apps Script → Ver registros\n\n' +
-      'Para desactivar, usa:\n' +
-      'Menú → Bienestar → Desactivar Sincronización',
-      ui.ButtonSet.OK
-    );
-
-    Logger.log('✅ Trigger de sincronización automática instalado');
-
-  } catch (error) {
-    ui.alert('Error', 'Error al instalar sincronización: ' + error.message, ui.ButtonSet.OK);
-    Logger.log('❌ Error instalando sincronización: ' + error.message);
-  }
-}
-
 /**
  * Desactiva la sincronización automática
  */
@@ -3577,36 +3534,6 @@ function desactivarSincronizacionAutomatica() {
     ui.alert('Error', 'Error al desactivar: ' + error.message, ui.ButtonSet.OK);
     Logger.log('❌ Error desactivando sincronización: ' + error.message);
   }
-}
-
-
-
-  // 4. Verificar Lista de Espera
-  const listaEspera = ss.getSheetByName('Lista de Espera');
-  if (!listaEspera) {
-    diagnostico += '❌ PROBLEMA 4: No existe la hoja "Lista de Espera"\n';
-    diagnostico += '   Solución: Ejecuta "Instalar Sistema" primero\n\n';
-    problemas++;
-  } else {
-    diagnostico += '✅ La hoja "Lista de Espera" existe\n\n';
-  }
-
-  // Resumen
-  diagnostico += '═══════════════════════════════\n';
-  if (problemas === 0) {
-    diagnostico += '✅ TODO ESTÁ BIEN\n\n';
-    diagnostico += 'Puedes ejecutar:\n';
-    diagnostico += 'Menú → Bienestar → Procesar Datos Nuevos';
-  } else {
-    diagnostico += '⚠️ ' + problemas + ' PROBLEMAS DETECTADOS\n\n';
-    diagnostico += 'Revisa las soluciones arriba';
-  }
-
-  ui.alert('Diagnóstico', diagnostico, ui.ButtonSet.OK);
-  Logger.log('Diagnóstico completado: ' + problemas + ' problemas');
-}
-
-
 }
 
 /**
