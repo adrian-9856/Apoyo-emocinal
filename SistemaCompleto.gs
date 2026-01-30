@@ -2925,13 +2925,10 @@ function repararTerapias() {
     '⚡ Reparar Hoja de Terapias',
     '¿Deseas reparar la hoja de Terapias?\n\n' +
     'Esto hará:\n' +
-    '• Limpiar todas las validaciones antiguas\n' +
-    '• Agregar fórmulas de Fecha automática (columna B)\n' +
-    '• Configurar validaciones correctas:\n' +
-    '  - Género (columna E)\n' +
-    '  - No. Sesión (columna F)\n' +
-    '  - Estado (columna G)\n\n' +
-    '⚠️ IMPORTANTE: Guarda tus datos antes de continuar',
+    '• INSERTAR columna Fecha (B) si no existe\n' +
+    '• Mover datos una columna a la derecha\n' +
+    '• Configurar validaciones correctas\n\n' +
+    '⚠️ IMPORTANTE: Se va a modificar la estructura',
     ui.ButtonSet.YES_NO
   );
 
@@ -2948,49 +2945,64 @@ function repararTerapias() {
       return;
     }
 
-    // 1. Limpiar TODAS las validaciones
+    // 1. Verificar si ya tiene la columna Fecha
+    const headerB = terapias.getRange(1, 2).getValue();
+    if (headerB && headerB.toString() === 'Fecha') {
+      Logger.log('✅ Columna Fecha ya existe');
+    } else {
+      // NO tiene columna Fecha, hay que insertarla
+      ss.toast('Insertando columna Fecha...', 'Reparando', 2);
+
+      // Insertar columna después de A (Terapeuta)
+      terapias.insertColumnAfter(1);
+
+      // Renombrar encabezado
+      terapias.getRange(1, 2).setValue('Fecha')
+        .setBackground('#2e7d32')
+        .setFontColor('white')
+        .setFontWeight('bold')
+        .setHorizontalAlignment('center');
+
+      // Ajustar ancho
+      terapias.setColumnWidth(2, 110);
+
+      Logger.log('✅ Columna Fecha insertada');
+    }
+
+    // 2. Limpiar validaciones
     terapias.getRange('A1:Z200').clearDataValidations();
     Logger.log('✅ Validaciones limpiadas');
 
-    // 2. Agregar fórmulas de Fecha en columna B
+    // 3. Agregar fórmulas de Fecha
     for (let i = 2; i <= 200; i++) {
       terapias.getRange('B' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
     }
     Logger.log('✅ Fórmulas de Fecha agregadas');
 
-    // 3. Proteger columna de Fecha
+    // 4. Proteger columna Fecha
     try {
-      const protections = terapias.getProtections(SpreadsheetApp.ProtectionType.RANGE);
-      protections.forEach(protection => {
-        const range = protection.getRange();
-        if (range.getA1Notation().startsWith('B2:B')) {
-          protection.remove();
-        }
-      });
       terapias.getRange('B2:B200').protect().setWarningOnly(true);
       Logger.log('✅ Columna Fecha protegida');
     } catch (e) {
-      Logger.log('⚠️ No se pudo proteger columna Fecha: ' + e.message);
+      Logger.log('⚠️ No se pudo proteger: ' + e.message);
     }
 
-    // 4. Aplicar validaciones correctas
-    // Género (columna E)
-    const generoRule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(['Hombre', 'Mujer', 'Trans hombre', 'No binario', 'Otro'])
-      .setAllowInvalid(false)
-      .build();
-    terapias.getRange('E2:E200').setDataValidation(generoRule);
-    Logger.log('✅ Validación de Género (E) aplicada');
-
-    // Terapeuta (columna A)
+    // 5. Aplicar validaciones
+    // Terapeuta (A)
     const terapeutaRule = SpreadsheetApp.newDataValidation()
       .requireValueInList(['Gerber', 'Melissa', 'Diana', 'Karina'])
       .setAllowInvalid(false)
       .build();
     terapias.getRange('A2:A200').setDataValidation(terapeutaRule);
-    Logger.log('✅ Validación de Terapeuta (A) aplicada');
 
-    // No. Sesión (columna F)
+    // Género (E)
+    const generoRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Hombre', 'Mujer', 'Trans hombre', 'No binario', 'Otro'])
+      .setAllowInvalid(false)
+      .build();
+    terapias.getRange('E2:E200').setDataValidation(generoRule);
+
+    // No. Sesión (F)
     const sesiones = [];
     for (let i = 1; i <= 20; i++) {
       sesiones.push(i.toString());
@@ -3000,54 +3012,51 @@ function repararTerapias() {
       .setAllowInvalid(false)
       .build();
     terapias.getRange('F2:F200').setDataValidation(sesionRule);
-    Logger.log('✅ Validación de No. Sesión (F) aplicada');
 
-    // Estado (columna G)
+    // Estado (G)
     const estadoRule = SpreadsheetApp.newDataValidation()
       .requireValueInList(['En proceso', 'Proceso culminado', 'deserciones'])
       .setAllowInvalid(false)
       .build();
     terapias.getRange('G2:G200').setDataValidation(estadoRule);
-    Logger.log('✅ Validación de Estado (G) aplicada');
 
-    // 5. Inicializar columnas numéricas si están vacías
+    Logger.log('✅ Validaciones aplicadas');
+
+    // 6. Inicializar columnas numéricas
     for (let i = 2; i <= 200; i++) {
       const participante = terapias.getRange(i, 3).getValue();
       if (participante && participante.toString().trim() !== '') {
-        // Si hay participante pero no hay valores en I y J, inicializar
         if (!terapias.getRange(i, 9).getValue()) {
-          terapias.getRange(i, 9).setValue(0); // Sesiones Mes Anterior
+          terapias.getRange(i, 9).setValue(0);
         }
         if (!terapias.getRange(i, 10).getValue()) {
-          terapias.getRange(i, 10).setValue(0); // Inasistencias
+          terapias.getRange(i, 10).setValue(0);
         }
       }
     }
-    Logger.log('✅ Columnas numéricas inicializadas');
 
     ui.alert(
       '✅ REPARACIÓN COMPLETA',
-      'La hoja de Terapias ha sido reparada correctamente.\n\n' +
       'Estructura actualizada:\n' +
-      '• Columna A: Terapeuta\n' +
-      '• Columna B: Fecha (automática)\n' +
-      '• Columna C: Participante\n' +
-      '• Columna D: Creamos ID\n' +
-      '• Columna E: Género (desplegable)\n' +
-      '• Columna F: No. Sesión (desplegable)\n' +
-      '• Columna G: Estado (desplegable)\n' +
-      '• Columna H: Motivo Finalización\n' +
-      '• Columna I: Sesiones Mes Anterior\n' +
-      '• Columna J: Inasistencias\n\n' +
-      'Ahora puedes usar la hoja normalmente.',
+      '• A: Terapeuta (desplegable)\n' +
+      '• B: Fecha (automática) ← NUEVA\n' +
+      '• C: Participante\n' +
+      '• D: Creamos ID\n' +
+      '• E: Género (desplegable)\n' +
+      '• F: No. Sesión (desplegable 1-20)\n' +
+      '• G: Estado (desplegable)\n' +
+      '• H: Motivo Finalización\n' +
+      '• I: Sesiones Mes Anterior\n' +
+      '• J: Inasistencias\n\n' +
+      'Recarga la página (F5) para ver cambios.',
       ui.ButtonSet.OK
     );
 
-    Logger.log('✅ Reparación de Terapias completada');
+    Logger.log('✅ Reparación completada');
 
   } catch (error) {
-    ui.alert('❌ Error', 'Error al reparar: ' + error.message, ui.ButtonSet.OK);
-    Logger.log('❌ Error reparando Terapias: ' + error.message);
+    ui.alert('❌ Error', 'Error: ' + error.message, ui.ButtonSet.OK);
+    Logger.log('❌ Error: ' + error.message);
   }
 }
 
