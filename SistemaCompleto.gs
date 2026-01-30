@@ -1,86 +1,3 @@
-/**
- * =====================================================================
- * SISTEMA DE APOYO EMOCIONAL - VERSIÓN CON ASIGNACIÓN DE TERAPEUTA
- * =====================================================================
- *
- * INSTALACIÓN NUEVA:
- * 1. Copiar TODO este archivo
- * 2. Apps Script → Pegar
- * 3. Guardar (Ctrl+S)
- * 4. Ejecutar: instalarSistema
- * 5. Apps Script → Activadores → + Agregar activador
- *    - Función: alEditar
- *    - Tipo de evento: Al editar
- * 6. Menú → 📧 Configurar Email (configura tu email para notificaciones)
- * 7. Menú → ✉️ Probar Envío de Email (verifica que funcione)
- * 8. (Opcional) Menú → ⏰ Instalar Trigger de Tiempo
- *    - Actualiza reportes cada hora automáticamente
- *
- * SI YA TENÍAS EL SISTEMA INSTALADO:
- * 1. Actualizar el código (copiar y pegar todo este archivo)
- * 2. Menú → 🔧 Reparar Validaciones
- *    - Actualizará todas las validaciones
- *    - Creará nuevas hojas necesarias
- *    - Actualizará reportes
- *
- * CÓMO USAR EL SISTEMA:
- * 1. LISTA DE ESPERA:
- *    - Llenar datos del participante (columnas C-K)
- *    - Columna L: Asignar terapeuta (Gerber, Melissa, Diana, Karina)
- *    - Al asignar terapeuta, preguntará "¿Vino a la cita?"
- *      → SÍ: Envía a NUEVOS INGRESOS (documentación) Y TERAPIAS (trabajo terapéutico)
- *      → NO: Envía a "Personas no asistidas" (NO contado como ingreso)
- *
- * 2. NUEVOS INGRESOS:
- *    - Solo para DOCUMENTACIÓN de quienes SÍ vinieron
- *    - Se llena AUTOMÁTICAMENTE desde Lista de Espera
- *    - NO tiene acciones (solo registro)
- *
- * 3. TERAPIAS:
- *    - Estado: En proceso / Finalizado
- *    - Al finalizar, pregunta tipo:
- *      → Finalización de procesos (SÍ = botón)
- *      → Deserción (NO = botón)
- *    - Solicita motivo y envía email
- *
- * 4. REPORTES:
- *    - Nuevos ingresos: Solo quienes vinieron
- *    - Personas no asistidas: Separado del conteo
- *    - Terapias por terapeuta: Total de casos por cada uno
- *
- * CAMBIOS EN ESTA VERSIÓN:
- * - ✅ Lista de Espera: Asignación directa de terapeuta (columna L)
- * - ✅ Pregunta "¿Vino?" para separar asistentes y no asistentes
- * - ✅ Si VINO: envía a Nuevos Ingresos (documentación) Y Terapias (automático)
- * - ✅ Si NO VINO: envía a "Personas no asistidas" (sin contar como ingreso)
- * - ✅ Nuevos Ingresos: Solo documentación (9 columnas)
- * - ✅ Eliminado "Contacto Emergencia" de Nuevos Ingresos y Personas no asistidas
- * - ✅ Personas no asistidas: 8 columnas sin contactos
- * - ✅ Reportes actualizados: No cuenta no asistentes como ingresos
- * - ✅ Sección de terapias por terapeuta en reportes
- * - ✅ "Gestión de Casos" → "Intervención de casos"
- * - ✅ Sistema de finalización simplificado: Solo 2 opciones (SÍ/NO)
- * - ✅ "Terapias" → "Terapia individual" en tipo de atención
- * - ✅ Emails de notificación mejorados
- * - ✅ Sistema 100% funcional y probado
- *
- * HOJAS DEL SISTEMA:
- * 1. Lista de Espera
- * 2. Nuevos Ingresos
- * 3. Terapias
- * 4. Procesos Culminados
- * 5. Deserciones
- * 6. Intervención de casos
- * 7. Personas no asistidas (NUEVA)
- * 8. Reporte
- * 9. Reportes Mensuales
- *
- * =====================================================================
- */
-
-// =====================================================================
-// MENÚ PRINCIPAL
-// =====================================================================
 
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
@@ -3277,55 +3194,7 @@ function compactarListaEspera() {
 // SISTEMA DE FORMULARIO DE BIENESTAR - KOBOTOOLBOX
 // =====================================================================
 
-/**
- * Crea la hoja de Formulario de Bienestar (2026)
- */
 
-  sheet = ss.insertSheet('C_03_Formulario de Bienestar (2026)');
-
-  // Columnas exactas del CSV de KoboToolbox (sin "today")
-  const headers = [
-    'Completado por:',
-    'Creamos ID',
-    '¿Hay algo que te está molestando en relación con tus pensamientos, emociones, o decisiones?',
-    '¿Cuál es su preocupación?',
-    'En las últimas dos semanas, ¿ha tenido pensamientos de que estaría mejor muerto(a) o de lastimarse de alguna manera?',
-    'activar_protocolo_suicidio',
-    'Enviar a Lista de Espera'
-  ];
-
-  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
-    .setBackground('#d9534f')
-    .setFontColor('white')
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center')
-    .setWrap(true);
-
-  // Anchos de columna
-  const widths = [200, 150, 350, 350, 400, 200, 150];
-  widths.forEach((w, i) => {
-    sheet.setColumnWidth(i + 1, w);
-  });
-
-  // Validación para "Enviar a Lista de Espera" (columna G = 7)
-  const validacionEnviar = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['Sí, enviar', 'No'])
-    .setAllowInvalid(false)
-    .build();
-  sheet.getRange('G2:G200').setDataValidation(validacionEnviar);
-
-  // Congelar primera fila
-  sheet.setFrozenRows(1);
-
-  Logger.log('✅ Hoja "C_03_Formulario de Bienestar (2026)" creada');
-
-  return sheet;
-}
-
-/**
- * Configura el token de API de KoboToolbox para importación automática
- */
-}
 
 /**
  * Importa datos automáticamente desde KoboToolbox
@@ -3623,163 +3492,14 @@ function instalarImportacionAutomatica() {
   }
 }
 
-/**
- * Muestra instrucciones simples para importar datos manualmente
- */
 
-/**
- * Procesa datos nuevos en la hoja de Bienestar
- * Detecta alertas, envía emails y transfiere a Lista de Espera
- */
-
-  Logger.log('🔄 Procesando datos nuevos de Bienestar...');
-
-  try {
-    const datos = sheet.getDataRange().getValues();
-
-    if (datos.length <= 1) {
-      ss.toast('No hay datos para procesar', 'Sin Datos', 2);
-      return;
-    }
-
-    let alertasEnviadas = 0;
-    let enviadasAListaEspera = 0;
-
-    // Procesar cada fila (empezando desde fila 2)
-    for (let i = 1; i < datos.length; i++) {
-      const fila = datos[i];
-      const filaNum = i + 1;
-
-      const completadoPor = fila[0];  // A: Completado por
-      const protocoloSuicidio = fila[5];  // F: activar_protocolo_suicidio
-      const enviarALista = fila[6];  // G: Enviar a Lista Espera
-
-      // Saltar filas vacías
-      if (!completadoPor || completadoPor.toString().trim() === '') {
-        continue;
-      }
-
-      // PASO 1: Verificar alerta de suicidio
-      if (protocoloSuicidio && (
-        protocoloSuicidio.toString().toLowerCase() === 'sí' ||
-        protocoloSuicidio.toString().toLowerCase() === 'si'
-      )) {
-        // Solo enviar si no está marcada en rojo (ya procesada)
-        const colorFondo = sheet.getRange(filaNum, 1).getBackground();
-
-        if (colorFondo !== '#ffcccc') {
-          // Enviar alerta
-          enviarAlertaSuicidio(fila, datos[0]);
-
-          // Marcar en rojo
-          sheet.getRange(filaNum, 1, 1, 7).setBackground('#ffcccc');
-          alertasEnviadas++;
-
-          Logger.log('🆘 Alerta enviada: ' + completadoPor);
-        }
-      }
-
-      // PASO 2: Enviar a Lista de Espera automáticamente
-      // Solo si no está marcada en verde (ya procesada)
-      const colorFondo = sheet.getRange(filaNum, 1).getBackground();
-
-      if (colorFondo !== '#d4edda' && colorFondo !== '#e8f5e9') {
-        try {
-          enviarBienestarAListaEspera(sheet, filaNum);
-          enviadasAListaEspera++;
-          Logger.log('✅ Enviado a Lista: ' + completadoPor);
-        } catch (error) {
-          Logger.log('⚠️ Error enviando a Lista: ' + completadoPor + ' - ' + error.message);
-        }
-      }
-    }
-
-    // Mostrar resumen
-    if (alertasEnviadas > 0 || enviadasAListaEspera > 0) {
-      ss.toast(
-        '✅ PROCESAMIENTO COMPLETADO\n\n' +
-        '• Alertas de suicidio: ' + alertasEnviadas + '\n' +
-        '• Enviadas a Lista de Espera: ' + enviadasAListaEspera,
-        'Procesado',
-        5
-      );
-    } else {
-      ss.toast('Todos los datos ya fueron procesados', 'Sin Cambios', 3);
-    }
-
-    Logger.log('📊 Procesamiento completado: ' + alertasEnviadas + ' alertas, ' + enviadasAListaEspera + ' enviadas');
-
-  } catch (error) {
-    Logger.log('❌ Error en procesarDatosNuevosBienestar: ' + error.message);
-    ss.toast('Error al procesar: ' + error.message, 'Error', 5);
-  }
 }
 
-/**
- * Instala un trigger para procesar automáticamente cada vez que se peguen datos
- */
 
-  try {
-    // Eliminar triggers existentes
-    const triggers = ScriptApp.getProjectTriggers();
-    triggers.forEach(trigger => {
-      if (trigger.getHandlerFunction() === 'procesarDatosNuevosBienestar') {
-        ScriptApp.deleteTrigger(trigger);
-      }
-    });
-
-    // Crear nuevo trigger cada 5 minutos
-    ScriptApp.newTrigger('procesarDatosNuevosBienestar')
-      .timeBased()
-      .everyMinutes(5)
-      .create();
-
-    ui.alert(
-      '✅ Procesamiento Automático Activado',
-      'El sistema revisará cada 5 minutos.\n\n' +
-      'Ahora puedes:\n' +
-      '1. Pegar datos en la hoja de Bienestar\n' +
-      '2. Esperar 5 minutos\n' +
-      '3. El sistema procesará automáticamente\n\n' +
-      'También puedes procesar manualmente:\n' +
-      'Menú → Bienestar → Procesar Datos Nuevos',
-      ui.ButtonSet.OK
-    );
-
-    Logger.log('✅ Trigger de procesamiento automático instalado (cada 5 min)');
-
-  } catch (error) {
-    ui.alert('Error', 'Error al instalar: ' + error.message, ui.ButtonSet.OK);
-    Logger.log('❌ Error instalando trigger: ' + error.message);
-  }
 }
 
-/**
- * Importa automáticamente datos nuevos desde KoboToolbox
- * Esta función se ejecuta periódicamente con el trigger
- */
-}
 
-/**
- * Instala el trigger de sincronización automática
- * Ejecuta importarDatosKoboAutomatico() cada 10 minutos
- */
 
-  const respuesta = ui.alert(
-    'Instalar Sincronización Automática',
-    '¿Deseas activar la sincronización automática?\n\n' +
-    'Esto hará que el sistema:\n' +
-    '• Importe datos nuevos de KoboToolbox cada 10 minutos\n' +
-    '• Detecte alertas de suicidio automáticamente\n' +
-    '• Envíe personas nuevas a Lista de Espera\n\n' +
-    'Solo procesará datos NUEVOS (evita duplicados)\n\n' +
-    '¿Continuar?',
-    ui.ButtonSet.YES_NO
-  );
-
-  if (respuesta !== ui.Button.YES) {
-    return;
-  }
 
   try {
     // Eliminar triggers existentes para evitar duplicados
@@ -3859,90 +3579,7 @@ function desactivarSincronizacionAutomatica() {
   }
 }
 
-/**
- * Diagnostica el estado del sistema de Bienestar
- * Muestra qué está mal y cómo arreglarlo
- */
 
-  diagnostico += '✅ La hoja existe\n\n';
-
-  // 2. Verificar columnas
-  const datos = sheet.getDataRange().getValues();
-
-  if (datos.length === 0) {
-    diagnostico += '❌ PROBLEMA 2: La hoja está vacía\n';
-    diagnostico += '   Solución: Pega los datos del CSV\n\n';
-    problemas++;
-  } else {
-    const headers = datos[0];
-
-    diagnostico += '📋 COLUMNAS DETECTADAS:\n';
-    for (let i = 0; i < Math.min(headers.length, 7); i++) {
-      const col = headers[i];
-      diagnostico += '   ' + String.fromCharCode(65 + i) + ': ' + (col || '(vacía)') + '\n';
-    }
-    diagnostico += '\n';
-
-    // Verificar columnas esperadas
-    const columnasEsperadas = [
-      'Completado por',
-      'Creamos ID',
-      'molestando',
-      'preocupación',
-      'últimas dos semanas',
-      'activar_protocolo_suicidio',
-      'Enviar a Lista'
-    ];
-
-    let columnasCorrectas = 0;
-    for (let i = 0; i < columnasEsperadas.length; i++) {
-      const esperada = columnasEsperadas[i].toLowerCase();
-      const actual = (headers[i] || '').toString().toLowerCase();
-
-      if (actual.includes(esperada.split(' ')[0])) {
-        columnasCorrectas++;
-      }
-    }
-
-    if (columnasCorrectas < 6) {
-      diagnostico += '⚠️ ADVERTENCIA: Las columnas no coinciden exactamente\n';
-      diagnostico += '   Esperadas: Completado por, Creamos ID, molestando, preocupación, etc.\n';
-      diagnostico += '   Asegúrate de copiar las columnas correctas del CSV\n\n';
-      problemas++;
-    } else {
-      diagnostico += '✅ Columnas correctas\n\n';
-    }
-
-    // 3. Verificar datos
-    if (datos.length <= 1) {
-      diagnostico += '❌ PROBLEMA 3: No hay datos (solo encabezados)\n';
-      diagnostico += '   Solución: Pega los DATOS desde la fila 2\n\n';
-      problemas++;
-    } else {
-      diagnostico += '✅ Hay ' + (datos.length - 1) + ' registros de datos\n\n';
-
-      // Mostrar primeros datos
-      diagnostico += '📊 PRIMER REGISTRO:\n';
-      for (let i = 0; i < Math.min(datos[1].length, 7); i++) {
-        const valor = datos[1][i] || '(vacío)';
-        const valorCorto = valor.toString().substring(0, 30);
-        diagnostico += '   ' + String.fromCharCode(65 + i) + ': ' + valorCorto;
-        if (valor.toString().length > 30) diagnostico += '...';
-        diagnostico += '\n';
-      }
-      diagnostico += '\n';
-
-      // Verificar si ya está procesado
-      const colorFondo = sheet.getRange(2, 1).getBackground();
-      if (colorFondo === '#ffcccc') {
-        diagnostico += '🔴 Este registro tiene alerta de suicidio (YA PROCESADO)\n\n';
-      } else if (colorFondo === '#d4edda' || colorFondo === '#e8f5e9') {
-        diagnostico += '🟢 Este registro ya fue enviado a Lista de Espera\n\n';
-      } else {
-        diagnostico += '⚪ Este registro NO ha sido procesado\n\n';
-      }
-    }
-  }
 
   // 4. Verificar Lista de Espera
   const listaEspera = ss.getSheetByName('Lista de Espera');
@@ -3969,77 +3606,7 @@ function desactivarSincronizacionAutomatica() {
   Logger.log('Diagnóstico completado: ' + problemas + ' problemas');
 }
 
-/**
- * Verifica si hay alertas de protocolo de suicidio
- * Esta función debe ejecutarse automáticamente cuando se agreguen nuevos datos
- */
 
-  try {
-    const datos = sheet.getDataRange().getValues();
-
-    if (datos.length <= 1) {
-      ss.toast('No hay datos para verificar', 'Sin Datos', 2);
-      return;
-    }
-
-    // Buscar la columna de protocolo de suicidio
-    const headers = datos[0];
-    let colProtocolo = -1;
-
-    for (let i = 0; i < headers.length; i++) {
-      if (headers[i].toString().toLowerCase().includes('activar_protocolo_suicidio')) {
-        colProtocolo = i;
-        break;
-      }
-    }
-
-    if (colProtocolo === -1) {
-      ss.toast('No se encontró la columna "activar_protocolo_suicidio"', 'Error', 3);
-      return;
-    }
-
-    // Verificar cada fila
-    let alertasEncontradas = 0;
-
-    for (let i = 1; i < datos.length; i++) {
-      const protocolo = datos[i][colProtocolo];
-
-      // Si dice "Sí", "si", "yes", "YES", "1", etc.
-      if (protocolo && (
-        protocolo.toString().toLowerCase() === 'sí' ||
-        protocolo.toString().toLowerCase() === 'si' ||
-        protocolo.toString().toLowerCase() === 'yes' ||
-        protocolo.toString().toLowerCase() === '1'
-      )) {
-        alertasEncontradas++;
-
-        // Enviar alerta
-        const registroCompleto = datos[i];
-        enviarAlertaSuicidio(registroCompleto, headers);
-
-        // Marcar la fila en rojo
-        sheet.getRange(i + 1, 1, 1, headers.length).setBackground('#ffcccc');
-      }
-    }
-
-    if (alertasEncontradas > 0) {
-      ss.toast(
-        '🆘 ALERTAS DETECTADAS\n\n' +
-        'Se encontraron ' + alertasEncontradas + ' alertas de protocolo de suicidio.\n\n' +
-        'Se han enviado emails a todos los terapeutas.',
-        'Alertas Enviadas',
-        10
-      );
-    } else {
-      ss.toast('No se encontraron alertas de riesgo', 'Sin Alertas', 3);
-    }
-
-    Logger.log('Verificación completada: ' + alertasEncontradas + ' alertas encontradas');
-
-  } catch (error) {
-    Logger.log('❌ Error en verificarProtocoloSuicidio: ' + error.message);
-    ss.toast('Error al verificar alertas: ' + error.message, 'Error', 5);
-  }
 }
 
 /**
@@ -4229,12 +3796,6 @@ function instalarActualizaciones() {
   }
 }
 
-/**
- * Envía una persona desde Formulario de Bienestar a Lista de Espera
- * @param {Sheet} sheetOrigen - La hoja de Bienestar
- * @param {number} fila - El número de fila a enviar
- */
-}
 
 /**
  * Versión flexible de enviarAlertaSuicidio que funciona con cualquier estructura de columnas
