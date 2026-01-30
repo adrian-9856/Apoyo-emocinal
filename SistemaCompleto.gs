@@ -25,6 +25,7 @@ function onOpen() {
 
     // Submenú: Bienestar (Importación Automática desde KoboToolbox)
     const menuBienestar = ui.createMenu('🏥 Bienestar')
+      .addItem('📧 Configurar Correo de Prueba', 'configurarCorreoPruebaBienestar')
       .addItem('🔍 Probar Importación (Diagnóstico)', 'probarImportacionBienestar')
       .addSeparator()
       .addItem('⚡ Importar Datos Ahora', 'importarDatosAutomatico')
@@ -1745,6 +1746,60 @@ function probarEmail() {
     Logger.log('❌ Error enviando email: ' + error.message);
     return false;
   }
+}
+
+/**
+ * Configura el correo de prueba para alertas de Bienestar
+ */
+function configurarCorreoPruebaBienestar() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+
+  const emailActual = props.getProperty('EMAIL_PRUEBA_BIENESTAR') || 'No configurado';
+
+  const respuesta = ui.prompt(
+    '📧 Configurar Correo de Prueba - Bienestar',
+    '🧪 MODO DE PRUEBA\n\n' +
+    'Este correo recibirá las alertas de protocolo de suicidio\n' +
+    'durante las pruebas del sistema.\n\n' +
+    'Email actual: ' + emailActual + '\n\n' +
+    'Ingresa tu correo de prueba:',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (respuesta.getSelectedButton() !== ui.Button.OK) {
+    return;
+  }
+
+  const email = respuesta.getResponseText().trim();
+
+  if (!email || !email.includes('@') || !email.includes('.')) {
+    ui.alert(
+      '❌ Email Inválido',
+      'Por favor ingresa un email válido.\n\nEjemplo: tumail@ejemplo.com',
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  // Guardar en propiedades
+  props.setProperty('EMAIL_PRUEBA_BIENESTAR', email);
+
+  // Activar modo de prueba
+  props.setProperty('MODO_PRUEBA_BIENESTAR', 'true');
+
+  ui.alert(
+    '✅ Correo de Prueba Configurado',
+    '📧 Email: ' + email + '\n\n' +
+    '🧪 MODO DE PRUEBA ACTIVADO\n\n' +
+    'Ahora las alertas de protocolo de suicidio se enviarán\n' +
+    'SOLO a este correo (no a todos los terapeutas).\n\n' +
+    '💡 Para desactivar el modo de prueba y enviar a todos\n' +
+    'los terapeutas, simplemente deja el correo vacío.',
+    ui.ButtonSet.OK
+  );
+
+  Logger.log('✅ Correo de prueba configurado: ' + email);
 }
 
 function enviarEmailFinalizacion(participante, terapeuta, tipo, motivo, sesiones) {
@@ -3484,11 +3539,23 @@ function importarDatosAutomatico() {
       h && h.toString().toLowerCase().includes('completado')
     );
     const colProtocoloSuicidio = headersCSV.findIndex(h =>
-      h && h.toString().toLowerCase().includes('protocolo_suicidio')
+      h && h.toString().toLowerCase().includes('activar_protocolo_suicidio')
+    );
+    const colCreamosID = headersCSV.findIndex(h =>
+      h && (h.toString() === 'Creamos ID' || h.toString().toLowerCase().includes('creamos'))
+    );
+    const colApoyo = headersCSV.findIndex(h =>
+      h && h.toString().toLowerCase().includes('apoyo emocional')
+    );
+    const colUuid = headersCSV.findIndex(h =>
+      h && h.toString() === '_uuid'
     );
 
     Logger.log('📍 Índice Completado por: ' + colCompletadoPor);
-    Logger.log('📍 Índice Protocolo: ' + colProtocoloSuicidio);
+    Logger.log('📍 Índice Protocolo Suicidio: ' + colProtocoloSuicidio);
+    Logger.log('📍 Índice Creamos ID: ' + colCreamosID);
+    Logger.log('📍 Índice Apoyo Emocional: ' + colApoyo);
+    Logger.log('📍 Índice UUID: ' + colUuid);
 
     let filasNuevas = 0;
     let alertasDetectadas = 0;
@@ -3538,20 +3605,32 @@ function importarDatosAutomatico() {
       // Verificar alerta de suicidio
       if (colProtocoloSuicidio >= 0) {
         const protocoloValor = fila[colProtocoloSuicidio];
-        if (protocoloValor && (
-          protocoloValor.toString().toLowerCase() === 'sí' ||
-          protocoloValor.toString().toLowerCase() === 'si'
-        )) {
+        const valorNormalizado = protocoloValor ? protocoloValor.toString().toLowerCase().trim() : '';
+
+        Logger.log('🔍 Valor protocolo suicidio: "' + protocoloValor + '" (normalizado: "' + valorNormalizado + '")');
+
+        if (valorNormalizado === 'sí' || valorNormalizado === 'si' || valorNormalizado === 'yes') {
+          Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          Logger.log('🆘 ¡ALERTA DE PROTOCOLO DE SUICIDIO DETECTADA!');
+          Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+          // Marcar fila con fondo rojo claro
           sheet.getRange(nuevaFila, 1, 1, numColumnas).setBackground('#ffcccc');
 
           try {
+            // Enviar alerta INMEDIATA por correo
             enviarAlertaSuicidioFlexible(fila, headersCSV);
             alertasDetectadas++;
-            Logger.log('🆘 Alerta detectada');
+            Logger.log('✅ Alerta enviada por correo electrónico');
           } catch (error) {
-            Logger.log('⚠️ Error enviando alerta: ' + error.message);
+            Logger.log('❌ Error enviando alerta: ' + error.message);
+            Logger.log('Stack: ' + error.stack);
           }
+        } else if (colProtocoloSuicidio >= 0 && protocoloValor) {
+          Logger.log('ℹ️ Protocolo NO activado (valor: "' + valorNormalizado + '")');
         }
+      } else {
+        Logger.log('⚠️ No se encontró la columna activar_protocolo_suicidio en el CSV');
       }
 
       // Enviar a Lista de Espera
@@ -3709,21 +3788,36 @@ function enviarAlertaSuicidio(registro, headers) {
     const props = PropertiesService.getDocumentProperties();
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // Obtener emails de todos los terapeutas
-    const terapeutas = ['Gerber', 'Melissa', 'Diana', 'Karina'];
-    const emailsTerapeutas = [];
+    // Verificar si está en modo de prueba
+    const modoPrueba = props.getProperty('MODO_PRUEBA_BIENESTAR') === 'true';
+    const emailPrueba = props.getProperty('EMAIL_PRUEBA_BIENESTAR');
 
-    terapeutas.forEach(terapeuta => {
-      const email = props.getProperty('EMAIL_' + terapeuta.toUpperCase());
-      if (email) {
-        emailsTerapeutas.push(email);
+    let emailsTerapeutas = [];
+    let esPrueba = false;
+
+    if (modoPrueba && emailPrueba) {
+      // MODO DE PRUEBA: Enviar solo al correo de prueba
+      emailsTerapeutas = [emailPrueba];
+      esPrueba = true;
+      Logger.log('🧪 MODO DE PRUEBA: Enviando solo a ' + emailPrueba);
+    } else {
+      // MODO PRODUCCIÓN: Enviar a todos los terapeutas
+      const terapeutas = ['Gerber', 'Melissa', 'Diana', 'Karina'];
+
+      terapeutas.forEach(terapeuta => {
+        const email = props.getProperty('EMAIL_' + terapeuta.toUpperCase());
+        if (email) {
+          emailsTerapeutas.push(email);
+        }
+      });
+
+      // También enviar al director
+      const emailDirector = props.getProperty('EMAIL_DIRECTOR');
+      if (emailDirector) {
+        emailsTerapeutas.push(emailDirector);
       }
-    });
 
-    // También enviar al director
-    const emailDirector = props.getProperty('EMAIL_DIRECTOR');
-    if (emailDirector) {
-      emailsTerapeutas.push(emailDirector);
+      Logger.log('📧 MODO PRODUCCIÓN: Enviando a ' + emailsTerapeutas.length + ' destinatarios');
     }
 
     if (emailsTerapeutas.length === 0) {
@@ -3732,7 +3826,7 @@ function enviarAlertaSuicidio(registro, headers) {
         '⚠️ ADVERTENCIA\n\n' +
         'Se detectó una alerta pero NO hay emails configurados.\n\n' +
         'Configura los emails en:\n' +
-        'Menú → 👥 Configurar Emails Terapeutas',
+        'Menú → 🏥 Bienestar → 📧 Configurar Correo de Prueba',
         'Sin Emails',
         8
       );
@@ -3786,19 +3880,31 @@ function enviarAlertaSuicidio(registro, headers) {
 
     const asunto = '🆘 ALERTA URGENTE - Protocolo de Suicidio Activado';
 
-    // Enviar a todos los terapeutas
+    // Enviar emails
     emailsTerapeutas.forEach(email => {
       MailApp.sendEmail(email, asunto, cuerpo);
       Logger.log('✅ Email de alerta enviado a: ' + email);
     });
 
-    ss.toast(
-      '✅ ALERTAS ENVIADAS\n\n' +
-      'Se enviaron ' + emailsTerapeutas.length + ' emails\n' +
-      'a todos los terapeutas y director.',
-      'Emails Enviados',
-      5
-    );
+    // Mensaje diferente según modo
+    if (esPrueba) {
+      ss.toast(
+        '✅ ALERTA ENVIADA (MODO PRUEBA)\n\n' +
+        '🧪 Se envió 1 email a: ' + emailPrueba + '\n\n' +
+        'Esto es una PRUEBA. En producción se enviará\n' +
+        'a todos los terapeutas y director.',
+        'Email de Prueba Enviado',
+        8
+      );
+    } else {
+      ss.toast(
+        '✅ ALERTAS ENVIADAS\n\n' +
+        'Se enviaron ' + emailsTerapeutas.length + ' emails\n' +
+        'a todos los terapeutas y director.',
+        'Emails Enviados',
+        5
+      );
+    }
 
     return true;
 
