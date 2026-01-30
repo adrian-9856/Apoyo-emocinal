@@ -2960,50 +2960,6 @@ function crearDatosPrueba() {
   Logger.log('✅ Datos de prueba creados en Formulario de Bienestar');
 }
 
-/**
- * Elimina los datos de prueba de la hoja de Formulario de Bienestar
- * Solo elimina las filas 2-5 que fueron creadas por crearDatosPruebaBienestar()
- */
-
-  const respuesta = ui.alert(
-    '🗑️ Eliminar Datos de Prueba',
-    '¿Está seguro de eliminar los datos de prueba?\n\n' +
-    'Se eliminarán las filas 2-5 de la hoja de Bienestar\n' +
-    '(María Rodríguez, Carlos Méndez, Ana Flores, Luis Torres)\n\n' +
-    'Esta acción NO se puede deshacer.',
-    ui.ButtonSet.YES_NO
-  );
-
-  if (respuesta !== ui.Button.YES) {
-    ss.toast('❌ Eliminación cancelada', 'Cancelado', 2);
-    return;
-  }
-
-  try {
-    // Limpiar filas 2-5 (datos de prueba)
-    if (sheet.getLastRow() >= 5) {
-      sheet.getRange(2, 1, 4, 7).clearContent();
-      sheet.getRange(2, 1, 4, 7).setBackground(null);
-
-      ss.toast(
-        '✅ DATOS DE PRUEBA ELIMINADOS\n\n' +
-        'Se eliminaron las filas 2-5 de Bienestar\n\n' +
-        'La hoja está lista para datos reales.',
-        'Eliminado',
-        4
-      );
-
-      Logger.log('✅ Datos de prueba eliminados de Bienestar');
-    } else {
-      ss.toast('No hay datos de prueba para eliminar', 'Sin Datos', 3);
-    }
-
-  } catch (error) {
-    ss.toast('❌ Error: ' + error.message, 'Error', 5);
-    Logger.log('Error eliminando datos de prueba: ' + error.message);
-  }
-}
-
 function limpiarTodosLosDatos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
@@ -3471,7 +3427,7 @@ function importarDatosAutomatico() {
   ss.toast('Descargando datos de KoboToolbox...', 'Importando', -1);
 
   try {
-    const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esXsXNnaVYrYn27GemkBprf/data.csv';
+    const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esreCzkfVcEd4Bw87so7ZwY/data.csv';
 
     Logger.log('🔄 Descargando CSV desde: ' + url);
 
@@ -4494,7 +4450,7 @@ function probarImportacionBienestar() {
   let diagnostico = '🔍 PRUEBA DE IMPORTACIÓN\n\n';
   
   try {
-    const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esXsXNnaVYrYn27GemkBprf/data.csv';
+    const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esreCzkfVcEd4Bw87so7ZwY/data.csv';
     
     diagnostico += '1️⃣ URL: ' + url.substring(0, 60) + '...\n\n';
     
