@@ -35,6 +35,7 @@ function onOpen() {
       .addItem('⚡ Importar Datos Ahora', 'importarDatosAutomatico')
       .addItem('⏰ Activar Importación Rápida (cada 1 min)', 'instalarImportacionAutomatica')
       .addItem('🔍 Ver Triggers Activos', 'verTriggersActivos')
+      .addItem('🩺 Diagnóstico Completo del Sistema', 'diagnosticoCompletoSistema')
       .addSeparator()
       .addItem('🗑️ Limpiar Hoja de Bienestar', 'limpiarHojaBienestar');
 
@@ -4362,6 +4363,183 @@ function verificarAlertasRapido() {
     ss.toast('', '', 1);
     Logger.log('Error en verificarAlertasRapido: ' + error.message);
     ui.alert('❌ Error', 'Error al verificar alertas:\n\n' + error.message, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Diagnóstico COMPLETO de todo el sistema de importación
+ */
+function diagnosticoCompletoSistema() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  let reporte = '🩺 DIAGNÓSTICO COMPLETO DEL SISTEMA\n\n';
+
+  try {
+    // 1. VERIFICAR HOJA
+    reporte += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    reporte += '1️⃣ VERIFICACIÓN DE HOJA\n';
+    reporte += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+
+    const nombreHoja = 'C_03_Formulario de Bienestar (2026)';
+    const sheet = ss.getSheetByName(nombreHoja);
+
+    if (!sheet) {
+      reporte += '❌ La hoja NO EXISTE\n\n';
+      reporte += 'Nombre esperado: ' + nombreHoja + '\n\n';
+      reporte += 'SOLUCIÓN: Ejecuta primero una importación manual:\n';
+      reporte += '🏥 Bienestar → ⚡ Importar Datos Ahora\n';
+      ui.alert('❌ Hoja No Encontrada', reporte, ui.ButtonSet.OK);
+      return;
+    }
+
+    reporte += '✅ Hoja encontrada: "' + nombreHoja + '"\n';
+    const ultimaFila = sheet.getLastRow();
+    const ultimaColumna = sheet.getLastColumn();
+    reporte += '   Última fila: ' + ultimaFila + '\n';
+    reporte += '   Última columna: ' + ultimaColumna + '\n';
+
+    if (ultimaFila === 0) {
+      reporte += '   ⚠️ Hoja VACÍA (ni siquiera tiene headers)\n\n';
+    } else if (ultimaFila === 1) {
+      reporte += '   ⚠️ Solo tiene headers, NO hay datos\n\n';
+    } else {
+      reporte += '   ✅ Tiene ' + (ultimaFila - 1) + ' registro(s) de datos\n\n';
+    }
+
+    // 2. VERIFICAR TRIGGERS
+    reporte += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    reporte += '2️⃣ VERIFICACIÓN DE TRIGGERS\n';
+    reporte += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+
+    const triggers = ScriptApp.getProjectTriggers();
+    let triggerImportacionEncontrado = false;
+
+    if (triggers.length === 0) {
+      reporte += '❌ NO HAY TRIGGERS INSTALADOS\n\n';
+      reporte += '⚠️ ESTE ES EL PROBLEMA\n\n';
+      reporte += 'Sin trigger, la importación automática NO FUNCIONA.\n';
+      reporte += 'Solo funciona cuando haces click manual.\n\n';
+      reporte += 'SOLUCIÓN:\n';
+      reporte += '🏥 Bienestar → ⏰ Activar Importación Rápida\n\n';
+    } else {
+      reporte += 'Total de triggers: ' + triggers.length + '\n\n';
+
+      for (let i = 0; i < triggers.length; i++) {
+        const trigger = triggers[i];
+        const funcion = trigger.getHandlerFunction();
+
+        if (funcion === 'importarDatosAutomaticoSilencioso' || funcion === 'importarDatosAutomatico') {
+          triggerImportacionEncontrado = true;
+          reporte += '✅ Trigger de importación ENCONTRADO\n';
+          reporte += '   Función: ' + funcion + '\n';
+
+          if (funcion === 'importarDatosAutomaticoSilencioso') {
+            reporte += '   ✅ Versión: SILENCIOSA (correcta)\n\n';
+          } else {
+            reporte += '   ⚠️ Versión: ANTIGUA (con mensajes)\n';
+            reporte += '   Recomendación: Reinstalar\n\n';
+          }
+        }
+      }
+
+      if (!triggerImportacionEncontrado) {
+        reporte += '❌ NO hay trigger de importación\n\n';
+        reporte += '⚠️ ESTE ES EL PROBLEMA\n\n';
+        reporte += 'Hay otros triggers, pero NO el de importación.\n\n';
+        reporte += 'SOLUCIÓN:\n';
+        reporte += '🏥 Bienestar → ⏰ Activar Importación Rápida\n\n';
+      }
+    }
+
+    // 3. VERIFICAR CSV
+    reporte += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    reporte += '3️⃣ VERIFICACIÓN DE CSV\n';
+    reporte += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+
+    const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esreCzkfVcEd4Bw87so7ZwY/data.csv';
+
+    try {
+      const response = UrlFetchApp.fetch(url, {
+        muteHttpExceptions: true,
+        followRedirects: true
+      });
+
+      const codigo = response.getResponseCode();
+      reporte += 'Código HTTP: ' + codigo;
+
+      if (codigo === 200) {
+        reporte += ' ✅ OK\n\n';
+
+        const csvData = response.getContentText();
+        const lineas = csvData.split('\n');
+        reporte += 'Líneas en CSV: ' + lineas.length + '\n';
+
+        if (lineas.length <= 1) {
+          reporte += '⚠️ CSV solo tiene headers o está vacío\n\n';
+        } else {
+          reporte += '✅ CSV tiene ' + (lineas.length - 1) + ' registros\n\n';
+        }
+      } else {
+        reporte += ' ❌ ERROR\n\n';
+        reporte += '⚠️ EL CSV NO ES ACCESIBLE\n\n';
+        reporte += 'SOLUCIÓN:\n';
+        reporte += '1. Ve a KoboToolbox\n';
+        reporte += '2. Abre tu formulario\n';
+        reporte += '3. Settings → Sharing\n';
+        reporte += '4. Activa "Share data publicly"\n\n';
+      }
+    } catch (error) {
+      reporte += '❌ Error al descargar CSV\n';
+      reporte += 'Error: ' + error.message + '\n\n';
+    }
+
+    // 4. RESUMEN Y DIAGNÓSTICO
+    reporte += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    reporte += '📊 RESUMEN Y DIAGNÓSTICO\n';
+    reporte += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+    if (!triggerImportacionEncontrado) {
+      reporte += '🔴 PROBLEMA PRINCIPAL IDENTIFICADO:\n';
+      reporte += 'NO HAY TRIGGER DE IMPORTACIÓN INSTALADO\n\n';
+      reporte += 'Por eso:\n';
+      reporte += '✅ Importación MANUAL funciona\n';
+      reporte += '❌ Importación AUTOMÁTICA NO funciona\n\n';
+      reporte += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+      reporte += '🛠️ SOLUCIÓN:\n';
+      reporte += '1. Ve al menú: 🏥 Bienestar\n';
+      reporte += '2. Click en: ⏰ Activar Importación Rápida\n';
+      reporte += '3. Confirma con "Sí"\n';
+      reporte += '4. Espera 1-2 minutos\n';
+      reporte += '5. Llena un formulario de prueba\n';
+      reporte += '6. Verifica que llegue automáticamente\n';
+    } else {
+      reporte += '✅ TRIGGER INSTALADO CORRECTAMENTE\n\n';
+      reporte += 'Si los datos NO llegan automáticamente:\n\n';
+      reporte += 'Posibles causas:\n';
+      reporte += '1. El formulario en KoboToolbox no tiene\n';
+      reporte += '   respuestas nuevas\n';
+      reporte += '2. Todos los registros ya existen en la hoja\n';
+      reporte += '   (el sistema evita duplicados)\n';
+      reporte += '3. El trigger se ejecuta pero falla\n\n';
+      reporte += 'SOLUCIÓN:\n';
+      reporte += '1. Llena un formulario NUEVO en KoboToolbox\n';
+      reporte += '2. Espera 2 minutos\n';
+      reporte += '3. Revisa el LOG:\n';
+      reporte += '   Apps Script → Ver → Registros\n';
+      reporte += '4. Busca líneas con:\n';
+      reporte += '   "🔄 Importación silenciosa iniciada"\n';
+    }
+
+    ui.alert('🩺 Diagnóstico Completo', reporte, ui.ButtonSet.OK);
+    Logger.log('\n' + reporte);
+
+  } catch (error) {
+    reporte += '\n❌ ERROR EN DIAGNÓSTICO:\n';
+    reporte += error.message + '\n\n';
+    reporte += error.toString();
+    ui.alert('❌ Error', reporte, ui.ButtonSet.OK);
+    Logger.log(reporte);
   }
 }
 
