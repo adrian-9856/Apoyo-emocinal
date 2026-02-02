@@ -3541,6 +3541,173 @@ function compactarListaEspera() {
 
 
 /**
+ * Importa datos automáticamente SILENCIOSAMENTE (sin mensajes)
+ * Para el trigger automático - solo alerta cuando hay protocolo de suicidio
+ */
+function importarDatosAutomaticoSilencioso() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // SIN TOASTS - Ejecución silenciosa
+  Logger.log('🔄 Importación silenciosa iniciada: ' + new Date().toLocaleString());
+
+  try {
+    const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esreCzkfVcEd4Bw87so7ZwY/data.csv';
+
+    const response = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+
+    if (response.getResponseCode() !== 200) {
+      Logger.log('❌ Error HTTP: ' + response.getResponseCode());
+      return;
+    }
+
+    const csvData = response.getContentText();
+    if (!csvData || csvData.trim().length === 0) {
+      Logger.log('⚠️ CSV vacío');
+      return;
+    }
+
+    // Parsear CSV
+    const primeraLinea = csvData.split('\n')[0] || '';
+    const delimitador = (primeraLinea.match(/;/g) || []).length > (primeraLinea.match(/,/g) || []).length ? ';' : ',';
+
+    const lineas = csvData.split('\n');
+    const filas = [];
+    for (let i = 0; i < lineas.length; i++) {
+      const linea = lineas[i].trim();
+      if (!linea) continue;
+      const columnas = linea.split(delimitador).map(c => c.trim().replace(/^"|"$/g, ''));
+      if (columnas.length > 0 && columnas.join('').trim()) {
+        filas.push(columnas);
+      }
+    }
+
+    if (filas.length <= 1) {
+      Logger.log('ℹ️ Sin datos nuevos');
+      return;
+    }
+
+    // Obtener/crear hoja
+    let sheet = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
+    if (!sheet) {
+      sheet = ss.insertSheet('C_03_Formulario de Bienestar (2026)');
+    }
+
+    const headersCSV = filas[0];
+    const colCreamosID = headersCSV.findIndex(h => h && (h.toString() === 'Creamos ID' || h.toString().toLowerCase().includes('creamos')));
+    const colProtocoloSuicidio = headersCSV.findIndex(h => h && h.toString().toLowerCase().includes('activar_protocolo_suicidio'));
+    const colApoyo = headersCSV.findIndex(h => h && h.toString().toLowerCase().includes('apoyo emocional'));
+
+    if (colCreamosID < 0 || colProtocoloSuicidio < 0 || colApoyo < 0) {
+      Logger.log('❌ Columnas no encontradas');
+      return;
+    }
+
+    // Crear headers si es nueva
+    const ultimaFila = sheet.getLastRow();
+    const esHojaNueva = ultimaFila === 0;
+
+    if (esHojaNueva) {
+      const encabezadosCortos = ['Creamos ID', 'activar_protocolo_suicidio', '¿Te gustaría que nuestro equipo de Apoyo Emocional se pusiera en contacto contigo para informarte sobre sus servicios?', 'Nota', 'Enviar a Lista de Espera'];
+      sheet.getRange(1, 1, 1, 5).setValues([encabezadosCortos])
+        .setBackground('#d9534f').setFontColor('white').setFontWeight('bold')
+        .setHorizontalAlignment('center').setWrap(true);
+      sheet.setColumnWidth(1, 150);
+      sheet.setColumnWidth(2, 200);
+      sheet.setColumnWidth(3, 300);
+      sheet.setColumnWidth(4, 250);
+      sheet.setColumnWidth(5, 180);
+      sheet.setFrozenRows(1);
+      const validacionEnvio = SpreadsheetApp.newDataValidation().requireValueInList(['Sí', 'No'], true).setAllowInvalid(false).build();
+      sheet.getRange('E2:E1000').setDataValidation(validacionEnvio);
+    }
+
+    let filasNuevas = 0;
+    let alertasDetectadas = 0;
+    let enviadasAListaEspera = 0;
+    const datosActuales = sheet.getDataRange().getValues();
+
+    // Procesar filas SIN logging extensivo
+    for (let i = 1; i < filas.length; i++) {
+      const filaCompleta = filas[i];
+      if (!filaCompleta || filaCompleta.length === 0) continue;
+
+      const creamosID = filaCompleta[colCreamosID] || '';
+      const protocoloSuicidio = filaCompleta[colProtocoloSuicidio] || '';
+      const apoyoEmocional = filaCompleta[colApoyo] || '';
+
+      // Verificar duplicados
+      let existe = false;
+      if (creamosID && creamosID.toString().trim()) {
+        for (let j = 1; j < datosActuales.length; j++) {
+          if (datosActuales[j][0] && datosActuales[j][0].toString().trim() === creamosID.toString().trim()) {
+            existe = true;
+            break;
+          }
+        }
+      }
+
+      if (existe) continue;
+
+      // Agregar fila
+      const nuevaFila = sheet.getLastRow() + 1;
+      sheet.getRange(nuevaFila, 1, 1, 5).setValues([[creamosID, protocoloSuicidio, apoyoEmocional, '', '']]);
+      filasNuevas++;
+
+      // VERIFICAR ALERTA DE SUICIDIO
+      const protocoloNorm = protocoloSuicidio ? protocoloSuicidio.toString().toLowerCase().trim() : '';
+      if (protocoloNorm === 'sí' || protocoloNorm === 'si' || protocoloNorm === 'yes') {
+        sheet.getRange(nuevaFila, 1, 1, 5).setBackground('#ffcccc');
+
+        const props = PropertiesService.getDocumentProperties();
+        const alertaEnviada = props.getProperty('ALERTA_ENVIADA_' + creamosID);
+
+        if (!alertaEnviada) {
+          try {
+            enviarAlertaSuicidioFlexible(filaCompleta, headersCSV);
+            props.setProperty('ALERTA_ENVIADA_' + creamosID, new Date().toLocaleString());
+            alertasDetectadas++;
+            Logger.log('🆘 ALERTA ENVIADA: ' + creamosID);
+
+            // MOSTRAR ALERTA GRANDE SOLO CUANDO HAY PROTOCOLO
+            ss.toast(
+              '🆘 ¡ALERTA DE PROTOCOLO DE SUICIDIO!\n\n' +
+              'Creamos ID: ' + creamosID + '\n\n' +
+              'Se ha enviado correo URGENTE a los terapeutas.',
+              '🆘 ALERTA CRÍTICA',
+              15
+            );
+          } catch (error) {
+            Logger.log('❌ Error enviando alerta: ' + error.message);
+          }
+        }
+      }
+
+      // Enviar automáticamente a Lista de Espera
+      const quiereApoyo = apoyoEmocional ? apoyoEmocional.toString().toLowerCase().trim() : '';
+      if (quiereApoyo === 'sí' || quiereApoyo === 'si' || quiereApoyo === 'yes') {
+        try {
+          const headersBienestar = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+          enviarBienestarAListaEsperaFlexible(sheet, nuevaFila, headersBienestar);
+          enviadosALista++;
+        } catch (error) {
+          // Silencioso
+        }
+      }
+    }
+
+    // Logging final (solo en log, no en pantalla)
+    Logger.log('✅ Importación silenciosa completada');
+    Logger.log('   Nuevos: ' + filasNuevas + ' | Alertas: ' + alertasDetectadas + ' | Lista Espera: ' + enviadasAListaEspera);
+
+  } catch (error) {
+    Logger.log('❌ Error en importación silenciosa: ' + error.message);
+  }
+}
+
+/**
  * Importa datos automáticamente desde KoboToolbox
  * IMPORTA TODAS LAS COLUMNAS TAL COMO VIENEN DEL CSV
  */
@@ -3899,22 +4066,25 @@ function importarDatosAutomatico() {
 }
 
 /**
- * Instala un trigger para importar automáticamente cada 1 minuto
+ * Instala un trigger para importar automáticamente cada 1 minuto SILENCIOSAMENTE
  */
 function instalarImportacionAutomatica() {
   const ui = SpreadsheetApp.getUi();
 
   const respuesta = ui.alert(
-    'Activar Importación Rápida',
-    '¿Deseas activar la importación rápida de KoboToolbox?\n\n' +
-    '⚡ VELOCIDAD MÁXIMA: cada 1 minuto\n\n' +
+    'Activar Importación Automática SILENCIOSA',
+    '🔇 IMPORTACIÓN SILENCIOSA CADA 1 MINUTO\n\n' +
     'El sistema:\n' +
-    '• Descarga CSV cada minuto\n' +
-    '• Detecta nuevas personas INMEDIATAMENTE\n' +
-    '• Procesa alertas de suicidio AL INSTANTE\n' +
-    '• Envía a Lista de Espera automáticamente\n\n' +
-    '💡 Perfecto para pruebas y respuesta rápida\n\n' +
-    '¿Continuar?',
+    '• Verifica nuevos formularios cada minuto\n' +
+    '• NO muestra mensajes molestos\n' +
+    '• SOLO alerta cuando detecta protocolo de suicidio\n' +
+    '• Funciona en segundo plano sin interrumpir\n\n' +
+    '⚠️ IMPORTANTE:\n' +
+    '1 minuto es el MÍNIMO que permite Google\n' +
+    '(No es posible menos tiempo por limitación técnica)\n\n' +
+    '💡 Si necesitas verificar más rápido, usa:\n' +
+    '🆘 VERIFICAR ALERTAS AHORA (manual)\n\n' +
+    '¿Activar importación automática?',
     ui.ButtonSet.YES_NO
   );
 
@@ -3923,29 +4093,34 @@ function instalarImportacionAutomatica() {
   }
 
   try {
-    // Eliminar triggers existentes de importación automática
+    // Eliminar triggers existentes
     const triggers = ScriptApp.getProjectTriggers();
     triggers.forEach(trigger => {
-      if (trigger.getHandlerFunction() === 'importarDatosAutomatico') {
+      const func = trigger.getHandlerFunction();
+      if (func === 'importarDatosAutomatico' || func === 'importarDatosAutomaticoSilencioso') {
         ScriptApp.deleteTrigger(trigger);
       }
     });
 
-    // Crear nuevo trigger cada 1 minuto
-    ScriptApp.newTrigger('importarDatosAutomatico')
+    // Crear nuevo trigger SILENCIOSO cada 1 minuto
+    ScriptApp.newTrigger('importarDatosAutomaticoSilencioso')
       .timeBased()
       .everyMinutes(1)
       .create();
 
     ui.alert(
-      '✅ Importación Rápida Activada',
-      '⚡ El sistema importará datos CADA 1 MINUTO\n\n' +
-      'Ahora el sistema:\n' +
-      '1. Descargará el CSV de KoboToolbox\n' +
-      '2. Detectará personas nuevas\n' +
-      '3. Procesará alertas de suicidio\n' +
-      '4. Enviará a Lista de Espera\n\n' +
-      '🚀 Máxima velocidad de respuesta\n\n' +
+      '✅ Importación Automática SILENCIOSA Activada',
+      '🔇 IMPORTACIÓN SILENCIOSA CADA 1 MINUTO\n\n' +
+      'El sistema ahora:\n' +
+      '• Verifica formularios cada minuto\n' +
+      '• Trabaja en segundo plano\n' +
+      '• NO muestra mensajes al importar\n' +
+      '• SOLO alerta cuando detecta protocolo de suicidio 🆘\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      '💡 IMPORTANTE:\n' +
+      'No verás mensajes molestos cada minuto.\n' +
+      'Solo verás una alerta GRANDE cuando se\n' +
+      'active el protocolo de suicidio.\n\n' +
       'También puedes importar manualmente:\n' +
       'Menú → Bienestar → Importar Datos Ahora',
       ui.ButtonSet.OK
