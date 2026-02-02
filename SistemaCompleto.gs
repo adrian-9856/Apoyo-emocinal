@@ -26,8 +26,10 @@ function onOpen() {
     // Submenú: Bienestar (Importación Automática desde KoboToolbox)
     const menuBienestar = ui.createMenu('🏥 Bienestar')
       .addItem('📧 Configurar Correo de Prueba', 'configurarCorreoPruebaBienestar')
-      .addItem('🔍 Probar Importación (Diagnóstico)', 'probarImportacionBienestar')
+      .addItem('🚀 Activar Modo Producción', 'activarModoProduccionBienestar')
+      .addItem('ℹ️ Ver Estado Actual', 'verEstadoCorreosBienestar')
       .addSeparator()
+      .addItem('🔍 Probar Importación (Diagnóstico)', 'probarImportacionBienestar')
       .addItem('⚡ Importar Datos Ahora', 'importarDatosAutomatico')
       .addItem('⏰ Activar Importación Rápida (cada 1 min)', 'instalarImportacionAutomatica')
       .addSeparator()
@@ -1817,6 +1819,107 @@ function configurarCorreoPruebaBienestar() {
   );
 
   Logger.log('✅ Correo de prueba configurado: ' + email);
+}
+
+/**
+ * Activa el modo producción (desactiva modo de prueba)
+ * Las alertas se enviarán a TODOS los terapeutas
+ */
+function activarModoProduccionBienestar() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+
+  const modoPruebaActual = props.getProperty('MODO_PRUEBA_BIENESTAR') === 'true';
+
+  if (!modoPruebaActual) {
+    ui.alert(
+      'ℹ️ Ya está en Modo Producción',
+      'El sistema ya está configurado para enviar alertas\n' +
+      'a TODOS los terapeutas.\n\n' +
+      'No es necesario hacer nada.',
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  const confirmacion = ui.alert(
+    '🚀 Activar Modo Producción',
+    '⚠️ ATENCIÓN\n\n' +
+    'Estás a punto de DESACTIVAR el modo de prueba.\n\n' +
+    'Después de esto:\n' +
+    '✅ Las alertas de protocolo de suicidio se enviarán a:\n' +
+    '   • Todos los terapeutas (Gerber, Melissa, Diana, Karina)\n' +
+    '   • Director/a\n\n' +
+    '❌ YA NO se enviarán solo a tu correo de prueba\n\n' +
+    '¿Estás seguro de continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmacion !== ui.Button.YES) {
+    return;
+  }
+
+  // Eliminar propiedades de modo de prueba
+  props.deleteProperty('MODO_PRUEBA_BIENESTAR');
+  props.deleteProperty('EMAIL_PRUEBA_BIENESTAR');
+
+  ui.alert(
+    '✅ Modo Producción Activado',
+    '🚀 MODO PRODUCCIÓN ACTIVADO\n\n' +
+    'Ahora las alertas se enviarán a:\n' +
+    '• Todos los terapeutas configurados\n' +
+    '• Director/a\n\n' +
+    '💡 Si necesitas volver al modo de prueba,\n' +
+    'usa la opción "Configurar Correo de Prueba"',
+    ui.ButtonSet.OK
+  );
+
+  Logger.log('✅ Modo producción activado - alertas irán a todos los terapeutas');
+}
+
+/**
+ * Muestra el estado actual del sistema de correos
+ */
+function verEstadoCorreosBienestar() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+
+  const modoPrueba = props.getProperty('MODO_PRUEBA_BIENESTAR') === 'true';
+  const emailPrueba = props.getProperty('EMAIL_PRUEBA_BIENESTAR');
+
+  let mensaje = '';
+  let titulo = '';
+
+  if (modoPrueba && emailPrueba) {
+    titulo = '🧪 Modo de Prueba ACTIVO';
+    mensaje =
+      '🧪 MODO DE PRUEBA\n\n' +
+      'Estado: ACTIVO ✅\n' +
+      'Correo de prueba: ' + emailPrueba + '\n\n' +
+      'Las alertas de protocolo de suicidio se están enviando\n' +
+      'SOLO a este correo (no a los terapeutas).\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      '💡 Para enviar alertas a todos los terapeutas:\n' +
+      '   🏥 Bienestar → 🚀 Activar Modo Producción';
+  } else {
+    titulo = '🚀 Modo Producción ACTIVO';
+    mensaje =
+      '🚀 MODO PRODUCCIÓN\n\n' +
+      'Estado: ACTIVO ✅\n\n' +
+      'Las alertas de protocolo de suicidio se envían a:\n' +
+      '• Gerber\n' +
+      '• Melissa\n' +
+      '• Diana\n' +
+      '• Karina\n' +
+      '• Director/a\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      '💡 Para hacer pruebas sin molestar a los terapeutas:\n' +
+      '   🏥 Bienestar → 📧 Configurar Correo de Prueba';
+  }
+
+  ui.alert(titulo, mensaje, ui.ButtonSet.OK);
+
+  Logger.log('Estado actual: ' + (modoPrueba ? 'MODO PRUEBA' : 'MODO PRODUCCIÓN'));
 }
 
 function enviarEmailFinalizacion(participante, terapeuta, tipo, motivo, sesiones) {
