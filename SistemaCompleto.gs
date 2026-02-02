@@ -4895,101 +4895,190 @@ function enviarBienestarAListaEsperaFlexible(sheetOrigen, fila, headers) {
 function probarImportacionBienestar() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
-  
-  let diagnostico = '🔍 PRUEBA DE IMPORTACIÓN\n\n';
-  
+
+  let diagnostico = '🔍 DIAGNÓSTICO COMPLETO DE IMPORTACIÓN\n\n';
+
   try {
     const url = 'https://kf.kobotoolbox.org/api/v2/assets/aCxASXMEvmmwTfSM2ru4w9/export-settings/esreCzkfVcEd4Bw87so7ZwY/data.csv';
-    
-    diagnostico += '1️⃣ URL: ' + url.substring(0, 60) + '...\n\n';
-    
+
+    diagnostico += '1️⃣ URL del CSV:\n';
+    diagnostico += url + '\n\n';
+
     // Intentar descargar
-    diagnostico += '2️⃣ Descargando CSV...\n';
+    diagnostico += '2️⃣ Descargando CSV de KoboToolbox...\n';
     const response = UrlFetchApp.fetch(url, {
       muteHttpExceptions: true,
       followRedirects: true
     });
-    
+
     const codigo = response.getResponseCode();
-    diagnostico += '   Código HTTP: ' + codigo + '\n\n';
-    
-    if (codigo !== 200) {
-      diagnostico += '❌ ERROR: No se pudo descargar\n\n';
+    diagnostico += '   Código HTTP: ' + codigo;
+
+    if (codigo === 200) {
+      diagnostico += ' ✅ OK\n\n';
+    } else {
+      diagnostico += ' ❌ ERROR\n\n';
+      diagnostico += '❌ NO SE PUDO DESCARGAR EL CSV\n\n';
       diagnostico += 'Posibles causas:\n';
-      diagnostico += '• El CSV no es público\n';
-      diagnostico += '• La URL cambió\n';
+      diagnostico += '• El CSV no es público en KoboToolbox\n';
+      diagnostico += '• La URL cambió o expiró\n';
       diagnostico += '• Necesita autenticación\n\n';
       diagnostico += 'SOLUCIÓN:\n';
       diagnostico += '1. Ve a KoboToolbox\n';
-      diagnostico += '2. Abre tu formulario\n';
-      diagnostico += '3. Settings → Sharing\n';
-      diagnostico += '4. Habilita "Share data publicly"\n';
-      diagnostico += '5. Copia la nueva URL\n';
-      diagnostico += '6. Actualiza el código\n';
-      
-      ui.alert('Error al Descargar', diagnostico, ui.ButtonSet.OK);
+      diagnostico += '2. Abre tu formulario de Bienestar\n';
+      diagnostico += '3. Data → Downloads → CSV\n';
+      diagnostico += '4. Copia el enlace público\n';
+      diagnostico += '5. Reemplaza la URL en el código\n';
+
+      ui.alert('❌ Error al Descargar CSV', diagnostico, ui.ButtonSet.OK);
+      Logger.log(diagnostico);
       return;
     }
-    
+
     // Ver contenido
-    const csv = response.getContentText();
-    diagnostico += '3️⃣ CSV descargado: ' + csv.length + ' caracteres\n\n';
-    
-    if (!csv || csv.trim().length === 0) {
-      diagnostico += '❌ ERROR: El CSV está vacío\n';
-      ui.alert('CSV Vacío', diagnostico, ui.ButtonSet.OK);
+    const csvData = response.getContentText();
+    diagnostico += '3️⃣ CSV descargado exitosamente\n';
+    diagnostico += '   Tamaño: ' + csvData.length + ' caracteres\n\n';
+
+    if (!csvData || csvData.trim().length === 0) {
+      diagnostico += '❌ ERROR: El CSV está completamente vacío\n\n';
+      diagnostico += 'Esto significa que no hay datos en KoboToolbox.\n';
+      diagnostico += 'Asegúrate de haber llenado el formulario primero.';
+      ui.alert('❌ CSV Vacío', diagnostico, ui.ButtonSet.OK);
+      Logger.log(diagnostico);
       return;
     }
-    
-    // Parsear
-    diagnostico += '4️⃣ Parseando CSV...\n';
-    let filas;
-    try {
-      filas = Utilities.parseCsv(csv);
-      diagnostico += '   ✅ Parseado con parseCsv\n';
-    } catch (e) {
-      diagnostico += '   ⚠️ parseCsv falló, usando fallback\n';
-      filas = csv.split('\n').filter(l => l.trim().length > 0).map(l => l.split(','));
-    }
-    
-    diagnostico += '   Total filas: ' + filas.length + '\n\n';
-    
-    if (filas.length === 0) {
-      diagnostico += '❌ ERROR: No hay filas\n';
-      ui.alert('Sin Datos', diagnostico, ui.ButtonSet.OK);
-      return;
-    }
-    
-    // Mostrar encabezados
-    diagnostico += '5️⃣ Encabezados (primeras 5 columnas):\n';
-    const headers = filas[0];
-    for (let i = 0; i < Math.min(5, headers.length); i++) {
-      diagnostico += '   ' + (i+1) + '. ' + headers[i] + '\n';
-    }
-    diagnostico += '   ... (total: ' + headers.length + ' columnas)\n\n';
-    
-    // Mostrar primera fila de datos
-    if (filas.length > 1) {
-      diagnostico += '6️⃣ Primera fila de datos:\n';
-      const primeraFila = filas[1];
-      for (let i = 0; i < Math.min(3, primeraFila.length); i++) {
-        const valor = primeraFila[i] || '(vacío)';
-        diagnostico += '   ' + headers[i] + ': ' + valor.substring(0, 30) + '\n';
+
+    // Detectar delimitador
+    diagnostico += '4️⃣ Detectando delimitador...\n';
+    const primeraLinea = csvData.split('\n')[0] || '';
+    const numComas = (primeraLinea.match(/,/g) || []).length;
+    const numPuntosComa = (primeraLinea.match(/;/g) || []).length;
+    const delimitador = numPuntosComa > numComas ? ';' : ',';
+
+    diagnostico += '   Comas (,): ' + numComas + '\n';
+    diagnostico += '   Puntos y coma (;): ' + numPuntosComa + '\n';
+    diagnostico += '   Delimitador detectado: "' + delimitador + '" ✅\n\n';
+
+    // Parsear con el delimitador correcto
+    diagnostico += '5️⃣ Parseando CSV...\n';
+    const lineas = csvData.split('\n');
+    const filas = [];
+
+    for (let i = 0; i < lineas.length; i++) {
+      const linea = lineas[i].trim();
+      if (!linea) continue;
+      const columnas = linea.split(delimitador).map(c => c.trim().replace(/^"|"$/g, ''));
+      if (columnas.length > 0 && columnas.join('').trim()) {
+        filas.push(columnas);
       }
-      diagnostico += '\n';
-      diagnostico += '✅ TODO FUNCIONA CORRECTAMENTE\n\n';
-      diagnostico += 'El CSV se puede descargar y parsear.\n';
-      diagnostico += 'Total registros disponibles: ' + (filas.length - 1) + '\n';
-    } else {
-      diagnostico += '⚠️ El CSV solo tiene encabezados, no hay datos\n';
     }
-    
+
+    diagnostico += '   Líneas totales en CSV: ' + lineas.length + '\n';
+    diagnostico += '   Filas válidas parseadas: ' + filas.length + ' ✅\n\n';
+
+    if (filas.length === 0) {
+      diagnostico += '❌ ERROR: No se pudo parsear ninguna fila\n\n';
+      diagnostico += 'Primera línea del CSV:\n';
+      diagnostico += lineas[0].substring(0, 200) + '...\n';
+      ui.alert('❌ Error de Parseo', diagnostico, ui.ButtonSet.OK);
+      Logger.log(diagnostico);
+      return;
+    }
+
+    // Mostrar encabezados
+    diagnostico += '6️⃣ ENCABEZADOS ENCONTRADOS:\n';
+    const headers = filas[0];
+    diagnostico += '   Total de columnas: ' + headers.length + '\n\n';
+
+    for (let i = 0; i < headers.length; i++) {
+      diagnostico += '   [' + i + '] "' + headers[i] + '"\n';
+    }
+    diagnostico += '\n';
+
+    // Buscar columnas necesarias
+    diagnostico += '7️⃣ Buscando columnas necesarias...\n';
+    const colCreamosID = headers.findIndex(h => h && (h.toString() === 'Creamos ID' || h.toString().toLowerCase().includes('creamos')));
+    const colProtocoloSuicidio = headers.findIndex(h => h && h.toString().toLowerCase().includes('activar_protocolo_suicidio'));
+    const colApoyo = headers.findIndex(h => h && h.toString().toLowerCase().includes('apoyo emocional'));
+
+    diagnostico += '   Creamos ID: ';
+    if (colCreamosID >= 0) {
+      diagnostico += '✅ Encontrada en columna [' + colCreamosID + '] "' + headers[colCreamosID] + '"\n';
+    } else {
+      diagnostico += '❌ NO ENCONTRADA\n';
+    }
+
+    diagnostico += '   activar_protocolo_suicidio: ';
+    if (colProtocoloSuicidio >= 0) {
+      diagnostico += '✅ Encontrada en columna [' + colProtocoloSuicidio + '] "' + headers[colProtocoloSuicidio] + '"\n';
+    } else {
+      diagnostico += '❌ NO ENCONTRADA\n';
+    }
+
+    diagnostico += '   Apoyo Emocional: ';
+    if (colApoyo >= 0) {
+      diagnostico += '✅ Encontrada en columna [' + colApoyo + '] "' + headers[colApoyo] + '"\n';
+    } else {
+      diagnostico += '❌ NO ENCONTRADA\n';
+    }
+    diagnostico += '\n';
+
+    // Mostrar datos
+    if (filas.length > 1) {
+      diagnostico += '8️⃣ DATOS DISPONIBLES:\n';
+      diagnostico += '   Total de registros (sin contar headers): ' + (filas.length - 1) + '\n\n';
+
+      diagnostico += '   Primera fila de datos:\n';
+      const primeraFila = filas[1];
+
+      if (colCreamosID >= 0) {
+        diagnostico += '   • Creamos ID: "' + (primeraFila[colCreamosID] || '(vacío)') + '"\n';
+      }
+      if (colProtocoloSuicidio >= 0) {
+        diagnostico += '   • Protocolo Suicidio: "' + (primeraFila[colProtocoloSuicidio] || '(vacío)') + '"\n';
+      }
+      if (colApoyo >= 0) {
+        diagnostico += '   • Apoyo Emocional: "' + (primeraFila[colApoyo] || '(vacío)') + '"\n';
+      }
+
+      diagnostico += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+      if (colCreamosID >= 0 && colProtocoloSuicidio >= 0 && colApoyo >= 0) {
+        diagnostico += '✅ TODO ESTÁ CORRECTO\n\n';
+        diagnostico += 'El CSV se puede descargar, parsear y\n';
+        diagnostico += 'tiene todas las columnas necesarias.\n\n';
+        diagnostico += 'Si la importación no funciona, revisa:\n';
+        diagnostico += '• Que el trigger esté activado\n';
+        diagnostico += '• Los logs en Ver → Registros\n';
+      } else {
+        diagnostico += '❌ FALTAN COLUMNAS NECESARIAS\n\n';
+        diagnostico += 'Verifica que el formulario en KoboToolbox\n';
+        diagnostico += 'tenga estos campos exactos:\n';
+        diagnostico += '• Creamos ID\n';
+        diagnostico += '• activar_protocolo_suicidio\n';
+        diagnostico += '• ¿Te gustaría que nuestro equipo de Apoyo Emocional...?\n';
+      }
+    } else {
+      diagnostico += '8️⃣ DATOS: ❌ Solo hay encabezados\n\n';
+      diagnostico += 'El CSV no tiene datos, solo tiene la fila\n';
+      diagnostico += 'de encabezados.\n\n';
+      diagnostico += 'Esto significa que el formulario en KoboToolbox\n';
+      diagnostico += 'no tiene ninguna respuesta todavía.\n\n';
+      diagnostico += 'SOLUCIÓN:\n';
+      diagnostico += '1. Llena el formulario de Bienestar en KoboToolbox\n';
+      diagnostico += '2. Espera 1-2 minutos\n';
+      diagnostico += '3. Vuelve a intentar importar\n';
+    }
+
   } catch (error) {
-    diagnostico += '\n❌ ERROR GENERAL:\n';
+    diagnostico += '\n❌ ERROR INESPERADO:\n';
     diagnostico += error.message + '\n\n';
-    diagnostico += 'Stack:\n' + error.stack;
+    diagnostico += 'Error completo:\n' + error.toString();
+    Logger.log('Stack trace: ' + error.stack);
   }
-  
-  ui.alert('Diagnóstico de Importación', diagnostico, ui.ButtonSet.OK);
-  Logger.log(diagnostico);
+
+  ui.alert('🔍 Diagnóstico de Importación', diagnostico, ui.ButtonSet.OK);
+  Logger.log('\n' + diagnostico);
+}
 }
