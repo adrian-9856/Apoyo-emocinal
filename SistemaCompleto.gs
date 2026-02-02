@@ -3523,7 +3523,7 @@ function importarDatosAutomatico() {
     Logger.log('📋 Columnas CSV totales: ' + headersCSV.length);
     Logger.log('📋 Primeras 10 columnas: ' + JSON.stringify(headersCSV.slice(0, 10)));
 
-    // Buscar índices de las 4 columnas que necesitamos (búsqueda FLEXIBLE)
+    // Buscar índices de las 3 columnas que necesitamos (búsqueda FLEXIBLE)
     const colCreamosID = headersCSV.findIndex(h =>
       h && (
         h.toString() === 'Creamos ID' ||
@@ -3537,21 +3537,13 @@ function importarDatosAutomatico() {
     const colApoyo = headersCSV.findIndex(h =>
       h && h.toString().toLowerCase().includes('apoyo emocional')
     );
-    const colUuid = headersCSV.findIndex(h =>
-      h && (
-        h.toString() === '_uuid' ||
-        h.toString().toLowerCase().includes('uuid') ||
-        h.toString() === '_id'
-      )
-    );
 
     Logger.log('📍 Índice Creamos ID: ' + colCreamosID + (colCreamosID >= 0 ? ' (' + headersCSV[colCreamosID] + ')' : ''));
     Logger.log('📍 Índice Protocolo Suicidio: ' + colProtocoloSuicidio + (colProtocoloSuicidio >= 0 ? ' (' + headersCSV[colProtocoloSuicidio] + ')' : ''));
     Logger.log('📍 Índice Apoyo Emocional: ' + colApoyo + (colApoyo >= 0 ? ' (' + headersCSV[colApoyo] + ')' : ''));
-    Logger.log('📍 Índice UUID: ' + colUuid + (colUuid >= 0 ? ' (' + headersCSV[colUuid] + ')' : ''));
 
     // Verificar que encontramos las columnas necesarias
-    if (colCreamosID < 0 || colProtocoloSuicidio < 0 || colApoyo < 0 || colUuid < 0) {
+    if (colCreamosID < 0 || colProtocoloSuicidio < 0 || colApoyo < 0) {
       ss.toast('', '', 1);
 
       // Crear lista de TODAS las columnas disponibles (sin límite)
@@ -3572,8 +3564,7 @@ function importarDatosAutomatico() {
         'No se encontraron todas las columnas necesarias en el CSV:\n\n' +
         '• Creamos ID: ' + (colCreamosID >= 0 ? '✅ "' + headersCSV[colCreamosID] + '"' : '❌') + '\n' +
         '• activar_protocolo_suicidio: ' + (colProtocoloSuicidio >= 0 ? '✅ "' + headersCSV[colProtocoloSuicidio] + '"' : '❌') + '\n' +
-        '• Apoyo Emocional: ' + (colApoyo >= 0 ? '✅ "' + headersCSV[colApoyo] + '"' : '❌') + '\n' +
-        '• _uuid: ' + (colUuid >= 0 ? '✅ "' + headersCSV[colUuid] + '"' : '❌') + '\n\n' +
+        '• Apoyo Emocional: ' + (colApoyo >= 0 ? '✅ "' + headersCSV[colApoyo] + '"' : '❌') + '\n\n' +
         'Revisa el LOG (Ver → Registros) para ver\n' +
         'la lista completa de ' + headersCSV.length + ' columnas disponibles.',
         ui.ButtonSet.OK
@@ -3586,15 +3577,14 @@ function importarDatosAutomatico() {
     const esHojaNueva = ultimaFila === 0;
 
     if (esHojaNueva) {
-      // Crear encabezados CORTOS y LEGIBLES
+      // Crear encabezados CORTOS y LEGIBLES (solo 3 columnas)
       const encabezadosCortos = [
         'Creamos ID',
         'activar_protocolo_suicidio',
-        '¿Te gustaría que nuestro equipo de Apoyo Emocional se pusiera en contacto contigo para informarte sobre sus servicios?',
-        '_uuid'
+        '¿Te gustaría que nuestro equipo de Apoyo Emocional se pusiera en contacto contigo para informarte sobre sus servicios?'
       ];
 
-      sheet.getRange(1, 1, 1, 4).setValues([encabezadosCortos])
+      sheet.getRange(1, 1, 1, 3).setValues([encabezadosCortos])
         .setBackground('#d9534f')
         .setFontColor('white')
         .setFontWeight('bold')
@@ -3604,11 +3594,10 @@ function importarDatosAutomatico() {
       // Anchos de columna optimizados
       sheet.setColumnWidth(1, 150);  // Creamos ID
       sheet.setColumnWidth(2, 200);  // activar_protocolo_suicidio
-      sheet.setColumnWidth(3, 400);  // Apoyo Emocional
-      sheet.setColumnWidth(4, 300);  // _uuid
+      sheet.setColumnWidth(3, 500);  // Apoyo Emocional (más ancho)
 
       sheet.setFrozenRows(1);
-      Logger.log('✅ Encabezados creados (4 columnas filtradas)');
+      Logger.log('✅ Encabezados creados (3 columnas filtradas)');
     }
 
     let filasNuevas = 0;
@@ -3624,22 +3613,21 @@ function importarDatosAutomatico() {
         continue;
       }
 
-      // Extraer SOLO las 4 columnas necesarias
+      // Extraer SOLO las 3 columnas necesarias
       const creamosID = filaCompleta[colCreamosID] || '';
       const protocoloSuicidio = filaCompleta[colProtocoloSuicidio] || '';
       const apoyoEmocional = filaCompleta[colApoyo] || '';
-      const uuid = filaCompleta[colUuid] || '';
 
-      // Verificar duplicados por UUID
+      // Verificar duplicados por Creamos ID
       let existe = false;
-      if (uuid && uuid.toString().trim()) {
+      if (creamosID && creamosID.toString().trim()) {
         const datosActuales = sheet.getDataRange().getValues();
 
         for (let j = 1; j < datosActuales.length; j++) {
-          const uuidExistente = datosActuales[j][3]; // Columna D = _uuid
-          if (uuidExistente && uuidExistente.toString().trim() === uuid.toString().trim()) {
+          const creamosIDExistente = datosActuales[j][0]; // Columna A = Creamos ID
+          if (creamosIDExistente && creamosIDExistente.toString().trim() === creamosID.toString().trim()) {
             existe = true;
-            Logger.log('⚠️ Duplicado (UUID): ' + uuid.substring(0, 20) + '...');
+            Logger.log('⚠️ Duplicado (Creamos ID): ' + creamosID);
             break;
           }
         }
@@ -3647,15 +3635,15 @@ function importarDatosAutomatico() {
 
       if (existe) continue;
 
-      // Crear fila filtrada con solo 4 columnas
-      const filaFiltrada = [creamosID, protocoloSuicidio, apoyoEmocional, uuid];
+      // Crear fila filtrada con solo 3 columnas
+      const filaFiltrada = [creamosID, protocoloSuicidio, apoyoEmocional];
 
       // Agregar nueva fila
       const nuevaFila = sheet.getLastRow() + 1;
-      sheet.getRange(nuevaFila, 1, 1, 4).setValues([filaFiltrada]);
+      sheet.getRange(nuevaFila, 1, 1, 3).setValues([filaFiltrada]);
       filasNuevas++;
 
-      Logger.log('➕ Nueva fila ' + nuevaFila + ' | UUID: ' + uuid.substring(0, 20) + '...');
+      Logger.log('➕ Nueva fila ' + nuevaFila + ' | Creamos ID: ' + creamosID);
 
       // Verificar alerta de suicidio
       const protocoloValorNormalizado = protocoloSuicidio ? protocoloSuicidio.toString().toLowerCase().trim() : '';
@@ -3668,14 +3656,14 @@ function importarDatosAutomatico() {
         Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
         // Marcar fila con fondo rojo claro
-        sheet.getRange(nuevaFila, 1, 1, 4).setBackground('#ffcccc');
+        sheet.getRange(nuevaFila, 1, 1, 3).setBackground('#ffcccc');
 
-        // Verificar si ya se envió alerta para este UUID
+        // Verificar si ya se envió alerta para este Creamos ID
         const props = PropertiesService.getDocumentProperties();
-        const alertaEnviada = props.getProperty('ALERTA_ENVIADA_' + uuid);
+        const alertaEnviada = props.getProperty('ALERTA_ENVIADA_' + creamosID);
 
         if (alertaEnviada) {
-          Logger.log('⚠️ Alerta ya enviada anteriormente para UUID: ' + uuid.substring(0, 20) + '...');
+          Logger.log('⚠️ Alerta ya enviada anteriormente para Creamos ID: ' + creamosID);
           Logger.log('   Fecha envío anterior: ' + alertaEnviada);
         } else {
           try {
@@ -3684,10 +3672,10 @@ function importarDatosAutomatico() {
             alertasDetectadas++;
 
             // Marcar que ya se envió esta alerta
-            props.setProperty('ALERTA_ENVIADA_' + uuid, new Date().toLocaleString());
+            props.setProperty('ALERTA_ENVIADA_' + creamosID, new Date().toLocaleString());
 
             Logger.log('✅ Alerta enviada por correo electrónico');
-            Logger.log('✅ UUID marcado como alertado: ' + uuid.substring(0, 20) + '...');
+            Logger.log('✅ Creamos ID marcado como alertado: ' + creamosID);
           } catch (error) {
             Logger.log('❌ Error enviando alerta: ' + error.message);
             Logger.log('Stack: ' + error.stack);
@@ -3716,7 +3704,10 @@ function importarDatosAutomatico() {
       ui.alert(
         '✅ IMPORTACIÓN COMPLETADA',
         'Registros nuevos: ' + filasNuevas + '\n' +
-        'Columnas importadas: 4 (filtradas)\n' +
+        'Columnas importadas: 3\n' +
+        '  • Creamos ID\n' +
+        '  • activar_protocolo_suicidio\n' +
+        '  • Apoyo Emocional\n\n' +
         'Alertas de suicidio: ' + alertasDetectadas + '\n' +
         'Enviadas a Lista de Espera: ' + enviadasAListaEspera,
         ui.ButtonSet.OK
