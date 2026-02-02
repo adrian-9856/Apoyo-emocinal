@@ -915,9 +915,9 @@ function alEditar(e) {
     }
   }
 
-  // CASO 5: Formulario de Bienestar - Enviar a Lista de Espera (columna D = 4)
-  if (hoja === 'C_03_Formulario de Bienestar (2026)' && columna === 4) {
-    Logger.log('✅ Detectada edición en Bienestar, columna D (Enviar a Lista)');
+  // CASO 5: Formulario de Bienestar - Enviar a Lista de Espera (columna E = 5)
+  if (hoja === 'C_03_Formulario de Bienestar (2026)' && columna === 5) {
+    Logger.log('✅ Detectada edición en Bienestar, columna E (Enviar a Lista)');
     Logger.log('   Valor ingresado: "' + val + '"');
 
     if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
@@ -929,7 +929,7 @@ function alEditar(e) {
         Logger.log('✅ enviarBienestarAListaEspera completado');
 
         // Marcar la fila con color verde para indicar que fue enviada
-        sheet.getRange(fila, 1, 1, 4).setBackground('#d4edda');
+        sheet.getRange(fila, 1, 1, 5).setBackground('#d4edda');
         Logger.log('✅ Fila marcada en verde (enviada)');
 
         actualizarReportes();
@@ -3698,15 +3698,16 @@ function importarDatosAutomatico() {
     const esHojaNueva = ultimaFila === 0;
 
     if (esHojaNueva) {
-      // Crear encabezados con columna de envío manual (4 columnas)
+      // Crear encabezados con columna Nota + dropdown (5 columnas)
       const encabezadosCortos = [
         'Creamos ID',
         'activar_protocolo_suicidio',
         '¿Te gustaría que nuestro equipo de Apoyo Emocional se pusiera en contacto contigo para informarte sobre sus servicios?',
+        'Nota',
         'Enviar a Lista de Espera'
       ];
 
-      sheet.getRange(1, 1, 1, 4).setValues([encabezadosCortos])
+      sheet.getRange(1, 1, 1, 5).setValues([encabezadosCortos])
         .setBackground('#d9534f')
         .setFontColor('white')
         .setFontWeight('bold')
@@ -3716,19 +3717,20 @@ function importarDatosAutomatico() {
       // Anchos de columna optimizados
       sheet.setColumnWidth(1, 150);  // Creamos ID
       sheet.setColumnWidth(2, 200);  // activar_protocolo_suicidio
-      sheet.setColumnWidth(3, 400);  // Apoyo Emocional
-      sheet.setColumnWidth(4, 180);  // Enviar a Lista de Espera
+      sheet.setColumnWidth(3, 300);  // Apoyo Emocional
+      sheet.setColumnWidth(4, 250);  // Nota
+      sheet.setColumnWidth(5, 180);  // Enviar a Lista de Espera
 
       sheet.setFrozenRows(1);
 
-      // Configurar validación de dropdown para columna D (Enviar a Lista)
+      // Configurar validación de dropdown para columna E (Enviar a Lista)
       const validacionEnvio = SpreadsheetApp.newDataValidation()
         .requireValueInList(['Sí', 'No'], true)
         .setAllowInvalid(false)
         .build();
-      sheet.getRange('D2:D1000').setDataValidation(validacionEnvio);
+      sheet.getRange('E2:E1000').setDataValidation(validacionEnvio);
 
-      Logger.log('✅ Encabezados creados (4 columnas: 3 datos + 1 dropdown)');
+      Logger.log('✅ Encabezados creados (5 columnas: 3 datos + Nota + dropdown)');
     }
 
     let filasNuevas = 0;
@@ -3779,14 +3781,14 @@ function importarDatosAutomatico() {
         continue;
       }
 
-      // Crear fila con 4 columnas (3 datos + 1 dropdown vacío)
-      const filaFiltrada = [creamosID, protocoloSuicidio, apoyoEmocional, ''];
+      // Crear fila con 5 columnas (3 datos + Nota vacía + dropdown vacío)
+      const filaFiltrada = [creamosID, protocoloSuicidio, apoyoEmocional, '', ''];
 
       Logger.log('   Array a escribir: ' + JSON.stringify(filaFiltrada));
 
       // Agregar nueva fila
       const nuevaFila = sheet.getLastRow() + 1;
-      sheet.getRange(nuevaFila, 1, 1, 4).setValues([filaFiltrada]);
+      sheet.getRange(nuevaFila, 1, 1, 5).setValues([filaFiltrada]);
       filasNuevas++;
 
       Logger.log('✅ Fila ' + nuevaFila + ' escrita exitosamente');
@@ -3803,7 +3805,7 @@ function importarDatosAutomatico() {
         Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
         // Marcar fila con fondo rojo claro
-        sheet.getRange(nuevaFila, 1, 1, 4).setBackground('#ffcccc');
+        sheet.getRange(nuevaFila, 1, 1, 5).setBackground('#ffcccc');
 
         // Verificar si ya se envió alerta para este Creamos ID
         const props = PropertiesService.getDocumentProperties();
@@ -3834,14 +3836,27 @@ function importarDatosAutomatico() {
 
       // Enviar a Lista de Espera si quiere apoyo emocional
       const quiereApoyo = apoyoEmocional ? apoyoEmocional.toString().toLowerCase().trim() : '';
+      Logger.log('🔍 Apoyo Emocional: "' + apoyoEmocional + '" (normalizado: "' + quiereApoyo + '")');
+
       if (quiereApoyo === 'sí' || quiereApoyo === 'si' || quiereApoyo === 'yes') {
+        Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        Logger.log('📤 ENVIANDO AUTOMÁTICAMENTE A LISTA DE ESPERA');
+        Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
         try {
-          enviarBienestarAListaEsperaFlexible(sheet, nuevaFila, headersCSV);
+          // Obtener headers de la hoja de Bienestar (no del CSV)
+          const headersBienestar = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+          enviarBienestarAListaEsperaFlexible(sheet, nuevaFila, headersBienestar);
           enviadasAListaEspera++;
-          Logger.log('✅ Enviado a Lista de Espera');
+          Logger.log('✅ Enviado automáticamente a Lista de Espera');
+          Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         } catch (error) {
-          Logger.log('⚠️ Error enviando a lista: ' + error.message);
+          Logger.log('❌ Error enviando a lista: ' + error.message);
+          Logger.log('Stack: ' + error.stack);
+          Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         }
+      } else if (apoyoEmocional) {
+        Logger.log('ℹ️ NO quiere apoyo emocional (valor: "' + quiereApoyo + '")');
       }
     }
 
@@ -3851,12 +3866,14 @@ function importarDatosAutomatico() {
       ui.alert(
         '✅ IMPORTACIÓN COMPLETADA',
         'Registros nuevos: ' + filasNuevas + '\n' +
-        'Columnas importadas: 3\n' +
+        'Columnas importadas: 5\n' +
         '  • Creamos ID\n' +
         '  • activar_protocolo_suicidio\n' +
-        '  • Apoyo Emocional\n\n' +
+        '  • Apoyo Emocional\n' +
+        '  • Nota (editable)\n' +
+        '  • Enviar a Lista (dropdown)\n\n' +
         'Alertas de suicidio: ' + alertasDetectadas + '\n' +
-        'Enviadas a Lista de Espera: ' + enviadasAListaEspera,
+        'Enviadas automáticamente a Lista de Espera: ' + enviadasAListaEspera,
         ui.ButtonSet.OK
       );
     } else {
@@ -4308,46 +4325,55 @@ function enviarBienestarAListaEsperaFlexible(sheetOrigen, fila, headers) {
     const datos = sheetOrigen.getRange(fila, 1, 1, numColumnas).getValues()[0];
 
     // Buscar columnas importantes
-    const colCompletadoPor = headers.findIndex(h => 
-      h && h.toString().toLowerCase().includes('completado')
-    );
     const colCreamosID = headers.findIndex(h =>
-      h && (h.toString().toLowerCase().includes('creamos') || h.toString().toLowerCase().includes('id'))
+      h && (h.toString().toLowerCase().includes('creamos') || h.toString() === 'Creamos ID')
     );
-    const colMolestando = headers.findIndex(h =>
-      h && h.toString().toLowerCase().includes('molestando')
+    const colApoyo = headers.findIndex(h =>
+      h && h.toString().toLowerCase().includes('apoyo emocional')
     );
-    const colPreocupacion = headers.findIndex(h =>
-      h && h.toString().toLowerCase().includes('preocupación')
+    const colNota = headers.findIndex(h =>
+      h && h.toString().toLowerCase() === 'nota'
     );
+
+    Logger.log('📍 Índice Creamos ID: ' + colCreamosID);
+    Logger.log('📍 Índice Apoyo Emocional: ' + colApoyo);
+    Logger.log('📍 Índice Nota: ' + colNota);
 
     // Extraer datos usando los índices encontrados
-    const nombre = colCompletadoPor >= 0 ? datos[colCompletadoPor] : '';
     const creamosId = colCreamosID >= 0 ? datos[colCreamosID] : '';
-    const molestando = colMolestando >= 0 ? datos[colMolestando] : '';
-    const preocupacion = colPreocupacion >= 0 ? datos[colPreocupacion] : '';
+    const apoyoEmocional = colApoyo >= 0 ? datos[colApoyo] : '';
+    const nota = colNota >= 0 ? datos[colNota] : '';
 
-    // Validar que tenga nombre
+    Logger.log('   Creamos ID: "' + creamosId + '"');
+    Logger.log('   Apoyo Emocional: "' + apoyoEmocional + '"');
+    Logger.log('   Nota: "' + nota + '"');
+
+    // Usar Creamos ID como nombre si no hay otro
+    const nombre = creamosId;
+
+    // Validar que tenga Creamos ID
     if (!nombre || nombre.toString().trim() === '') {
-      Logger.log('⚠️ No se puede enviar: falta nombre');
+      Logger.log('⚠️ No se puede enviar: falta Creamos ID');
+      ss.toast('⚠️ No se puede enviar: falta Creamos ID', 'Error', 3);
       return;
     }
 
-    // Verificar duplicados
+    // Verificar duplicados en Lista de Espera por Creamos ID (columna D)
     const datosEspera = espera.getDataRange().getValues();
     for (let i = 1; i < datosEspera.length; i++) {
-      const nombreExistente = datosEspera[i][2]; // Columna C = Nombre
-      if (nombreExistente && nombreExistente.toString().trim() === nombre.toString().trim()) {
-        Logger.log('⚠️ Duplicado: ' + nombre);
+      const creamosIDExistente = datosEspera[i][3]; // Columna D = Creamos ID
+      if (creamosIDExistente && creamosIDExistente.toString().trim() === creamosId.toString().trim()) {
+        Logger.log('⚠️ Duplicado en Lista de Espera: ' + creamosId);
+        ss.toast('⚠️ Ya existe en Lista de Espera: ' + creamosId, 'Duplicado', 3);
         return;
       }
     }
 
-    // Construir malestar principal
-    let malestarPrincipal = '';
-    if (preocupacion) malestarPrincipal = preocupacion.toString();
-    if (molestando) malestarPrincipal += (malestarPrincipal ? ' | ' : '') + molestando.toString();
-    if (!malestarPrincipal) malestarPrincipal = 'Desde Formulario de Bienestar';
+    // Construir malestar principal usando la Nota
+    let malestarPrincipal = 'Desde Formulario de Bienestar';
+    if (nota && nota.toString().trim()) {
+      malestarPrincipal = nota.toString().trim();
+    }
 
     // Buscar primera fila vacía
     const primeraFilaVacia = espera.getLastRow() + 1;
