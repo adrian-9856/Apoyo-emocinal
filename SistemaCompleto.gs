@@ -3554,22 +3554,28 @@ function importarDatosAutomatico() {
     if (colCreamosID < 0 || colProtocoloSuicidio < 0 || colApoyo < 0 || colUuid < 0) {
       ss.toast('', '', 1);
 
-      // Crear lista de TODAS las columnas disponibles
-      let columnasDisponibles = '\n\nCOLUMNAS DISPONIBLES EN EL CSV:\n';
-      for (let i = 0; i < Math.min(headersCSV.length, 20); i++) {
-        columnasDisponibles += (i + 1) + '. ' + headersCSV[i] + '\n';
+      // Crear lista de TODAS las columnas disponibles (sin límite)
+      let columnasDisponibles = '\n\nCOLUMNAS DISPONIBLES EN EL CSV (' + headersCSV.length + ' total):\n';
+      for (let i = 0; i < headersCSV.length; i++) {
+        columnasDisponibles += (i + 1) + '. "' + headersCSV[i] + '"\n';
       }
-      if (headersCSV.length > 20) {
-        columnasDisponibles += '... y ' + (headersCSV.length - 20) + ' más';
-      }
+
+      // Mostrar en el log también
+      Logger.log('═══════════════════════════════════════');
+      Logger.log('DIAGNÓSTICO: Columnas no encontradas');
+      Logger.log('═══════════════════════════════════════');
+      Logger.log(columnasDisponibles);
+      Logger.log('═══════════════════════════════════════');
 
       ui.alert(
         '❌ Error: Columnas no encontradas',
         'No se encontraron todas las columnas necesarias en el CSV:\n\n' +
-        '• Creamos ID: ' + (colCreamosID >= 0 ? '✅' : '❌') + '\n' +
-        '• activar_protocolo_suicidio: ' + (colProtocoloSuicidio >= 0 ? '✅' : '❌') + '\n' +
-        '• Apoyo Emocional: ' + (colApoyo >= 0 ? '✅' : '❌') + '\n' +
-        '• _uuid: ' + (colUuid >= 0 ? '✅' : '❌') + columnasDisponibles,
+        '• Creamos ID: ' + (colCreamosID >= 0 ? '✅ "' + headersCSV[colCreamosID] + '"' : '❌') + '\n' +
+        '• activar_protocolo_suicidio: ' + (colProtocoloSuicidio >= 0 ? '✅ "' + headersCSV[colProtocoloSuicidio] + '"' : '❌') + '\n' +
+        '• Apoyo Emocional: ' + (colApoyo >= 0 ? '✅ "' + headersCSV[colApoyo] + '"' : '❌') + '\n' +
+        '• _uuid: ' + (colUuid >= 0 ? '✅ "' + headersCSV[colUuid] + '"' : '❌') + '\n\n' +
+        'Revisa el LOG (Ver → Registros) para ver\n' +
+        'la lista completa de ' + headersCSV.length + ' columnas disponibles.',
         ui.ButtonSet.OK
       );
       return;
