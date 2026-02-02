@@ -4304,56 +4304,166 @@ function enviarAlertaSuicidio(registro, headers) {
       return false;
     }
 
-    // Construir el cuerpo del email con TODA la información
-    let cuerpo =
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-      '🆘 ALERTA URGENTE - PROTOCOLO DE SUICIDIO\n' +
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
-      '⚠️ Se ha activado el protocolo de suicidio en el\n' +
-      '   Formulario de Bienestar.\n\n' +
-      '⏰ Fecha/Hora: ' + new Date().toLocaleString() + '\n\n' +
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-      '📋 INFORMACIÓN DEL PARTICIPANTE\n' +
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    // Buscar datos importantes del registro
+    let creamosID = '';
+    let nombre = '';
+    let telefono = '';
+    let emailParticipante = '';
 
-    // Agregar TODOS los datos del formulario
     for (let i = 0; i < headers.length; i++) {
-      const campo = headers[i].toString();
-      const valor = registro[i] || '(vacío)';
+      const campo = headers[i].toString().toLowerCase();
+      const valor = registro[i] || '';
 
-      // Formatear mejor los campos importantes
-      if (campo.toLowerCase().includes('nombre')) {
-        cuerpo += '👤 ' + campo + ': ' + valor + '\n';
-      } else if (campo.toLowerCase().includes('telefono') || campo.toLowerCase().includes('phone')) {
-        cuerpo += '📞 ' + campo + ': ' + valor + '\n';
-      } else if (campo.toLowerCase().includes('email') || campo.toLowerCase().includes('correo')) {
-        cuerpo += '📧 ' + campo + ': ' + valor + '\n';
-      } else if (campo.toLowerCase().includes('suicidio') || campo.toLowerCase().includes('riesgo')) {
-        cuerpo += '🆘 ' + campo + ': ' + valor + '\n';
-      } else {
-        cuerpo += '   ' + campo + ': ' + valor + '\n';
+      if (campo.includes('creamos') && campo.includes('id')) {
+        creamosID = valor;
+      } else if (campo.includes('nombre') && !campo.includes('apellido')) {
+        nombre = valor;
+      } else if (campo.includes('telefono') || campo.includes('phone')) {
+        telefono = valor;
+      } else if (campo.includes('email') || campo.includes('correo')) {
+        emailParticipante = valor;
       }
     }
 
-    cuerpo += '\n' +
+    const fechaHora = new Date().toLocaleString('es-MX', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    // Construir HTML profesional y urgente
+    const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f5f5; }
+    .container { max-width: 600px; margin: 20px auto; background-color: white; }
+    .header { background-color: #d32f2f; color: white; padding: 30px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; font-weight: bold; }
+    .header p { margin: 10px 0 0 0; font-size: 16px; }
+    .alert-icon { font-size: 48px; margin-bottom: 10px; }
+    .content { padding: 30px 20px; }
+    .info-box { background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
+    .info-box h3 { margin: 0 0 10px 0; color: #856404; font-size: 16px; }
+    .data-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    .data-table td { padding: 10px; border-bottom: 1px solid #e0e0e0; }
+    .data-table td:first-child { font-weight: bold; color: #666; width: 40%; }
+    .action-box { background-color: #ffebee; border: 2px solid #d32f2f; padding: 20px; margin: 20px 0; border-radius: 5px; }
+    .action-box h3 { margin: 0 0 15px 0; color: #c62828; font-size: 18px; }
+    .action-box ol { margin: 10px 0; padding-left: 20px; }
+    .action-box li { margin: 8px 0; color: #c62828; font-weight: 500; }
+    .footer { background-color: #f5f5f5; padding: 20px; text-align: center; font-size: 12px; color: #666; }
+    .button { display: inline-block; background-color: #d32f2f; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 15px 0; }
+    .timestamp { background-color: #e3f2fd; padding: 10px; border-radius: 5px; text-align: center; margin: 15px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="alert-icon">🆘</div>
+      <h1>ALERTA URGENTE</h1>
+      <p>PROTOCOLO DE SUICIDIO ACTIVADO</p>
+    </div>
+
+    <div class="content">
+      <div class="timestamp">
+        <strong>⏰ Fecha y Hora:</strong> ${fechaHora}
+      </div>
+
+      <div class="info-box">
+        <h3>⚠️ ATENCIÓN INMEDIATA REQUERIDA</h3>
+        <p>Se ha activado el protocolo de suicidio en el Formulario de Bienestar. Este caso requiere intervención inmediata del equipo de terapeutas.</p>
+      </div>
+
+      <h3 style="color: #d32f2f; border-bottom: 2px solid #d32f2f; padding-bottom: 10px;">📋 INFORMACIÓN DEL PARTICIPANTE</h3>
+
+      <table class="data-table">
+        ${creamosID ? `<tr><td>🆔 Creamos ID</td><td><strong>${creamosID}</strong></td></tr>` : ''}
+        ${nombre ? `<tr><td>👤 Nombre</td><td><strong>${nombre}</strong></td></tr>` : ''}
+        ${telefono ? `<tr><td>📞 Teléfono</td><td><strong>${telefono}</strong></td></tr>` : ''}
+        ${emailParticipante ? `<tr><td>📧 Email</td><td><strong>${emailParticipante}</strong></td></tr>` : ''}
+        <tr><td>🆘 Protocolo Suicidio</td><td><strong style="color: #d32f2f;">SÍ - ACTIVADO</strong></td></tr>
+      </table>
+
+      <div class="action-box">
+        <h3>⚠️ PROTOCOLO DE ACCIÓN INMEDIATA</h3>
+        <ol>
+          <li>Contactar al participante INMEDIATAMENTE</li>
+          <li>Evaluar el nivel de riesgo actual</li>
+          <li>Activar protocolo de intervención en crisis</li>
+          <li>Documentar todas las acciones tomadas en el sistema</li>
+          <li>Notificar al coordinador del caso</li>
+        </ol>
+      </div>
+
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${ss.getUrl()}" class="button">📊 ABRIR GOOGLE SHEET</a>
+      </div>
+
+      <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin-top: 20px;">
+        <h4 style="margin: 0 0 10px 0; color: #666;">📄 Datos Completos del Formulario:</h4>
+        <table class="data-table" style="font-size: 12px;">
+          ${headers.map((h, i) => {
+            const valor = registro[i] || '(vacío)';
+            return `<tr><td>${h}</td><td>${valor}</td></tr>`;
+          }).join('')}
+        </table>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p><strong>Sistema de Apoyo Emocional</strong></p>
+      <p>Este es un correo automático generado por el sistema.</p>
+      <p>📊 ${ss.getName()}</p>
+      ${esPrueba ? '<p style="color: #ff9800; font-weight: bold;">🧪 MODO DE PRUEBA - Este correo es solo para pruebas</p>' : ''}
+    </div>
+  </div>
+</body>
+</html>
+`;
+
+    // Texto plano como fallback
+    let textoPlano =
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-      '⚠️ ACCIÓN REQUERIDA INMEDIATAMENTE\n' +
+      '🆘 ALERTA URGENTE - PROTOCOLO DE SUICIDIO\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      '⏰ Fecha/Hora: ' + fechaHora + '\n\n' +
+      '📋 INFORMACIÓN DEL PARTICIPANTE\n\n' +
+      (creamosID ? '🆔 Creamos ID: ' + creamosID + '\n' : '') +
+      (nombre ? '👤 Nombre: ' + nombre + '\n' : '') +
+      (telefono ? '📞 Teléfono: ' + telefono + '\n' : '') +
+      (emailParticipante ? '📧 Email: ' + emailParticipante + '\n' : '') +
+      '🆘 Protocolo Suicidio: SÍ - ACTIVADO\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+      '⚠️ PROTOCOLO DE ACCIÓN INMEDIATA\n' +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
       '1. Contactar al participante INMEDIATAMENTE\n' +
-      '2. Evaluar el nivel de riesgo\n' +
+      '2. Evaluar el nivel de riesgo actual\n' +
       '3. Activar protocolo de intervención en crisis\n' +
-      '4. Documentar todas las acciones tomadas\n\n' +
-      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
-      'Este es un email automático generado por el\n' +
-      'Sistema de Apoyo Emocional.\n\n' +
-      '🔗 Google Sheet: ' + ss.getName() + '\n' +
-      '🔗 URL: ' + ss.getUrl();
+      '4. Documentar todas las acciones tomadas\n' +
+      '5. Notificar al coordinador del caso\n\n' +
+      '📊 ABRIR GOOGLE SHEET:\n' +
+      ss.getUrl() + '\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+      'Sistema de Apoyo Emocional\n' +
+      (esPrueba ? '🧪 MODO DE PRUEBA\n' : '') +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
 
-    const asunto = '🆘 ALERTA URGENTE - Protocolo de Suicidio Activado';
+    const asunto = '🆘 ALERTA URGENTE - Protocolo de Suicidio Activado' + (creamosID ? ' - ' + creamosID : '');
 
-    // Enviar emails
+    // Enviar emails con HTML
     emailsTerapeutas.forEach(email => {
-      MailApp.sendEmail(email, asunto, cuerpo);
+      MailApp.sendEmail({
+        to: email,
+        subject: asunto,
+        body: textoPlano,
+        htmlBody: htmlBody
+      });
       Logger.log('✅ Email de alerta enviado a: ' + email);
     });
 
