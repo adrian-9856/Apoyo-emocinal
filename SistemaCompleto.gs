@@ -3479,57 +3479,47 @@ function importarDatosAutomatico() {
     }
 
     // Detectar delimitador automáticamente
-    let delimitador = ',';
     const primeraLinea = csvData.split('\n')[0] || '';
     const numComas = (primeraLinea.match(/,/g) || []).length;
     const numPuntosComa = (primeraLinea.match(/;/g) || []).length;
+    const delimitador = numPuntosComa > numComas ? ';' : ',';
 
-    if (numPuntosComa > numComas) {
-      delimitador = ';';
-      Logger.log('🔍 Delimitador detectado: punto y coma (;)');
-    } else {
-      Logger.log('🔍 Delimitador detectado: coma (,)');
+    Logger.log('🔍 Delimitador detectado: ' + (delimitador === ';' ? 'punto y coma (;)' : 'coma (,)'));
+    Logger.log('   Comas en primera línea: ' + numComas);
+    Logger.log('   Puntos y coma en primera línea: ' + numPuntosComa);
+
+    // Parser simple y robusto para CSV
+    const lineas = csvData.split('\n');
+    const filas = [];
+
+    for (let i = 0; i < lineas.length; i++) {
+      const linea = lineas[i].trim();
+
+      // Saltar líneas vacías
+      if (!linea) continue;
+
+      // Split simple por delimitador (asumiendo sin comillas complejas)
+      const columnas = linea.split(delimitador).map(c => c.trim().replace(/^"|"$/g, ''));
+
+      // Solo agregar si tiene datos
+      if (columnas.length > 0 && columnas.join('').trim()) {
+        filas.push(columnas);
+      }
     }
 
-    // Parsear CSV con manejo de errores
-    let filas;
-    try {
-      if (delimitador === ',') {
-        filas = Utilities.parseCsv(csvData);
-        Logger.log('📊 Filas parseadas con parseCsv: ' + filas.length);
-      } else {
-        throw new Error('Usar parser manual para punto y coma');
+    Logger.log('📊 Total filas parseadas: ' + filas.length);
+    if (filas.length > 0) {
+      Logger.log('📋 Primera fila (headers) tiene ' + filas[0].length + ' columnas');
+      Logger.log('📋 Primera columna: "' + filas[0][0] + '"');
+      Logger.log('📋 Segunda columna: "' + filas[0][1] + '"');
+      Logger.log('📋 Tercera columna: "' + filas[0][2] + '"');
+
+      if (filas.length > 1) {
+        Logger.log('📋 Segunda fila (primer dato) tiene ' + filas[1].length + ' columnas');
+        Logger.log('📋 Primer dato columna 1: "' + filas[1][0] + '"');
+        Logger.log('📋 Primer dato columna 2: "' + filas[1][1] + '"');
+        Logger.log('📋 Primer dato columna 3: "' + filas[1][2] + '"');
       }
-    } catch (parseError) {
-      Logger.log('⚠️ parseCsv falló o delimitador es ;: ' + parseError.message);
-      Logger.log('📝 Usando split manual con delimitador: ' + delimitador);
-
-      const lineas = csvData.split('\n').filter(l => l.trim().length > 0);
-      filas = lineas.map(linea => {
-        // Split por delimitador detectado, respetando comillas
-        const resultado = [];
-        let actual = '';
-        let dentroComillas = false;
-
-        for (let i = 0; i < linea.length; i++) {
-          const char = linea[i];
-
-          if (char === '"') {
-            dentroComillas = !dentroComillas;
-          } else if (char === delimitador && !dentroComillas) {
-            resultado.push(actual.trim());
-            actual = '';
-          } else {
-            actual += char;
-          }
-        }
-        resultado.push(actual.trim());
-
-        return resultado;
-      });
-
-      Logger.log('📊 Filas parseadas manualmente: ' + filas.length);
-      Logger.log('📋 Primera fila tiene ' + filas[0].length + ' columnas');
     }
 
     if (filas.length <= 1) {
@@ -3651,10 +3641,20 @@ function importarDatosAutomatico() {
         continue;
       }
 
+      // LOG: Mostrar lo que contiene filaCompleta
+      Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      Logger.log('📄 Procesando fila ' + i + ' del CSV');
+      Logger.log('   Columnas en esta fila: ' + filaCompleta.length);
+      Logger.log('   Contenido completo: ' + JSON.stringify(filaCompleta));
+
       // Extraer SOLO las 3 columnas necesarias
       const creamosID = filaCompleta[colCreamosID] || '';
       const protocoloSuicidio = filaCompleta[colProtocoloSuicidio] || '';
       const apoyoEmocional = filaCompleta[colApoyo] || '';
+
+      Logger.log('   Extraído -> Creamos ID: "' + creamosID + '"');
+      Logger.log('   Extraído -> Protocolo: "' + protocoloSuicidio + '"');
+      Logger.log('   Extraído -> Apoyo: "' + apoyoEmocional + '"');
 
       // Verificar duplicados por Creamos ID
       let existe = false;
@@ -3665,23 +3665,29 @@ function importarDatosAutomatico() {
           const creamosIDExistente = datosActuales[j][0]; // Columna A = Creamos ID
           if (creamosIDExistente && creamosIDExistente.toString().trim() === creamosID.toString().trim()) {
             existe = true;
-            Logger.log('⚠️ Duplicado (Creamos ID): ' + creamosID);
+            Logger.log('⚠️ DUPLICADO encontrado - saltando fila');
             break;
           }
         }
       }
 
-      if (existe) continue;
+      if (existe) {
+        Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        continue;
+      }
 
       // Crear fila con 4 columnas (3 datos + 1 dropdown vacío)
       const filaFiltrada = [creamosID, protocoloSuicidio, apoyoEmocional, ''];
+
+      Logger.log('   Array a escribir: ' + JSON.stringify(filaFiltrada));
 
       // Agregar nueva fila
       const nuevaFila = sheet.getLastRow() + 1;
       sheet.getRange(nuevaFila, 1, 1, 4).setValues([filaFiltrada]);
       filasNuevas++;
 
-      Logger.log('➕ Nueva fila ' + nuevaFila + ' | Creamos ID: ' + creamosID);
+      Logger.log('✅ Fila ' + nuevaFila + ' escrita exitosamente');
+      Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       // Verificar alerta de suicidio
       const protocoloValorNormalizado = protocoloSuicidio ? protocoloSuicidio.toString().toLowerCase().trim() : '';
