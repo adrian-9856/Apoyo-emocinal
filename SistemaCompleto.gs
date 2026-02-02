@@ -3521,10 +3521,15 @@ function importarDatosAutomatico() {
     const headersCSV = filas[0];
 
     Logger.log('📋 Columnas CSV totales: ' + headersCSV.length);
+    Logger.log('📋 Primeras 10 columnas: ' + JSON.stringify(headersCSV.slice(0, 10)));
 
-    // Buscar índices de las 4 columnas que necesitamos
+    // Buscar índices de las 4 columnas que necesitamos (búsqueda FLEXIBLE)
     const colCreamosID = headersCSV.findIndex(h =>
-      h && h.toString() === 'Creamos ID'
+      h && (
+        h.toString() === 'Creamos ID' ||
+        h.toString().toLowerCase().includes('creamos') ||
+        h.toString().toLowerCase() === 'id'
+      )
     );
     const colProtocoloSuicidio = headersCSV.findIndex(h =>
       h && h.toString().toLowerCase().includes('activar_protocolo_suicidio')
@@ -3533,24 +3538,38 @@ function importarDatosAutomatico() {
       h && h.toString().toLowerCase().includes('apoyo emocional')
     );
     const colUuid = headersCSV.findIndex(h =>
-      h && h.toString() === '_uuid'
+      h && (
+        h.toString() === '_uuid' ||
+        h.toString().toLowerCase().includes('uuid') ||
+        h.toString() === '_id'
+      )
     );
 
-    Logger.log('📍 Índice Creamos ID: ' + colCreamosID);
-    Logger.log('📍 Índice Protocolo Suicidio: ' + colProtocoloSuicidio);
-    Logger.log('📍 Índice Apoyo Emocional: ' + colApoyo);
-    Logger.log('📍 Índice UUID: ' + colUuid);
+    Logger.log('📍 Índice Creamos ID: ' + colCreamosID + (colCreamosID >= 0 ? ' (' + headersCSV[colCreamosID] + ')' : ''));
+    Logger.log('📍 Índice Protocolo Suicidio: ' + colProtocoloSuicidio + (colProtocoloSuicidio >= 0 ? ' (' + headersCSV[colProtocoloSuicidio] + ')' : ''));
+    Logger.log('📍 Índice Apoyo Emocional: ' + colApoyo + (colApoyo >= 0 ? ' (' + headersCSV[colApoyo] + ')' : ''));
+    Logger.log('📍 Índice UUID: ' + colUuid + (colUuid >= 0 ? ' (' + headersCSV[colUuid] + ')' : ''));
 
     // Verificar que encontramos las columnas necesarias
     if (colCreamosID < 0 || colProtocoloSuicidio < 0 || colApoyo < 0 || colUuid < 0) {
       ss.toast('', '', 1);
+
+      // Crear lista de TODAS las columnas disponibles
+      let columnasDisponibles = '\n\nCOLUMNAS DISPONIBLES EN EL CSV:\n';
+      for (let i = 0; i < Math.min(headersCSV.length, 20); i++) {
+        columnasDisponibles += (i + 1) + '. ' + headersCSV[i] + '\n';
+      }
+      if (headersCSV.length > 20) {
+        columnasDisponibles += '... y ' + (headersCSV.length - 20) + ' más';
+      }
+
       ui.alert(
         '❌ Error: Columnas no encontradas',
         'No se encontraron todas las columnas necesarias en el CSV:\n\n' +
         '• Creamos ID: ' + (colCreamosID >= 0 ? '✅' : '❌') + '\n' +
         '• activar_protocolo_suicidio: ' + (colProtocoloSuicidio >= 0 ? '✅' : '❌') + '\n' +
         '• Apoyo Emocional: ' + (colApoyo >= 0 ? '✅' : '❌') + '\n' +
-        '• _uuid: ' + (colUuid >= 0 ? '✅' : '❌'),
+        '• _uuid: ' + (colUuid >= 0 ? '✅' : '❌') + columnasDisponibles,
         ui.ButtonSet.OK
       );
       return;
