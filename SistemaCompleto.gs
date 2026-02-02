@@ -34,6 +34,7 @@ function onOpen() {
       .addItem('🔍 Probar Importación (Diagnóstico)', 'probarImportacionBienestar')
       .addItem('⚡ Importar Datos Ahora', 'importarDatosAutomatico')
       .addItem('⏰ Activar Importación Rápida (cada 1 min)', 'instalarImportacionAutomatica')
+      .addItem('🔍 Ver Triggers Activos', 'verTriggersActivos')
       .addSeparator()
       .addItem('🗑️ Limpiar Hoja de Bienestar', 'limpiarHojaBienestar');
 
@@ -4361,6 +4362,92 @@ function verificarAlertasRapido() {
     ss.toast('', '', 1);
     Logger.log('Error en verificarAlertasRapido: ' + error.message);
     ui.alert('❌ Error', 'Error al verificar alertas:\n\n' + error.message, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Muestra todos los triggers activos del proyecto
+ */
+function verTriggersActivos() {
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+
+    let mensaje = '⏰ TRIGGERS ACTIVOS\n\n';
+
+    if (triggers.length === 0) {
+      mensaje += '❌ NO HAY TRIGGERS INSTALADOS\n\n';
+      mensaje += 'Esto explica por qué no llegan datos automáticamente.\n\n';
+      mensaje += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+      mensaje += 'SOLUCIÓN:\n';
+      mensaje += '🏥 Bienestar → ⏰ Activar Importación Rápida\n\n';
+      mensaje += 'Esto instalará un trigger que importará\n';
+      mensaje += 'datos CADA 1 MINUTO automáticamente.';
+
+      ui.alert('❌ Sin Triggers Activos', mensaje, ui.ButtonSet.OK);
+      return;
+    }
+
+    mensaje += 'Total de triggers: ' + triggers.length + '\n\n';
+    mensaje += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+    let triggerBienestarEncontrado = false;
+
+    for (let i = 0; i < triggers.length; i++) {
+      const trigger = triggers[i];
+      const funcion = trigger.getHandlerFunction();
+      const tipo = trigger.getEventType();
+
+      mensaje += 'TRIGGER #' + (i + 1) + ':\n';
+      mensaje += '  Función: ' + funcion + '\n';
+      mensaje += '  Tipo: ' + tipo + '\n';
+
+      if (tipo === ScriptApp.EventType.CLOCK) {
+        mensaje += '  ⏰ Trigger de tiempo\n';
+
+        if (funcion === 'importarDatosAutomaticoSilencioso') {
+          mensaje += '  ✅ IMPORTACIÓN SILENCIOSA ACTIVA\n';
+          triggerBienestarEncontrado = true;
+        } else if (funcion === 'importarDatosAutomatico') {
+          mensaje += '  ⚠️ Importación antigua (con mensajes)\n';
+          mensaje += '  Recomendación: Reinstalar para versión silenciosa\n';
+          triggerBienestarEncontrado = true;
+        }
+      } else if (tipo === ScriptApp.EventType.ON_EDIT) {
+        mensaje += '  ✏️ Trigger de edición\n';
+      } else if (tipo === ScriptApp.EventType.ON_OPEN) {
+        mensaje += '  📂 Trigger de apertura\n';
+      }
+
+      mensaje += '\n';
+    }
+
+    mensaje += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+    if (triggerBienestarEncontrado) {
+      mensaje += '✅ TRIGGER DE IMPORTACIÓN: ACTIVO\n\n';
+      mensaje += 'El sistema está configurado correctamente.\n';
+      mensaje += 'Los datos deberían llegar automáticamente\n';
+      mensaje += 'cada 1 minuto.\n\n';
+      mensaje += '💡 Si no llegan datos:\n';
+      mensaje += '1. Verifica que hayas llenado el formulario\n';
+      mensaje += '2. Usa 🆘 VERIFICAR ALERTAS AHORA\n';
+      mensaje += '3. Revisa el LOG (Ver → Registros)';
+    } else {
+      mensaje += '❌ TRIGGER DE IMPORTACIÓN: NO ENCONTRADO\n\n';
+      mensaje += 'No hay trigger instalado para importar datos\n';
+      mensaje += 'de KoboToolbox automáticamente.\n\n';
+      mensaje += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+      mensaje += 'SOLUCIÓN:\n';
+      mensaje += '🏥 Bienestar → ⏰ Activar Importación Rápida\n\n';
+      mensaje += 'Esto instalará el trigger necesario.';
+    }
+
+    ui.alert('⏰ Triggers del Proyecto', mensaje, ui.ButtonSet.OK);
+
+  } catch (error) {
+    ui.alert('❌ Error', 'Error al obtener triggers:\n\n' + error.message, ui.ButtonSet.OK);
   }
 }
 
