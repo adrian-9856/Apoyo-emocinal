@@ -3510,41 +3510,15 @@ function importarDatosAutomatico() {
 
     // Obtener encabezados del CSV (primera fila)
     const headersCSV = filas[0];
-    const numColumnas = headersCSV.length;
 
-    Logger.log('📋 Columnas detectadas: ' + numColumnas);
-    Logger.log('📋 Encabezados: ' + JSON.stringify(headersCSV).substring(0, 200));
+    Logger.log('📋 Columnas CSV totales: ' + headersCSV.length);
 
-    // Verificar si la hoja está vacía
-    const ultimaFila = sheet.getLastRow();
-    const esHojaNueva = ultimaFila === 0;
-
-    if (esHojaNueva) {
-      // Escribir encabezados
-      sheet.getRange(1, 1, 1, numColumnas).setValues([headersCSV])
-        .setBackground('#d9534f')
-        .setFontColor('white')
-        .setFontWeight('bold')
-        .setHorizontalAlignment('center')
-        .setWrap(true);
-
-      for (let i = 1; i <= numColumnas; i++) {
-        sheet.setColumnWidth(i, 180);
-      }
-
-      sheet.setFrozenRows(1);
-      Logger.log('✅ Encabezados creados');
-    }
-
-    // Buscar índices de columnas importantes
-    const colCompletadoPor = headersCSV.findIndex(h =>
-      h && h.toString().toLowerCase().includes('completado')
+    // Buscar índices de las 4 columnas que necesitamos
+    const colCreamosID = headersCSV.findIndex(h =>
+      h && h.toString() === 'Creamos ID'
     );
     const colProtocoloSuicidio = headersCSV.findIndex(h =>
       h && h.toString().toLowerCase().includes('activar_protocolo_suicidio')
-    );
-    const colCreamosID = headersCSV.findIndex(h =>
-      h && (h.toString() === 'Creamos ID' || h.toString().toLowerCase().includes('creamos'))
     );
     const colApoyo = headersCSV.findIndex(h =>
       h && h.toString().toLowerCase().includes('apoyo emocional')
@@ -3553,11 +3527,55 @@ function importarDatosAutomatico() {
       h && h.toString() === '_uuid'
     );
 
-    Logger.log('📍 Índice Completado por: ' + colCompletadoPor);
-    Logger.log('📍 Índice Protocolo Suicidio: ' + colProtocoloSuicidio);
     Logger.log('📍 Índice Creamos ID: ' + colCreamosID);
+    Logger.log('📍 Índice Protocolo Suicidio: ' + colProtocoloSuicidio);
     Logger.log('📍 Índice Apoyo Emocional: ' + colApoyo);
     Logger.log('📍 Índice UUID: ' + colUuid);
+
+    // Verificar que encontramos las columnas necesarias
+    if (colCreamosID < 0 || colProtocoloSuicidio < 0 || colApoyo < 0 || colUuid < 0) {
+      ss.toast('', '', 1);
+      ui.alert(
+        '❌ Error: Columnas no encontradas',
+        'No se encontraron todas las columnas necesarias en el CSV:\n\n' +
+        '• Creamos ID: ' + (colCreamosID >= 0 ? '✅' : '❌') + '\n' +
+        '• activar_protocolo_suicidio: ' + (colProtocoloSuicidio >= 0 ? '✅' : '❌') + '\n' +
+        '• Apoyo Emocional: ' + (colApoyo >= 0 ? '✅' : '❌') + '\n' +
+        '• _uuid: ' + (colUuid >= 0 ? '✅' : '❌'),
+        ui.ButtonSet.OK
+      );
+      return;
+    }
+
+    // Verificar si la hoja está vacía
+    const ultimaFila = sheet.getLastRow();
+    const esHojaNueva = ultimaFila === 0;
+
+    if (esHojaNueva) {
+      // Crear encabezados CORTOS y LEGIBLES
+      const encabezadosCortos = [
+        'Creamos ID',
+        'activar_protocolo_suicidio',
+        '¿Te gustaría que nuestro equipo de Apoyo Emocional se pusiera en contacto contigo para informarte sobre sus servicios?',
+        '_uuid'
+      ];
+
+      sheet.getRange(1, 1, 1, 4).setValues([encabezadosCortos])
+        .setBackground('#d9534f')
+        .setFontColor('white')
+        .setFontWeight('bold')
+        .setHorizontalAlignment('center')
+        .setWrap(true);
+
+      // Anchos de columna optimizados
+      sheet.setColumnWidth(1, 150);  // Creamos ID
+      sheet.setColumnWidth(2, 200);  // activar_protocolo_suicidio
+      sheet.setColumnWidth(3, 400);  // Apoyo Emocional
+      sheet.setColumnWidth(4, 300);  // _uuid
+
+      sheet.setFrozenRows(1);
+      Logger.log('✅ Encabezados creados (4 columnas filtradas)');
+    }
 
     let filasNuevas = 0;
     let alertasDetectadas = 0;
@@ -3565,82 +3583,80 @@ function importarDatosAutomatico() {
 
     // Procesar cada fila del CSV
     for (let i = 1; i < filas.length; i++) {
-      const fila = filas[i];
+      const filaCompleta = filas[i];
 
       // Saltar filas vacías
-      if (!fila || fila.length === 0 || !fila.join('').trim()) {
+      if (!filaCompleta || filaCompleta.length === 0 || !filaCompleta.join('').trim()) {
         continue;
       }
 
-      // Ajustar número de columnas
-      while (fila.length < numColumnas) {
-        fila.push('');
-      }
+      // Extraer SOLO las 4 columnas necesarias
+      const creamosID = filaCompleta[colCreamosID] || '';
+      const protocoloSuicidio = filaCompleta[colProtocoloSuicidio] || '';
+      const apoyoEmocional = filaCompleta[colApoyo] || '';
+      const uuid = filaCompleta[colUuid] || '';
 
-      // Verificar duplicados
+      // Verificar duplicados por UUID
       let existe = false;
-      if (colCompletadoPor >= 0) {
-        const nombreNuevo = fila[colCompletadoPor];
-        if (nombreNuevo && nombreNuevo.toString().trim()) {
-          const datosActuales = sheet.getDataRange().getValues();
+      if (uuid && uuid.toString().trim()) {
+        const datosActuales = sheet.getDataRange().getValues();
 
-          for (let j = 1; j < datosActuales.length; j++) {
-            const nombreExistente = datosActuales[j][colCompletadoPor];
-            if (nombreExistente && nombreExistente.toString().trim() === nombreNuevo.toString().trim()) {
-              existe = true;
-              Logger.log('⚠️ Duplicado: ' + nombreNuevo);
-              break;
-            }
+        for (let j = 1; j < datosActuales.length; j++) {
+          const uuidExistente = datosActuales[j][3]; // Columna D = _uuid
+          if (uuidExistente && uuidExistente.toString().trim() === uuid.toString().trim()) {
+            existe = true;
+            Logger.log('⚠️ Duplicado (UUID): ' + uuid.substring(0, 20) + '...');
+            break;
           }
         }
       }
 
       if (existe) continue;
 
+      // Crear fila filtrada con solo 4 columnas
+      const filaFiltrada = [creamosID, protocoloSuicidio, apoyoEmocional, uuid];
+
       // Agregar nueva fila
       const nuevaFila = sheet.getLastRow() + 1;
-      sheet.getRange(nuevaFila, 1, 1, numColumnas).setValues([fila]);
+      sheet.getRange(nuevaFila, 1, 1, 4).setValues([filaFiltrada]);
       filasNuevas++;
 
-      Logger.log('➕ Nueva fila ' + nuevaFila);
+      Logger.log('➕ Nueva fila ' + nuevaFila + ' | UUID: ' + uuid.substring(0, 20) + '...');
 
       // Verificar alerta de suicidio
-      if (colProtocoloSuicidio >= 0) {
-        const protocoloValor = fila[colProtocoloSuicidio];
-        const valorNormalizado = protocoloValor ? protocoloValor.toString().toLowerCase().trim() : '';
+      const protocoloValorNormalizado = protocoloSuicidio ? protocoloSuicidio.toString().toLowerCase().trim() : '';
 
-        Logger.log('🔍 Valor protocolo suicidio: "' + protocoloValor + '" (normalizado: "' + valorNormalizado + '")');
+      Logger.log('🔍 Protocolo: "' + protocoloSuicidio + '" (normalizado: "' + protocoloValorNormalizado + '")');
 
-        if (valorNormalizado === 'sí' || valorNormalizado === 'si' || valorNormalizado === 'yes') {
-          Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-          Logger.log('🆘 ¡ALERTA DE PROTOCOLO DE SUICIDIO DETECTADA!');
-          Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      if (protocoloValorNormalizado === 'sí' || protocoloValorNormalizado === 'si' || protocoloValorNormalizado === 'yes') {
+        Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        Logger.log('🆘 ¡ALERTA DE PROTOCOLO DE SUICIDIO DETECTADA!');
+        Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-          // Marcar fila con fondo rojo claro
-          sheet.getRange(nuevaFila, 1, 1, numColumnas).setBackground('#ffcccc');
+        // Marcar fila con fondo rojo claro
+        sheet.getRange(nuevaFila, 1, 1, 4).setBackground('#ffcccc');
 
           try {
-            // Enviar alerta INMEDIATA por correo
-            enviarAlertaSuicidioFlexible(fila, headersCSV);
+            // Enviar alerta INMEDIATA por correo con los datos completos del CSV
+            enviarAlertaSuicidioFlexible(filaCompleta, headersCSV);
             alertasDetectadas++;
             Logger.log('✅ Alerta enviada por correo electrónico');
           } catch (error) {
             Logger.log('❌ Error enviando alerta: ' + error.message);
             Logger.log('Stack: ' + error.stack);
           }
-        } else if (colProtocoloSuicidio >= 0 && protocoloValor) {
-          Logger.log('ℹ️ Protocolo NO activado (valor: "' + valorNormalizado + '")');
+        } else if (protocoloSuicidio) {
+          Logger.log('ℹ️ Protocolo NO activado (valor: "' + protocoloValorNormalizado + '")');
         }
-      } else {
-        Logger.log('⚠️ No se encontró la columna activar_protocolo_suicidio en el CSV');
       }
 
-      // Enviar a Lista de Espera
-      if (colCompletadoPor >= 0) {
+      // Enviar a Lista de Espera si quiere apoyo emocional
+      const quiereApoyo = apoyoEmocional ? apoyoEmocional.toString().toLowerCase().trim() : '';
+      if (quiereApoyo === 'sí' || quiereApoyo === 'si' || quiereApoyo === 'yes') {
         try {
           enviarBienestarAListaEsperaFlexible(sheet, nuevaFila, headersCSV);
           enviadasAListaEspera++;
-          Logger.log('✅ Enviado a lista');
+          Logger.log('✅ Enviado a Lista de Espera');
         } catch (error) {
           Logger.log('⚠️ Error enviando a lista: ' + error.message);
         }
@@ -3653,9 +3669,9 @@ function importarDatosAutomatico() {
       ui.alert(
         '✅ IMPORTACIÓN COMPLETADA',
         'Registros nuevos: ' + filasNuevas + '\n' +
-        'Columnas: ' + numColumnas + '\n' +
-        'Alertas: ' + alertasDetectadas + '\n' +
-        'Enviadas a Lista: ' + enviadasAListaEspera,
+        'Columnas importadas: 4 (filtradas)\n' +
+        'Alertas de suicidio: ' + alertasDetectadas + '\n' +
+        'Enviadas a Lista de Espera: ' + enviadasAListaEspera,
         ui.ButtonSet.OK
       );
     } else {
