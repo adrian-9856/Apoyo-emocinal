@@ -913,15 +913,25 @@ function alEditar(e) {
     }
   }
 
-  // CASO 5: Formulario de Bienestar - Enviar a Lista de Espera (columna G = 7)
-  if (hoja === 'C_03_Formulario de Bienestar (2026)' && columna === 7) {
-    if (val === 'Sí, enviar') {
-      Logger.log('✅ Detectado envío a Lista de Espera desde Bienestar');
+  // CASO 5: Formulario de Bienestar - Enviar a Lista de Espera (columna D = 4)
+  if (hoja === 'C_03_Formulario de Bienestar (2026)' && columna === 4) {
+    Logger.log('✅ Detectada edición en Bienestar, columna D (Enviar a Lista)');
+    Logger.log('   Valor ingresado: "' + val + '"');
+
+    if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
+      Logger.log('✅ Usuario seleccionó "Sí" - Enviando a Lista de Espera');
       Logger.log('▶️ EJECUTANDO enviarBienestarAListaEspera...');
 
       try {
         enviarBienestarAListaEspera(sheet, fila);
         Logger.log('✅ enviarBienestarAListaEspera completado');
+
+        // Marcar la fila con color verde para indicar que fue enviada
+        sheet.getRange(fila, 1, 1, 4).setBackground('#d4edda');
+        Logger.log('✅ Fila marcada en verde (enviada)');
+
+        actualizarReportes();
+        Logger.log('✅ Reportes actualizados');
       } catch (error) {
         Logger.log('❌ ERROR en enviarBienestarAListaEspera: ' + error.toString());
       }
@@ -3577,14 +3587,15 @@ function importarDatosAutomatico() {
     const esHojaNueva = ultimaFila === 0;
 
     if (esHojaNueva) {
-      // Crear encabezados CORTOS y LEGIBLES (solo 3 columnas)
+      // Crear encabezados con columna de envío manual (4 columnas)
       const encabezadosCortos = [
         'Creamos ID',
         'activar_protocolo_suicidio',
-        '¿Te gustaría que nuestro equipo de Apoyo Emocional se pusiera en contacto contigo para informarte sobre sus servicios?'
+        '¿Te gustaría que nuestro equipo de Apoyo Emocional se pusiera en contacto contigo para informarte sobre sus servicios?',
+        'Enviar a Lista de Espera'
       ];
 
-      sheet.getRange(1, 1, 1, 3).setValues([encabezadosCortos])
+      sheet.getRange(1, 1, 1, 4).setValues([encabezadosCortos])
         .setBackground('#d9534f')
         .setFontColor('white')
         .setFontWeight('bold')
@@ -3594,10 +3605,19 @@ function importarDatosAutomatico() {
       // Anchos de columna optimizados
       sheet.setColumnWidth(1, 150);  // Creamos ID
       sheet.setColumnWidth(2, 200);  // activar_protocolo_suicidio
-      sheet.setColumnWidth(3, 500);  // Apoyo Emocional (más ancho)
+      sheet.setColumnWidth(3, 400);  // Apoyo Emocional
+      sheet.setColumnWidth(4, 180);  // Enviar a Lista de Espera
 
       sheet.setFrozenRows(1);
-      Logger.log('✅ Encabezados creados (3 columnas filtradas)');
+
+      // Configurar validación de dropdown para columna D (Enviar a Lista)
+      const validacionEnvio = SpreadsheetApp.newDataValidation()
+        .requireValueInList(['Sí', 'No'], true)
+        .setAllowInvalid(false)
+        .build();
+      sheet.getRange('D2:D1000').setDataValidation(validacionEnvio);
+
+      Logger.log('✅ Encabezados creados (4 columnas: 3 datos + 1 dropdown)');
     }
 
     let filasNuevas = 0;
@@ -3635,12 +3655,12 @@ function importarDatosAutomatico() {
 
       if (existe) continue;
 
-      // Crear fila filtrada con solo 3 columnas
-      const filaFiltrada = [creamosID, protocoloSuicidio, apoyoEmocional];
+      // Crear fila con 4 columnas (3 datos + 1 dropdown vacío)
+      const filaFiltrada = [creamosID, protocoloSuicidio, apoyoEmocional, ''];
 
       // Agregar nueva fila
       const nuevaFila = sheet.getLastRow() + 1;
-      sheet.getRange(nuevaFila, 1, 1, 3).setValues([filaFiltrada]);
+      sheet.getRange(nuevaFila, 1, 1, 4).setValues([filaFiltrada]);
       filasNuevas++;
 
       Logger.log('➕ Nueva fila ' + nuevaFila + ' | Creamos ID: ' + creamosID);
@@ -3656,7 +3676,7 @@ function importarDatosAutomatico() {
         Logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
         // Marcar fila con fondo rojo claro
-        sheet.getRange(nuevaFila, 1, 1, 3).setBackground('#ffcccc');
+        sheet.getRange(nuevaFila, 1, 1, 4).setBackground('#ffcccc');
 
         // Verificar si ya se envió alerta para este Creamos ID
         const props = PropertiesService.getDocumentProperties();
@@ -4123,8 +4143,24 @@ function enviarAlertaSuicidioFlexible(registro, headers) {
 }
 
 /**
+ * Wrapper simple para enviar desde Bienestar a Lista de Espera
+ * Usado por el trigger alEditar()
+ * @param {Sheet} sheetOrigen - La hoja de Bienestar
+ * @param {number} fila - El número de fila a enviar
+ */
+function enviarBienestarAListaEspera(sheetOrigen, fila) {
+  Logger.log('🔄 enviarBienestarAListaEspera iniciado para fila ' + fila);
+
+  // Obtener los headers de la hoja
+  const headers = sheetOrigen.getRange(1, 1, 1, sheetOrigen.getLastColumn()).getValues()[0];
+
+  // Llamar a la versión flexible con todos los parámetros
+  return enviarBienestarAListaEsperaFlexible(sheetOrigen, fila, headers);
+}
+
+/**
  * Versión flexible de enviarBienestarAListaEspera que detecta columnas dinámicamente
- * @param {Sheet} sheetOrigen - La hoja de Bienestar  
+ * @param {Sheet} sheetOrigen - La hoja de Bienestar
  * @param {number} fila - El número de fila a enviar
  * @param {Array} headers - Array con los nombres de las columnas
  */
