@@ -482,35 +482,40 @@ function crearReporte() {
     ['Total derivaciones institucionales', '=IFERROR(COUNTA(\'Lista de Espera\'!K:K)-1,0)', '', ''],
     ['', '', '', ''],
 
-    // SECCIÓN 4: CASOS ACTIVOS
+    // SECCIÓN 4: BIENESTAR (Formularios de KoboToolbox)
+    ['FORMULARIO DE BIENESTAR', 'Total', 'Alertas suicidio', ''],
+    ['Formularios recibidos', '=IFERROR(COUNTA(\'C_03_Formulario de Bienestar (2026)\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Sí")+COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Si"),0)', ''],
+    ['', '', '', ''],
+
+    // SECCIÓN 5: CASOS ACTIVOS
     ['CASOS ACTIVOS POR TERAPEUTA', 'Casos activos', 'Sesiones mes', ''],
     ['Gerber', '=IFERROR(COUNTIFS(Terapias!A:A,"Gerber",Terapias!G:G,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Gerber")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)', ''],
     ['Melissa', '=IFERROR(COUNTIFS(Terapias!A:A,"Melissa",Terapias!G:G,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Melissa")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)', ''],
     ['Diana', '=IFERROR(COUNTIFS(Terapias!A:A,"Diana",Terapias!G:G,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Diana")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)', ''],
     ['Karina', '=IFERROR(COUNTIFS(Terapias!A:A,"Karina",Terapias!G:G,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Karina")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)', ''],
-    ['TOTAL', '=IFERROR(SUM(B14:B17),0)', '=IFERROR(SUM(C14:C17),0)', ''],
+    ['TOTAL', '=IFERROR(SUM(B17:B20),0)', '=IFERROR(SUM(C17:C20),0)', ''],
     ['', '', '', ''],
 
-    // SECCIÓN 5: PROCESOS CULMINADOS
+    // SECCIÓN 6: PROCESOS CULMINADOS
     ['PROCESOS CULMINADOS', 'Total', 'Este mes', 'Promedio sesiones'],
-    ['Procesos terapeuticos completados', '=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF(B21>0,ROUND(AVERAGE(\'Procesos Culminados\'!E2:E500),1),0),0)'],
+    ['Procesos terapeuticos completados', '=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF(B24>0,ROUND(AVERAGE(\'Procesos Culminados\'!E2:E500),1),0),0)'],
     ['', '', '', ''],
 
-    // SECCIÓN 6: DESERCIONES
+    // SECCIÓN 7: DESERCIONES
     ['DESERCIONES', 'Total', 'Este mes', 'Tasa desercion'],
-    ['Participantes que desertaron', '=IFERROR(COUNTA(Deserciones!A:A)-1,0)', '=IFERROR(COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF((B21+B24)>0,ROUND(B24/(B21+B24)*100,1)&"%","0%"),"0%")'],
+    ['Participantes que desertaron', '=IFERROR(COUNTA(Deserciones!A:A)-1,0)', '=IFERROR(COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF((B24+B27)>0,ROUND(B27/(B24+B27)*100,1)&"%","0%"),"0%")'],
     ['', '', '', ''],
 
-    // SECCIÓN 7: INTERVENCION DE CASOS
+    // SECCIÓN 8: INTERVENCION DE CASOS
     ['INTERVENCION DE CASOS', 'Total', '', ''],
     ['Casos en intervencion', '=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)', '', ''],
     ['', '', '', ''],
 
-    // SECCIÓN 8: RESUMEN GENERAL
+    // SECCIÓN 9: RESUMEN GENERAL
     ['RESUMEN GENERAL', 'Valor', '', ''],
-    ['Total casos procesados', '=IFERROR(B21+B24+B27,0)', '', ''],
-    ['Tasa de exito', '=IFERROR(IF(B30>0,ROUND(B21/B30*100,1)&"%","0%"),"0%")', '', ''],
-    ['Casos activos totales', '=IFERROR(B18,0)', '', '']
+    ['Total casos procesados', '=IFERROR(B24+B27+B30,0)', '', ''],
+    ['Tasa de exito', '=IFERROR(IF(B33>0,ROUND(B24/B33*100,1)&"%","0%"),"0%")', '', ''],
+    ['Casos activos totales', '=IFERROR(B21,0)', '', '']
   ];
 
   // Escribir datos
@@ -537,7 +542,7 @@ function crearReporte() {
   sheet.setRowHeight(2, 30);
 
   // DISEÑO: Headers de secciones (columnas azul oscuro)
-  const headerRows = [4, 7, 10, 13, 20, 23, 26, 29];
+  const headerRows = [4, 7, 10, 13, 16, 23, 26, 29, 32];
   headerRows.forEach(row => {
     sheet.getRange('A' + row + ':D' + row)
       .setBackground('#1565c0')
@@ -550,7 +555,7 @@ function crearReporte() {
   });
 
   // DISEÑO: Filas totales (azul más claro, negrita)
-  const totalRows = [18, 30, 31, 32];
+  const totalRows = [21, 33, 34, 35];
   totalRows.forEach(row => {
     sheet.getRange('A' + row + ':D' + row)
       .setBackground('#bbdefb')
@@ -559,7 +564,7 @@ function crearReporte() {
   });
 
   // DISEÑO: Filas de datos normales (fondo blanco alternado)
-  const dataRows = [5, 8, 11, 14, 15, 16, 17, 21, 24, 27];
+  const dataRows = [5, 8, 11, 14, 17, 18, 19, 20, 24, 27, 30];
   dataRows.forEach((row, idx) => {
     const bg = idx % 2 === 0 ? '#ffffff' : '#f5f5f5';
     sheet.getRange('A' + row + ':D' + row)
@@ -3206,43 +3211,47 @@ function actualizarFormulasReporte() {
     // Fila 11: Derivaciones institucionales
     reporte.getRange('B11').setFormula('=IFERROR(COUNTA(\'Lista de Espera\'!K:K)-1,0)');
 
-    // Filas 14-17: Casos activos por terapeuta (columna B: casos activos)
-    reporte.getRange('B14').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Gerber",Terapias!G:G,"En proceso"),0)');
-    reporte.getRange('B15').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Melissa",Terapias!G:G,"En proceso"),0)');
-    reporte.getRange('B16').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Diana",Terapias!G:G,"En proceso"),0)');
-    reporte.getRange('B17').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Karina",Terapias!G:G,"En proceso"),0)');
+    // Fila 14: Formulario de Bienestar
+    reporte.getRange('B14').setFormula('=IFERROR(COUNTA(\'C_03_Formulario de Bienestar (2026)\'!A:A)-1,0)');
+    reporte.getRange('C14').setFormula('=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Sí")+COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Si"),0)');
 
-    // Filas 14-17: Sesiones mes (columna C) - FILTRADO POR "En proceso"
-    reporte.getRange('C14').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Gerber")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)');
-    reporte.getRange('C15').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Melissa")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)');
-    reporte.getRange('C16').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Diana")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)');
-    reporte.getRange('C17').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Karina")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)');
+    // Filas 17-20: Casos activos por terapeuta (columna B: casos activos)
+    reporte.getRange('B17').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Gerber",Terapias!G:G,"En proceso"),0)');
+    reporte.getRange('B18').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Melissa",Terapias!G:G,"En proceso"),0)');
+    reporte.getRange('B19').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Diana",Terapias!G:G,"En proceso"),0)');
+    reporte.getRange('B20').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Karina",Terapias!G:G,"En proceso"),0)');
 
-    // Fila 18: TOTAL casos activos y sesiones
-    reporte.getRange('B18').setFormula('=IFERROR(SUM(B14:B17),0)');
-    reporte.getRange('C18').setFormula('=IFERROR(SUM(C14:C17),0)');
+    // Filas 17-20: Sesiones mes (columna C) - FILTRADO POR "En proceso"
+    reporte.getRange('C17').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Gerber")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)');
+    reporte.getRange('C18').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Melissa")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)');
+    reporte.getRange('C19').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Diana")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)');
+    reporte.getRange('C20').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Karina")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)');
 
-    // Fila 21: Procesos culminados
-    reporte.getRange('B21').setFormula('=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)');
-    reporte.getRange('C21').setFormula('=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    reporte.getRange('D21').setFormula('=IFERROR(IF(B21>0,ROUND(AVERAGE(\'Procesos Culminados\'!E2:E500),1),0),0)');
+    // Fila 21: TOTAL casos activos y sesiones
+    reporte.getRange('B21').setFormula('=IFERROR(SUM(B17:B20),0)');
+    reporte.getRange('C21').setFormula('=IFERROR(SUM(C17:C20),0)');
 
-    // Fila 24: Deserciones
-    reporte.getRange('B24').setFormula('=IFERROR(COUNTA(Deserciones!A:A)-1,0)');
-    reporte.getRange('C24').setFormula('=IFERROR(COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    reporte.getRange('D24').setFormula('=IFERROR(IF((B21+B24)>0,ROUND(B24/(B21+B24)*100,1)&"%","0%"),"0%")');
+    // Fila 24: Procesos culminados
+    reporte.getRange('B24').setFormula('=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)');
+    reporte.getRange('C24').setFormula('=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    reporte.getRange('D24').setFormula('=IFERROR(IF(B24>0,ROUND(AVERAGE(\'Procesos Culminados\'!E2:E500),1),0),0)');
 
-    // Fila 27: Intervención de casos
-    reporte.getRange('B27').setFormula('=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)');
+    // Fila 27: Deserciones
+    reporte.getRange('B27').setFormula('=IFERROR(COUNTA(Deserciones!A:A)-1,0)');
+    reporte.getRange('C27').setFormula('=IFERROR(COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    reporte.getRange('D27').setFormula('=IFERROR(IF((B24+B27)>0,ROUND(B27/(B24+B27)*100,1)&"%","0%"),"0%")');
 
-    // Fila 30: Total casos procesados
-    reporte.getRange('B30').setFormula('=IFERROR(B21+B24+B27,0)');
+    // Fila 30: Intervención de casos
+    reporte.getRange('B30').setFormula('=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)');
 
-    // Fila 31: Tasa de éxito
-    reporte.getRange('B31').setFormula('=IFERROR(IF(B30>0,ROUND(B21/B30*100,1)&"%","0%"),"0%")');
+    // Fila 33: Total casos procesados
+    reporte.getRange('B33').setFormula('=IFERROR(B24+B27+B30,0)');
 
-    // Fila 32: Casos activos totales
-    reporte.getRange('B32').setFormula('=IFERROR(B18,0)');
+    // Fila 34: Tasa de éxito
+    reporte.getRange('B34').setFormula('=IFERROR(IF(B33>0,ROUND(B24/B33*100,1)&"%","0%"),"0%")');
+
+    // Fila 35: Casos activos totales
+    reporte.getRange('B35').setFormula('=IFERROR(B21,0)');
 
     ss.toast(
       '✅ FORMULAS ACTUALIZADAS\n\n' +
@@ -3636,18 +3645,31 @@ function importarDatosAutomatico() {
         // Marcar fila con fondo rojo claro
         sheet.getRange(nuevaFila, 1, 1, 4).setBackground('#ffcccc');
 
+        // Verificar si ya se envió alerta para este UUID
+        const props = PropertiesService.getDocumentProperties();
+        const alertaEnviada = props.getProperty('ALERTA_ENVIADA_' + uuid);
+
+        if (alertaEnviada) {
+          Logger.log('⚠️ Alerta ya enviada anteriormente para UUID: ' + uuid.substring(0, 20) + '...');
+          Logger.log('   Fecha envío anterior: ' + alertaEnviada);
+        } else {
           try {
             // Enviar alerta INMEDIATA por correo con los datos completos del CSV
             enviarAlertaSuicidioFlexible(filaCompleta, headersCSV);
             alertasDetectadas++;
+
+            // Marcar que ya se envió esta alerta
+            props.setProperty('ALERTA_ENVIADA_' + uuid, new Date().toLocaleString());
+
             Logger.log('✅ Alerta enviada por correo electrónico');
+            Logger.log('✅ UUID marcado como alertado: ' + uuid.substring(0, 20) + '...');
           } catch (error) {
             Logger.log('❌ Error enviando alerta: ' + error.message);
             Logger.log('Stack: ' + error.stack);
           }
-        } else if (protocoloSuicidio) {
-          Logger.log('ℹ️ Protocolo NO activado (valor: "' + protocoloValorNormalizado + '")');
         }
+      } else if (protocoloSuicidio) {
+        Logger.log('ℹ️ Protocolo NO activado (valor: "' + protocoloValorNormalizado + '")');
       }
 
       // Enviar a Lista de Espera si quiere apoyo emocional
