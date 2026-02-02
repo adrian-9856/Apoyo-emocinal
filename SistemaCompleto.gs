@@ -3478,18 +3478,35 @@ function importarDatosAutomatico() {
       return;
     }
 
+    // Detectar delimitador automáticamente
+    let delimitador = ',';
+    const primeraLinea = csvData.split('\n')[0] || '';
+    const numComas = (primeraLinea.match(/,/g) || []).length;
+    const numPuntosComa = (primeraLinea.match(/;/g) || []).length;
+
+    if (numPuntosComa > numComas) {
+      delimitador = ';';
+      Logger.log('🔍 Delimitador detectado: punto y coma (;)');
+    } else {
+      Logger.log('🔍 Delimitador detectado: coma (,)');
+    }
+
     // Parsear CSV con manejo de errores
     let filas;
     try {
-      filas = Utilities.parseCsv(csvData);
-      Logger.log('📊 Filas parseadas con parseCsv: ' + filas.length);
+      if (delimitador === ',') {
+        filas = Utilities.parseCsv(csvData);
+        Logger.log('📊 Filas parseadas con parseCsv: ' + filas.length);
+      } else {
+        throw new Error('Usar parser manual para punto y coma');
+      }
     } catch (parseError) {
-      Logger.log('⚠️ parseCsv falló: ' + parseError.message);
-      Logger.log('📝 Intentando split manual...');
+      Logger.log('⚠️ parseCsv falló o delimitador es ;: ' + parseError.message);
+      Logger.log('📝 Usando split manual con delimitador: ' + delimitador);
 
       const lineas = csvData.split('\n').filter(l => l.trim().length > 0);
       filas = lineas.map(linea => {
-        // Split por comas, respetando comillas
+        // Split por delimitador detectado, respetando comillas
         const resultado = [];
         let actual = '';
         let dentroComillas = false;
@@ -3499,19 +3516,20 @@ function importarDatosAutomatico() {
 
           if (char === '"') {
             dentroComillas = !dentroComillas;
-          } else if (char === ',' && !dentroComillas) {
-            resultado.push(actual);
+          } else if (char === delimitador && !dentroComillas) {
+            resultado.push(actual.trim());
             actual = '';
           } else {
             actual += char;
           }
         }
-        resultado.push(actual);
+        resultado.push(actual.trim());
 
         return resultado;
       });
 
       Logger.log('📊 Filas parseadas manualmente: ' + filas.length);
+      Logger.log('📋 Primera fila tiene ' + filas[0].length + ' columnas');
     }
 
     if (filas.length <= 1) {
