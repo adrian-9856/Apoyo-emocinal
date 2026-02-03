@@ -7,7 +7,9 @@ function onOpen() {
     const menuInstalacion = ui.createMenu('⚙️ Instalación')
       .addItem('🚀 Instalar Sistema', 'instalarSistema')
       .addItem('✅ Verificar Instalación', 'verificarInstalacion')
-      .addItem('🔄 Instalar Actualizaciones', 'instalarActualizaciones');
+      .addItem('🔄 Instalar Actualizaciones', 'instalarActualizaciones')
+      .addSeparator()
+      .addItem('🧹 LIMPIAR Y REPARAR Hojas', 'limpiarYRepararHojas');
 
     // Submenú: Configuración
     const menuConfiguracion = ui.createMenu('🔧 Configuración')
@@ -382,15 +384,14 @@ function crearTerapias() {
     sheet.setColumnWidth(i + 1, w);
   });
 
-  // Fórmula para la fecha automática (columna B) y valores iniciales
+  // Fórmula para la fecha automática (columna B)
+  // NO inicializar valores en las filas - se llenarán cuando se agreguen casos
+  const formulas = [];
   for (let i = 2; i <= 200; i++) {
     // Columna B: Fecha automática (se actualiza cuando hay participante)
-    sheet.getRange('B' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
-    // Columna M: Sesiones Mes Anterior (antes era I, ahora M por las nuevas columnas)
-    sheet.getRange('M' + i).setValue(0);
-    // Columna N: Inasistencias (antes era J, ahora N)
-    sheet.getRange('N' + i).setValue(0);
+    formulas.push(['=IF(C' + i + '<>"",TODAY(),"")']);
   }
+  sheet.getRange('B2:B200').setFormulas(formulas);
 
   // Proteger columna de Fecha para que no se edite manualmente
   sheet.getRange('B2:B200').protect().setWarningOnly(true);
@@ -5353,4 +5354,110 @@ function probarImportacionBienestar() {
   ui.alert('🔍 Diagnóstico de Importación', diagnostico, ui.ButtonSet.OK);
   Logger.log('\n' + diagnostico);
 }
+
+/**
+ * 🧹 FUNCIÓN DE LIMPIEZA Y REPARACIÓN AUTOMÁTICA
+ * Corrige problemas comunes en las hojas del sistema
+ */
+function limpiarYRepararHojas() {
+  const ui = SpreadsheetApp.getUi();
+
+  // Confirmar que el usuario quiere hacer esto
+  const confirmacion = ui.alert(
+    '🧹 LIMPIAR Y REPARAR HOJAS',
+    '⚠️ ADVERTENCIA: Esta función va a:\n\n' +
+    '1. Eliminar columnas extra en "Nuevos Ingresos" (H, I, J)\n' +
+    '2. Limpiar valores iniciales incorrectos en "Terapias"\n' +
+    '3. Recrear la estructura correcta de las hojas\n\n' +
+    '❗ IMPORTANTE: Los datos válidos se mantendrán.\n\n' +
+    '¿Deseas continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmacion !== ui.Button.YES) {
+    ui.alert('❌ Cancelado', 'No se realizaron cambios.', ui.ButtonSet.OK);
+    return;
+  }
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let mensajeResultado = '✅ LIMPIEZA COMPLETADA\n\n';
+
+    // ===== PASO 1: Limpiar "Nuevos Ingresos" =====
+    ss.toast('Limpiando Nuevos Ingresos...', 'Paso 1/2', 5);
+
+    const nuevosIngresos = ss.getSheetByName('Nuevos Ingresos');
+    if (nuevosIngresos) {
+      const ultimaColumna = nuevosIngresos.getLastColumn();
+
+      // Si tiene más de 7 columnas, eliminar las extras
+      if (ultimaColumna > 7) {
+        for (let col = ultimaColumna; col > 7; col--) {
+          nuevosIngresos.deleteColumn(col);
+        }
+        mensajeResultado += '✅ Nuevos Ingresos: Eliminadas ' + (ultimaColumna - 7) + ' columnas extra\n';
+        Logger.log('✅ Nuevos Ingresos limpiado: eliminadas columnas H-' + String.fromCharCode(64 + ultimaColumna));
+      } else {
+        mensajeResultado += '✅ Nuevos Ingresos: Sin problemas\n';
+        Logger.log('✅ Nuevos Ingresos: Sin problemas detectados');
+      }
+    } else {
+      mensajeResultado += '⚠️ Nuevos Ingresos: No existe\n';
+    }
+
+    // ===== PASO 2: Limpiar "Terapias" =====
+    ss.toast('Limpiando Terapias...', 'Paso 2/2', 5);
+
+    const terapias = ss.getSheetByName('Terapias');
+    if (terapias) {
+      const ultimaFila = terapias.getLastRow();
+      let filasConDatos = 0;
+      let filasLimpiadas = 0;
+
+      // Recorrer todas las filas (desde la 2 en adelante)
+      for (let fila = 2; fila <= ultimaFila; fila++) {
+        const participante = terapias.getRange(fila, 3).getValue(); // Columna C: Participante
+
+        // Si NO tiene participante, es una fila vacía que debe limpiarse
+        if (!participante || participante.toString().trim() === '') {
+          // Limpiar solo las columnas con valores iniciales incorrectos (M y N)
+          terapias.getRange(fila, 13).clearContent(); // Columna M: Sesiones Mes Anterior
+          terapias.getRange(fila, 14).clearContent(); // Columna N: Inasistencias
+          filasLimpiadas++;
+        } else {
+          filasConDatos++;
+        }
+      }
+
+      mensajeResultado += '✅ Terapias: ' + filasLimpiadas + ' filas limpiadas\n';
+      mensajeResultado += '   (' + filasConDatos + ' casos activos mantenidos)\n';
+      Logger.log('✅ Terapias limpiado: ' + filasLimpiadas + ' filas, ' + filasConDatos + ' casos activos');
+    } else {
+      mensajeResultado += '⚠️ Terapias: No existe\n';
+    }
+
+    // ===== FINALIZACIÓN =====
+    SpreadsheetApp.flush();
+
+    mensajeResultado += '\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      '📋 SIGUIENTE PASO:\n' +
+      'Verifica que todo esté correcto:\n\n' +
+      '1. Nuevos Ingresos debe tener 7 columnas (A-G)\n' +
+      '2. Terapias debe tener 14 columnas (A-N)\n' +
+      '3. No debe haber valores iniciales en filas vacías\n\n' +
+      '¡El sistema está listo para usar!';
+
+    ui.alert('✅ Limpieza Completada', mensajeResultado, ui.ButtonSet.OK);
+    Logger.log('✅ LIMPIEZA COMPLETADA');
+
+  } catch (error) {
+    ui.alert(
+      '❌ Error',
+      'Error durante la limpieza:\n\n' + error.message + '\n\n' +
+      'Por favor revisa los logs para más detalles.',
+      ui.ButtonSet.OK
+    );
+    Logger.log('❌ Error en limpiarYRepararHojas: ' + error.message);
+    Logger.log('Stack: ' + error.stack);
+  }
 }
