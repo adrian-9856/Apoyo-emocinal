@@ -9,6 +9,7 @@ function onOpen() {
       .addItem('✅ Verificar Instalación', 'verificarInstalacion')
       .addItem('🔄 Instalar Actualizaciones', 'instalarActualizaciones')
       .addSeparator()
+      .addItem('➕ AGREGAR Columnas Faltantes Terapias', 'agregarColumnasFaltantesTerapias')
       .addItem('🧹 LIMPIAR Y REPARAR Hojas', 'limpiarYRepararHojas');
 
     // Submenú: Configuración
@@ -5458,6 +5459,187 @@ function limpiarYRepararHojas() {
       ui.ButtonSet.OK
     );
     Logger.log('❌ Error en limpiarYRepararHojas: ' + error.message);
+    Logger.log('Stack: ' + error.stack);
+  }
+}
+
+/**
+ * ➕ AGREGAR COLUMNAS FALTANTES A TERAPIAS
+ * Agrega las 4 columnas que faltan en la estructura de Terapias (Edad, Malestar, Derivación, Quien deriva)
+ */
+function agregarColumnasFaltantesTerapias() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Confirmar
+  const confirmacion = ui.alert(
+    '➕ AGREGAR COLUMNAS FALTANTES - TERAPIAS',
+    '⚠️ Esta función va a agregar las 4 columnas que faltan:\n\n' +
+    '• Edad (columna F)\n' +
+    '• Malestar Principal (columna G)\n' +
+    '• Derivación o Referencia (columna H) ← EVA\n' +
+    '• Nombre de quien deriva (columna I)\n\n' +
+    'Los datos existentes se MOVERÁN a las columnas correctas.\n\n' +
+    '❗ IMPORTANTE: Haz un backup antes de continuar.\n\n' +
+    '¿Deseas continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmacion !== ui.Button.YES) {
+    ui.alert('❌ Cancelado', 'No se realizaron cambios.', ui.ButtonSet.OK);
+    return;
+  }
+
+  try {
+    const terapias = ss.getSheetByName('Terapias');
+    
+    if (!terapias) {
+      ui.alert('❌ Error', 'No se encontró la hoja "Terapias".', ui.ButtonSet.OK);
+      return;
+    }
+
+    const numColumnas = terapias.getLastColumn();
+    
+    ss.toast('Verificando estructura...', 'Paso 1/5', 5);
+    Logger.log('📋 Terapias tiene ' + numColumnas + ' columnas');
+
+    // Verificar si ya tiene las 14 columnas
+    if (numColumnas >= 14) {
+      ui.alert(
+        '✅ Ya está actualizado',
+        'La hoja "Terapias" ya tiene ' + numColumnas + ' columnas.\n\n' +
+        'No es necesario agregar más columnas.',
+        ui.ButtonSet.OK
+      );
+      return;
+    }
+
+    // Verificar si tiene la estructura vieja (10 columnas)
+    if (numColumnas !== 10) {
+      ui.alert(
+        '⚠️ Estructura Desconocida',
+        'La hoja "Terapias" tiene ' + numColumnas + ' columnas.\n\n' +
+        'Esta función solo funciona si tiene exactamente 10 columnas (estructura vieja).\n\n' +
+        'Por favor verifica la estructura manualmente.',
+        ui.ButtonSet.OK
+      );
+      return;
+    }
+
+    ss.toast('Insertando columnas...', 'Paso 2/5', 5);
+
+    // PASO 1: Insertar 4 columnas después de la columna E (Género)
+    // Esto moverá las columnas F-J a las posiciones J-N
+    terapias.insertColumnsAfter(5, 4);
+    Logger.log('✅ Insertadas 4 columnas después de columna E');
+
+    ss.toast('Actualizando headers...', 'Paso 3/5', 5);
+
+    // PASO 2: Actualizar los headers
+    const nuevosHeaders = [
+      'Terapeuta',                    // A
+      'Fecha',                        // B
+      'Participante',                 // C
+      'Creamos ID',                   // D
+      'Género',                       // E
+      'Edad',                         // F ← NUEVA
+      'Malestar Principal',           // G ← NUEVA
+      'Derivación o Referencia',      // H ← NUEVA (EVA)
+      'Nombre de quien deriva',       // I ← NUEVA
+      'No. Sesión',                   // J (antes era F)
+      'Estado',                       // K (antes era G)
+      'Motivo Finalización',          // L (antes era H)
+      'Sesiones Mes Anterior',        // M (antes era I)
+      'Inasistencias'                 // N (antes era J)
+    ];
+
+    terapias.getRange(1, 1, 1, 14).setValues([nuevosHeaders])
+      .setBackground('#2e7d32')
+      .setFontColor('white')
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center');
+
+    Logger.log('✅ Headers actualizados');
+
+    ss.toast('Ajustando anchos de columnas...', 'Paso 4/5', 5);
+
+    // PASO 3: Ajustar anchos de columnas
+    [120, 110, 200, 120, 80, 80, 200, 180, 180, 80, 120, 300, 120, 100].forEach((w, i) => {
+      terapias.setColumnWidth(i + 1, w);
+    });
+
+    Logger.log('✅ Anchos ajustados');
+
+    ss.toast('Aplicando validaciones...', 'Paso 5/5', 5);
+
+    // PASO 4: Actualizar validaciones de datos
+    // Género (E)
+    const generoRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Hombre', 'Mujer', 'Trans hombre', 'No binario', 'Otro'])
+      .setAllowInvalid(false)
+      .build();
+    terapias.getRange('E2:E200').setDataValidation(generoRule);
+
+    // Terapeuta (A)
+    const terapeutaRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Gerber', 'Melissa', 'Diana', 'Karina'])
+      .setAllowInvalid(false)
+      .build();
+    terapias.getRange('A2:A200').setDataValidation(terapeutaRule);
+
+    // No. Sesión (J) - antes era F
+    const sesiones = [];
+    for (let i = 1; i <= 20; i++) {
+      sesiones.push(i.toString());
+    }
+    const sesionRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(sesiones)
+      .setAllowInvalid(false)
+      .build();
+    terapias.getRange('J2:J200').setDataValidation(sesionRule);
+
+    // Estado (K) - antes era G
+    const estadoRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['En proceso', 'Proceso culminado', 'deserciones'])
+      .setAllowInvalid(false)
+      .build();
+    terapias.getRange('K2:K200').setDataValidation(estadoRule);
+
+    Logger.log('✅ Validaciones aplicadas');
+
+    SpreadsheetApp.flush();
+
+    const mensaje =
+      '✅ COLUMNAS AGREGADAS EXITOSAMENTE\n\n' +
+      'Se agregaron las 4 columnas faltantes:\n\n' +
+      '• F: Edad\n' +
+      '• G: Malestar Principal\n' +
+      '• H: Derivación o Referencia (EVA)\n' +
+      '• I: Nombre de quien deriva\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      'Los datos existentes se movieron:\n' +
+      '• No. Sesión: F → J\n' +
+      '• Estado: G → K\n' +
+      '• Motivo Finalización: H → L\n' +
+      '• Sesiones Mes Anterior: I → M\n' +
+      '• Inasistencias: J → N\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      '✅ Terapias ahora tiene 14 columnas\n\n' +
+      '📋 SIGUIENTE PASO:\n' +
+      'Verifica que todos los datos estén en las columnas correctas.\n\n' +
+      '¡El sistema está listo para usar!';
+
+    ui.alert('✅ Actualización Completada', mensaje, ui.ButtonSet.OK);
+    Logger.log('✅ COLUMNAS AGREGADAS A TERAPIAS');
+
+  } catch (error) {
+    ui.alert(
+      '❌ Error',
+      'Error al agregar columnas:\n\n' + error.message + '\n\n' +
+      'Por favor revisa los logs para más detalles.',
+      ui.ButtonSet.OK
+    );
+    Logger.log('❌ Error en agregarColumnasFaltantesTerapias: ' + error.message);
     Logger.log('Stack: ' + error.stack);
   }
 }
