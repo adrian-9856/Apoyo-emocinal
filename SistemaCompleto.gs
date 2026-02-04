@@ -1141,12 +1141,12 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     terapias.getRange(nuevaFilaTerapias, 1, 1, 10).setValues([registroTerapias]);
     Logger.log('✅ Agregado a Terapias en fila: ' + nuevaFilaTerapias);
 
-    // Marcar como procesado en verde (mantener datos históricos)
-    sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#d4edda');
-    // NO borrar terapeuta ni "Asistió" - son datos históricos importantes
+    // ELIMINAR la fila de Lista de Espera (procesada exitosamente)
+    sheetOrigen.deleteRow(fila);
+    Logger.log('✅ Fila ' + fila + ' eliminada de Lista de Espera');
 
     SpreadsheetApp.flush();
-    ss.toast('✅ ' + nombre + '\n→ Nuevos Ingresos\n→ Terapias con ' + terapeuta, 'Asignado', 4);
+    ss.toast('✅ ' + nombre + '\n→ Nuevos Ingresos\n→ Terapias con ' + terapeuta + '\n\n✅ Eliminado de Lista de Espera', 'Asignado', 4);
     Logger.log('✅ Proceso completado exitosamente');
   } catch (error) {
     Logger.log('❌ ERROR en enviarANuevosIngresosYTerapias: ' + error.toString());
@@ -1187,12 +1187,12 @@ function enviarAPersonasNoAsistidas(nombre, creemosId, genero, edad, malestar, t
     noAsistidas.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
     Logger.log('✅ Agregado a Personas no asistidas en fila: ' + nuevaFila);
 
-    // Marcar como procesado en rojo (no asistió) - mantener datos históricos
-    sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#f8d7da');
-    // NO borrar terapeuta ni "Asistió" - son datos históricos importantes
+    // ELIMINAR la fila de Lista de Espera (no asistió - procesado)
+    sheetOrigen.deleteRow(fila);
+    Logger.log('✅ Fila ' + fila + ' eliminada de Lista de Espera');
 
     SpreadsheetApp.flush();
-    ss.toast('⚠️ ' + nombre + '\n→ Personas no asistidas (NO VINO)', 'No Asistió', 3);
+    ss.toast('⚠️ ' + nombre + '\n→ Personas no asistidas (NO VINO)\n\n✅ Eliminado de Lista de Espera', 'No Asistió', 3);
     Logger.log('✅ Proceso de no asistencia completado');
   } catch (error) {
     Logger.log('❌ ERROR en enviarAPersonasNoAsistidas: ' + error.toString());

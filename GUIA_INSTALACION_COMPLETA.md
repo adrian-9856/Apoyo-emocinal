@@ -179,19 +179,19 @@ Si ya tienes hojas con datos y solo quieres actualizar la estructura:
    - Si **"Vino"** → Se transfiere a:
      - ✅ Nuevos Ingresos (documentación)
      - ✅ Terapias (trabajo activo)
-     - ✅ Fila se marca en verde
-     - ✅ Datos históricos SE MANTIENEN
+     - ✅ **Se ELIMINA de Lista de Espera**
    - Si **"No vino"** → Se transfiere a:
      - ⚠️ Personas no asistidas
-     - ⚠️ Fila se marca en rojo
-     - ⚠️ Datos históricos SE MANTIENEN
+     - ✅ **Se ELIMINA de Lista de Espera**
+
+**IMPORTANTE:** La Lista de Espera ahora solo contiene casos pendientes. Los casos procesados desaparecen automáticamente (pero los datos se mantienen en las otras hojas).
 
 ### Para Terapias:
-1. **Cambiar número de sesión (columna J):**
+1. **Cambiar número de sesión (columna F):**
    - Aparece diálogo preguntando si vino o no
-   - Si NO vino → incrementa contador de inasistencias (columna N)
+   - Si NO vino → incrementa contador de inasistencias (columna J)
 
-2. **Cambiar estado (columna K):**
+2. **Cambiar estado (columna G):**
    - **"Proceso culminado"** → Se transfiere a Procesos Culminados
    - **"deserciones"** → Aparece diálogo para seleccionar motivo → Se transfiere a Deserciones
    - ✅ Se envía email al director
@@ -306,13 +306,14 @@ Para ver lo que está pasando "detrás de escena":
 
 | # | Problema | Estado | Línea |
 |---|----------|--------|-------|
-| 1 | Borra datos de "Vino/No vino" | ✅ CORREGIDO | 1147-1148 |
-| 2 | Borra terapeuta asignado | ✅ CORREGIDO | 1147, 1193 |
-| 3 | Error borra columna incorrecta | ✅ CORREGIDO | 996 |
-| 4 | Referencia Eva no aparece | ✅ CORREGIDO | 365-396, 1051, 1130 |
-| 5 | No jala datos a Terapias | ✅ CORREGIDO | 1051 |
-| 6 | Sumatoria sesiones por mes | ✅ YA FUNCIONABA | 2850 |
-| 7 | No manda correo al asignar | ⚠️ CONFIGURACIÓN | 1607 |
+| 1 | Borra datos de "Vino/No vino" | ✅ CORREGIDO | 1145, 1190 |
+| 2 | Error borra columna incorrecta | ✅ CORREGIDO | 995 |
+| 3 | Estructura Terapias incorrecta | ✅ SIMPLIFICADO | 368-399 |
+| 4 | No elimina de Lista de Espera | ✅ CORREGIDO | 1146, 1191 |
+| 5 | Sumatoria sesiones por mes | ✅ YA FUNCIONABA | 2850 |
+| 6 | No manda correo al asignar | ⚠️ CONFIGURACIÓN | 1607 |
+
+**NUEVO:** Ahora los registros se eliminan automáticamente de Lista de Espera cuando se procesan.
 
 ---
 
