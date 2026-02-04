@@ -795,47 +795,50 @@ function alEditar(e) {
     return;
   }
 
-  // PROTECCIÓN CONTRA EJECUCIONES MÚLTIPLES
-  const lock = LockService.getDocumentLock();
-  const lockKey = 'alEditar_' + e.range.getSheet().getName() + '_' + e.range.getRow() + '_' + e.range.getColumn();
+  const sheet = e.range.getSheet();
+  const hoja = sheet.getName();
+  const fila = e.range.getRow();
+  const columna = e.range.getColumn();
+  const valor = e.range.getValue();
 
-  // Intentar obtener lock por 0 segundos - si ya está bloqueado, salir inmediatamente
-  if (!lock.tryLock(0)) {
-    Logger.log('⚠️ Ya hay una ejecución en proceso, ignorando esta edición');
+  // PROTECCIÓN CONTRA EJECUCIONES MÚLTIPLES (Google Sheets bug - dispara 2 veces)
+  // Usar PropertiesService para rastrear ejecuciones recientes
+  const cache = CacheService.getDocumentCache();
+  const cacheKey = hoja + '_' + fila + '_' + columna + '_' + valor;
+  const yaEjecutado = cache.get(cacheKey);
+
+  if (yaEjecutado) {
+    Logger.log('⚠️ Esta edición ya fue procesada recientemente, ignorando duplicado');
     return;
   }
 
-  try {
-    const sheet = e.range.getSheet();
-    const hoja = sheet.getName();
-    const fila = e.range.getRow();
-    const columna = e.range.getColumn();
-    const valor = e.range.getValue();
+  // Marcar como ejecutado por 5 segundos
+  cache.put(cacheKey, 'true', 5);
 
-    // LOG: Registrar TODA edición
-    Logger.log('═══════════════════════════════════════');
-    Logger.log('🔍 EDICIÓN DETECTADA:');
-    Logger.log('   Hoja: ' + hoja);
-    Logger.log('   Fila: ' + fila);
-    Logger.log('   Columna: ' + columna);
-    Logger.log('   Valor: "' + valor + '"');
-    Logger.log('═══════════════════════════════════════');
+  // LOG: Registrar TODA edición
+  Logger.log('═══════════════════════════════════════');
+  Logger.log('🔍 EDICIÓN DETECTADA:');
+  Logger.log('   Hoja: ' + hoja);
+  Logger.log('   Fila: ' + fila);
+  Logger.log('   Columna: ' + columna);
+  Logger.log('   Valor: "' + valor + '"');
+  Logger.log('═══════════════════════════════════════');
 
-    if (fila <= 1) {
-      Logger.log('⚠️ Fila es header, ignorando');
-      return;
-    }
+  if (fila <= 1) {
+    Logger.log('⚠️ Fila es header, ignorando');
+    return;
+  }
 
-    if (!valor) {
-      Logger.log('⚠️ Valor vacío, ignorando');
-      return;
-    }
+  if (!valor) {
+    Logger.log('⚠️ Valor vacío, ignorando');
+    return;
+  }
 
-    const val = valor.toString().trim();
-    if (val === '') {
-      Logger.log('⚠️ Valor vacío después de trim, ignorando');
-      return;
-    }
+  const val = valor.toString().trim();
+  if (val === '') {
+    Logger.log('⚠️ Valor vacío después de trim, ignorando');
+    return;
+  }
 
   // CASO 1: Lista de Espera - Asignación de Terapeuta (columna N = 14)
   if (hoja === 'Lista de Espera' && columna === 14) {
@@ -943,11 +946,6 @@ function alEditar(e) {
       }
     }
   }
-  } finally {
-    // SIEMPRE liberar el lock al final
-    lock.releaseLock();
-    Logger.log('🔓 Lock liberado');
-  }
 }
 
 /**
@@ -976,19 +974,25 @@ function asignarTerapeuta(sheetOrigen, fila, terapeuta) {
     // 2. Notificar al usuario
     if (emailEnviado) {
       ss.toast(
-        '✅ Caso asignado a ' + terapeuta + '\n\n' +
-        '📧 Email enviado al terapeuta\n\n' +
-        'El terapeuta debe confirmar si la persona asistió.',
-        'Asignación Pendiente',
-        5
+        '✅ CASO ASIGNADO\n\n' +
+        '👤 Participante: ' + nombreLimpio + '\n' +
+        '👨‍⚕️ Terapeuta: ' + terapeuta + '\n\n' +
+        '📧 Email enviado exitosamente al terapeuta\n\n' +
+        'El terapeuta debe confirmar asistencia en columna N.',
+        'Email Enviado',
+        6
       );
     } else {
       ss.toast(
-        '⚠️ Caso asignado a ' + terapeuta + '\n\n' +
-        '❌ No se pudo enviar el email\n\n' +
-        'El terapeuta debe ir al sheet y confirmar manualmente.',
-        'Asignado Sin Email',
-        5
+        '⚠️ CASO ASIGNADO (SIN EMAIL)\n\n' +
+        '👤 Participante: ' + nombreLimpio + '\n' +
+        '👨‍⚕️ Terapeuta: ' + terapeuta + '\n\n' +
+        '❌ No se envió email (no configurado)\n\n' +
+        'CONFIGURAR EMAILS:\n' +
+        'Menú → 🏥 Apoyo Emocional → 📧 Configurar Emails Terapeutas\n\n' +
+        'El terapeuta debe confirmar asistencia manualmente en columna N.',
+        'Sin Email Configurado',
+        10
       );
     }
 
