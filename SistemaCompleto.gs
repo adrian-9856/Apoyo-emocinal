@@ -369,29 +369,19 @@ function crearTerapias() {
   const sheet = ss.insertSheet('Terapias');
 
   const headers = [
-    'Terapeuta', 'Fecha', 'Participante', 'Creamos ID', 'Género',
+    'Terapeuta', 'Participante', 'Creamos ID', 'Género',
     'No. Sesión', 'Estado', 'Motivo Finalización', 'Sesiones Mes Anterior', 'Inasistencias'
   ];
 
-  sheet.getRange(1, 1, 1, 10).setValues([headers])
+  sheet.getRange(1, 1, 1, 9).setValues([headers])
     .setBackground('#2e7d32')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 110, 200, 120, 80, 80, 120, 300, 120, 100].forEach((w, i) => {
+  [120, 200, 120, 80, 80, 120, 300, 120, 100].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
-
-  // Fórmula para la fecha automática (columna B)
-  const formulas = [];
-  for (let i = 2; i <= 200; i++) {
-    formulas.push(['=IF(C' + i + '<>"",TODAY(),"")']);
-  }
-  sheet.getRange('B2:B200').setFormulas(formulas);
-
-  // Proteger columna de Fecha para que no se edite manualmente
-  sheet.getRange('B2:B200').protect().setWarningOnly(true);
 }
 
 function crearProcesosCulminados() {
@@ -494,10 +484,10 @@ function crearReporte() {
 
     // SECCIÓN 5: CASOS ACTIVOS
     ['CASOS ACTIVOS POR TERAPEUTA', 'Casos activos', 'Sesiones mes', ''],
-    ['Gerber', '=IFERROR(COUNTIFS(Terapias!A:A,"Gerber",Terapias!G:G,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Gerber")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)', ''],
-    ['Melissa', '=IFERROR(COUNTIFS(Terapias!A:A,"Melissa",Terapias!G:G,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Melissa")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)', ''],
-    ['Diana', '=IFERROR(COUNTIFS(Terapias!A:A,"Diana",Terapias!G:G,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Diana")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)', ''],
-    ['Karina', '=IFERROR(COUNTIFS(Terapias!A:A,"Karina",Terapias!G:G,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Karina")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)', ''],
+    ['Gerber', '=IFERROR(COUNTIFS(Terapias!A:A,"Gerber",Terapias!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Gerber")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)', ''],
+    ['Melissa', '=IFERROR(COUNTIFS(Terapias!A:A,"Melissa",Terapias!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Melissa")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)', ''],
+    ['Diana', '=IFERROR(COUNTIFS(Terapias!A:A,"Diana",Terapias!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Diana")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)', ''],
+    ['Karina', '=IFERROR(COUNTIFS(Terapias!A:A,"Karina",Terapias!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Karina")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)', ''],
     ['TOTAL', '=IFERROR(SUM(B17:B20),0)', '=IFERROR(SUM(C17:C20),0)', ''],
     ['', '', '', ''],
 
@@ -658,7 +648,7 @@ function configurarValidaciones() {
     .setAllowInvalid(false)
     .build();
   espera.getRange('E2:E200').setDataValidation(generoRule);
-  terapias.getRange('E2:E200').setDataValidation(generoRule);
+  terapias.getRange('D2:D200').setDataValidation(generoRule);
 
   // Edad en Lista de Espera es ahora texto libre (sin validación)
 
@@ -669,7 +659,7 @@ function configurarValidaciones() {
     .build();
   terapias.getRange('A2:A200').setDataValidation(terapeutaRule);
 
-  // Validaciones de número de sesión - Terapias columna F
+  // Validaciones de número de sesión - Terapias columna E
   const sesiones = [];
   for (let i = 1; i <= 20; i++) {
     sesiones.push(i.toString());
@@ -678,14 +668,14 @@ function configurarValidaciones() {
     .requireValueInList(sesiones)
     .setAllowInvalid(false)
     .build();
-  terapias.getRange('F2:F200').setDataValidation(sesionRule);
+  terapias.getRange('E2:E200').setDataValidation(sesionRule);
 
-  // Validaciones de estado - Terapias columna G
+  // Validaciones de estado - Terapias columna F
   const estadoRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['En proceso', 'Proceso culminado', 'deserciones'])
     .setAllowInvalid(false)
     .build();
-  terapias.getRange('G2:G200').setDataValidation(estadoRule);
+  terapias.getRange('F2:F200').setDataValidation(estadoRule);
 
   // Validaciones de terapeuta - en Lista de Espera columna M (13)
   espera.getRange('M2:M200').setDataValidation(terapeutaRule);
@@ -884,8 +874,8 @@ function alEditar(e) {
     }
   }
 
-  // CASO 3: Terapias - Cambio de Número de Sesión (columna F)
-  if (hoja === 'Terapias' && columna === 6) {
+  // CASO 3: Terapias - Cambio de Número de Sesión (columna E)
+  if (hoja === 'Terapias' && columna === 5) {
     Logger.log('✅ Detectado cambio en No. Sesión en Terapias');
     Logger.log('   Fila: ' + fila + ', Nuevo valor: ' + val);
 
@@ -901,8 +891,8 @@ function alEditar(e) {
     }
   }
 
-  // CASO 4: Terapias - Cambio de Estado (columna G)
-  if (hoja === 'Terapias' && columna === 7) {
+  // CASO 4: Terapias - Cambio de Estado (columna F)
+  if (hoja === 'Terapias' && columna === 6) {
     if (val === 'Proceso culminado' || val === 'deserciones') {
       Logger.log('✅ Detectado cambio de estado en Terapias: ' + val);
       Logger.log('▶️ EJECUTANDO procesarFinalizacionTerapia...');
@@ -1058,7 +1048,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     // Verificar duplicados en Terapias
     const datosTerapias = terapias.getDataRange().getValues();
     for (let i = 1; i < datosTerapias.length; i++) {
-      if (datosTerapias[i][2] && datosTerapias[i][2].toString().trim() === nombre) {
+      if (datosTerapias[i][1] && datosTerapias[i][1].toString().trim() === nombre) { // Columna B (índice 1): Participante
         sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#fff3cd');
         sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar terapeuta (columna M)
         ss.toast('⚠️ ' + nombre + ' ya está en Terapias', 'Ya Asignado', 3);
@@ -1128,17 +1118,16 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
 
     const registroTerapias = [
       terapeuta,          // A: Terapeuta
-      '',                 // B: Fecha (se llena automáticamente con la fórmula)
-      nombre,             // C: Participante
-      creemosId || '',    // D: Creamos ID
-      genero || '',       // E: Género
-      1,                  // F: No. Sesión
-      'En proceso',       // G: Estado
-      '',                 // H: Motivo Finalización
-      0,                  // I: Sesiones Mes Anterior
-      0                   // J: Inasistencias
+      nombre,             // B: Participante
+      creemosId || '',    // C: Creamos ID
+      genero || '',       // D: Género
+      1,                  // E: No. Sesión
+      'En proceso',       // F: Estado
+      '',                 // G: Motivo Finalización
+      0,                  // H: Sesiones Mes Anterior
+      0                   // I: Inasistencias
     ];
-    terapias.getRange(nuevaFilaTerapias, 1, 1, 10).setValues([registroTerapias]);
+    terapias.getRange(nuevaFilaTerapias, 1, 1, 9).setValues([registroTerapias]);
     Logger.log('✅ Agregado a Terapias en fila: ' + nuevaFilaTerapias);
 
     // ELIMINAR la fila de Lista de Espera (procesada exitosamente)
@@ -1160,6 +1149,20 @@ function enviarAPersonasNoAsistidas(nombre, creemosId, genero, edad, malestar, t
     const noAsistidas = ss.getSheetByName('Personas no asistidas');
 
     Logger.log('Iniciando envío a Personas no asistidas...');
+
+    // Verificar duplicados en Personas no asistidas
+    const datosNoAsistidas = noAsistidas.getDataRange().getValues();
+    for (let i = 1; i < datosNoAsistidas.length; i++) {
+      if (datosNoAsistidas[i][1] && datosNoAsistidas[i][1].toString().trim() === nombre.toString().trim()) { // Columna B (índice 1): Nombre
+        Logger.log('⚠️ Duplicado detectado en Personas no asistidas: ' + nombre);
+        ss.toast('⚠️ ' + nombre + ' ya está en Personas no asistidas\n\n✅ Eliminado de Lista de Espera', 'Ya Registrado', 3);
+
+        // Aún así eliminar de Lista de Espera
+        sheetOrigen.deleteRow(fila);
+        Logger.log('✅ Fila ' + fila + ' eliminada de Lista de Espera (duplicado evitado)');
+        return;
+      }
+    }
 
     // Buscar la primera fila vacía
     let nuevaFila = 2;
@@ -1219,7 +1222,7 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
   // Verificar duplicados en Terapias
   const datosTerapias = terapias.getDataRange().getValues();
   for (let i = 1; i < datosTerapias.length; i++) {
-    if (datosTerapias[i][2] && datosTerapias[i][2].toString().trim() === nombreLimpio) {
+    if (datosTerapias[i][1] && datosTerapias[i][1].toString().trim() === nombreLimpio) { // Columna B (índice 1): Participante
       sheetOrigen.getRange(fila, 1, 1, 7).setBackground('#fff3cd');
       ss.toast(nombreLimpio + ' ya está en Terapias', 'Ya Asignado', 2);
       return;
@@ -1227,12 +1230,12 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
   }
 
   // Crear registro en Terapias
-  // Buscar la primera fila vacía (columna C debe estar vacía)
+  // Buscar la primera fila vacía (columna B debe estar vacía)
   let nuevaFila = 2; // Empezar después del header
   const maxFilas = 200;
 
   for (let i = 2; i <= maxFilas; i++) {
-    const participanteExistente = terapias.getRange(i, 3).getValue(); // Columna C: Participante
+    const participanteExistente = terapias.getRange(i, 2).getValue(); // Columna B: Participante
     if (!participanteExistente || participanteExistente.toString().trim() === '') {
       nuevaFila = i;
       break;
@@ -1241,18 +1244,17 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
 
   const registro = [
     terapeuta,          // A: Terapeuta
-    '',                 // B: Fecha (se llena automáticamente con la fórmula)
-    nombreLimpio,       // C: Participante
-    creemosId || '',    // D: Creamos ID
-    genero || '',       // E: Género
-    1,                  // F: No. Sesión
-    'En proceso',       // G: Estado
-    '',                 // H: Motivo Finalización
-    0,                  // I: Sesiones Mes Anterior
-    0                   // J: Inasistencias
+    nombreLimpio,       // B: Participante
+    creemosId || '',    // C: Creamos ID
+    genero || '',       // D: Género
+    1,                  // E: No. Sesión
+    'En proceso',       // F: Estado
+    '',                 // G: Motivo Finalización
+    0,                  // H: Sesiones Mes Anterior
+    0                   // I: Inasistencias
   ];
 
-  terapias.getRange(nuevaFila, 1, 1, 10).setValues([registro]);
+  terapias.getRange(nuevaFila, 1, 1, 9).setValues([registro]);
 
   // Marcar como procesado
   sheetOrigen.getRange(fila, 1, 1, 7).setBackground('#d4edda');
@@ -1271,8 +1273,8 @@ function registrarAsistenciaSesion(sheet, fila, numSesion) {
   const ui = SpreadsheetApp.getUi();
 
   // Obtener datos del participante
-  const participante = sheet.getRange(fila, 3).getValue(); // Columna C
-  const terapeuta = sheet.getRange(fila, 1).getValue();    // Columna A
+  const participante = sheet.getRange(fila, 2).getValue(); // Columna B: Participante
+  const terapeuta = sheet.getRange(fila, 1).getValue();    // Columna A: Terapeuta
 
   if (!participante || participante.toString().trim() === '') {
     Logger.log('⚠️ No hay participante en esta fila, ignorando');
@@ -1304,10 +1306,10 @@ function registrarAsistenciaSesion(sheet, fila, numSesion) {
     // No vino - incrementar contador de inasistencias
     Logger.log('⚠️ Participante NO asistió a la sesión ' + numSesion);
 
-    const inasistenciasActuales = sheet.getRange(fila, 10).getValue() || 0; // Columna J: Inasistencias
+    const inasistenciasActuales = sheet.getRange(fila, 9).getValue() || 0; // Columna I: Inasistencias
     const nuevasInasistencias = parseInt(inasistenciasActuales) + 1;
 
-    sheet.getRange(fila, 10).setValue(nuevasInasistencias); // Columna J
+    sheet.getRange(fila, 9).setValue(nuevasInasistencias); // Columna I
 
     Logger.log('📊 Inasistencias actualizadas: ' + inasistenciasActuales + ' → ' + nuevasInasistencias);
 
@@ -1400,13 +1402,13 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
-  const datos = sheetOrigen.getRange(fila, 1, 1, 10).getValues()[0];
+  const datos = sheetOrigen.getRange(fila, 1, 1, 9).getValues()[0];
   const terapeuta = datos[0];       // A: Terapeuta
-  const participante = datos[2];    // C: Participante
-  const creemosId = datos[3];       // D: Creamos ID
-  const genero = datos[4];          // E: Género
-  const numSesion = datos[5];       // F: No. Sesión
-  const inasistencias = datos[9] || 0; // J: Inasistencias
+  const participante = datos[1];    // B: Participante
+  const creemosId = datos[2];       // C: Creamos ID
+  const genero = datos[3];          // D: Género
+  const numSesion = datos[4];       // E: No. Sesión
+  const inasistencias = datos[8] || 0; // I: Inasistencias
 
   if (!participante || participante.toString().trim() === '') {
     ss.toast('⚠️ Error: No hay participante en esta fila', 'Error', 3);
@@ -1427,7 +1429,7 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
       if (!motivo || motivo === '') {
         // Usuario canceló o no seleccionó nada
         Logger.log('⚠️ Usuario canceló o no seleccionó motivo');
-        sheetOrigen.getRange(fila, 7).setValue('En proceso'); // Columna G: Estado
+        sheetOrigen.getRange(fila, 6).setValue('En proceso'); // Columna F: Estado
         ss.toast('❌ Deserción cancelada\n\nNo se seleccionó motivo', 'Cancelado', 3);
         return;
       }
@@ -1435,7 +1437,7 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
       // Error al mostrar diálogo - probablemente el trigger no está instalado
       Logger.log('❌ Error mostrando diálogo: ' + error.message);
       Logger.log('   Stack: ' + error.stack);
-      sheetOrigen.getRange(fila, 7).setValue('En proceso'); // Columna G: Estado
+      sheetOrigen.getRange(fila, 6).setValue('En proceso'); // Columna F: Estado
 
       ss.toast(
         '⚠️ ERROR: No se puede mostrar el diálogo\n\n' +
@@ -2853,13 +2855,13 @@ function actualizarSesionesMesAnterior() {
 
       // Recorrer cada fila y copiar No. Sesión a Sesiones Mes Anterior
       for (let fila = 2; fila <= ultimaFila; fila++) {
-        const participante = terapias.getRange(fila, 3).getValue(); // Columna C: Participante
-        const numSesion = terapias.getRange(fila, 6).getValue(); // Columna F: No. Sesión
+        const participante = terapias.getRange(fila, 2).getValue(); // Columna B: Participante
+        const numSesion = terapias.getRange(fila, 5).getValue(); // Columna E: No. Sesión
 
         // Solo actualizar si hay un participante (fila tiene datos)
         if (participante && participante.toString().trim() !== '') {
           // Copiar el número actual de sesiones a "Sesiones Mes Anterior"
-          terapias.getRange(fila, 9).setValue(numSesion || 0); // Columna I
+          terapias.getRange(fila, 8).setValue(numSesion || 0); // Columna H
         }
       }
 
@@ -3171,14 +3173,14 @@ function repararTerapias() {
       .build();
     terapias.getRange('A2:A200').setDataValidation(terapeutaRule);
 
-    // Género (E)
+    // Género (D)
     const generoRule = SpreadsheetApp.newDataValidation()
       .requireValueInList(['Hombre', 'Mujer', 'Trans hombre', 'No binario', 'Otro'])
       .setAllowInvalid(false)
       .build();
-    terapias.getRange('E2:E200').setDataValidation(generoRule);
+    terapias.getRange('D2:D200').setDataValidation(generoRule);
 
-    // No. Sesión (F)
+    // No. Sesión (E)
     const sesiones = [];
     for (let i = 1; i <= 20; i++) {
       sesiones.push(i.toString());
@@ -3187,26 +3189,26 @@ function repararTerapias() {
       .requireValueInList(sesiones)
       .setAllowInvalid(false)
       .build();
-    terapias.getRange('F2:F200').setDataValidation(sesionRule);
+    terapias.getRange('E2:E200').setDataValidation(sesionRule);
 
-    // Estado (G)
+    // Estado (F)
     const estadoRule = SpreadsheetApp.newDataValidation()
       .requireValueInList(['En proceso', 'Proceso culminado', 'deserciones'])
       .setAllowInvalid(false)
       .build();
-    terapias.getRange('G2:G200').setDataValidation(estadoRule);
+    terapias.getRange('F2:F200').setDataValidation(estadoRule);
 
     Logger.log('✅ Validaciones aplicadas');
 
     // 6. Inicializar columnas numéricas
     for (let i = 2; i <= 200; i++) {
-      const participante = terapias.getRange(i, 3).getValue();
+      const participante = terapias.getRange(i, 2).getValue();
       if (participante && participante.toString().trim() !== '') {
+        if (!terapias.getRange(i, 8).getValue()) {
+          terapias.getRange(i, 8).setValue(0);
+        }
         if (!terapias.getRange(i, 9).getValue()) {
           terapias.getRange(i, 9).setValue(0);
-        }
-        if (!terapias.getRange(i, 10).getValue()) {
-          terapias.getRange(i, 10).setValue(0);
         }
       }
     }
