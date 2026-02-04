@@ -2823,27 +2823,27 @@ function guardarReporteMensual() {
 
     const mesActual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM yyyy');
 
-    // Referencias correctas según el nuevo diseño del reporte
-    const nuevosIngresos = reporte.getRange('C5').getValue(); // Nuevos ingresos este mes
-    const culminados = reporte.getRange('C21').getValue(); // Culminados este mes
-    const deserciones = reporte.getRange('C24').getValue(); // Deserciones este mes
-    const gestion = reporte.getRange('B27').getValue(); // Total en intervención
-    const activos = reporte.getRange('B18').getValue(); // Total casos activos
-    const tasaExito = reporte.getRange('B31').getValue(); // Tasa de éxito
+    // Referencias correctas según el diseño del reporte
+    const nuevosIngresos = reporte.getRange('C5').getValue(); // Nuevos ingresos este mes (fila 5)
+    const culminados = reporte.getRange('C24').getValue(); // Culminados este mes (fila 24)
+    const deserciones = reporte.getRange('C27').getValue(); // Deserciones este mes (fila 27)
+    const gestion = reporte.getRange('B30').getValue(); // Total en intervención (fila 30)
+    const activos = reporte.getRange('B21').getValue(); // Total casos activos (fila 21)
+    const tasaExito = reporte.getRange('B34').getValue(); // Tasa de éxito (fila 34)
 
     // Sesiones por terapeuta (columna C de cada fila)
-    const sesionesGerber = reporte.getRange('C14').getValue();
-    const sesionesMelissa = reporte.getRange('C15').getValue();
-    const sesionesDiana = reporte.getRange('C16').getValue();
-    const sesionesKarina = reporte.getRange('C17').getValue();
+    const sesionesGerber = reporte.getRange('C17').getValue(); // Fila 17
+    const sesionesMelissa = reporte.getRange('C18').getValue(); // Fila 18
+    const sesionesDiana = reporte.getRange('C19').getValue(); // Fila 19
+    const sesionesKarina = reporte.getRange('C20').getValue(); // Fila 20
 
     // Activos por terapeuta (columna B de cada fila)
-    const activosGerber = reporte.getRange('B14').getValue();
-    const activosMelissa = reporte.getRange('B15').getValue();
-    const activosDiana = reporte.getRange('B16').getValue();
-    const activosKarina = reporte.getRange('B17').getValue();
+    const activosGerber = reporte.getRange('B17').getValue(); // Fila 17
+    const activosMelissa = reporte.getRange('B18').getValue(); // Fila 18
+    const activosDiana = reporte.getRange('B19').getValue(); // Fila 19
+    const activosKarina = reporte.getRange('B20').getValue(); // Fila 20
 
-    const derivacionesExternas = reporte.getRange('B11').getValue(); // Derivaciones institucionales
+    const derivacionesExternas = reporte.getRange('B11').getValue(); // Derivaciones institucionales (fila 11)
 
     const nuevaFila = mensuales.getLastRow() + 1;
     const datos = [
