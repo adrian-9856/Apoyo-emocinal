@@ -795,36 +795,47 @@ function alEditar(e) {
     return;
   }
 
-  const sheet = e.range.getSheet();
-  const hoja = sheet.getName();
-  const fila = e.range.getRow();
-  const columna = e.range.getColumn();
-  const valor = e.range.getValue();
+  // PROTECCIÓN CONTRA EJECUCIONES MÚLTIPLES
+  const lock = LockService.getDocumentLock();
+  const lockKey = 'alEditar_' + e.range.getSheet().getName() + '_' + e.range.getRow() + '_' + e.range.getColumn();
 
-  // LOG: Registrar TODA edición
-  Logger.log('═══════════════════════════════════════');
-  Logger.log('🔍 EDICIÓN DETECTADA:');
-  Logger.log('   Hoja: ' + hoja);
-  Logger.log('   Fila: ' + fila);
-  Logger.log('   Columna: ' + columna);
-  Logger.log('   Valor: "' + valor + '"');
-  Logger.log('═══════════════════════════════════════');
-
-  if (fila <= 1) {
-    Logger.log('⚠️ Fila es header, ignorando');
+  // Intentar obtener lock por 0 segundos - si ya está bloqueado, salir inmediatamente
+  if (!lock.tryLock(0)) {
+    Logger.log('⚠️ Ya hay una ejecución en proceso, ignorando esta edición');
     return;
   }
 
-  if (!valor) {
-    Logger.log('⚠️ Valor vacío, ignorando');
-    return;
-  }
+  try {
+    const sheet = e.range.getSheet();
+    const hoja = sheet.getName();
+    const fila = e.range.getRow();
+    const columna = e.range.getColumn();
+    const valor = e.range.getValue();
 
-  const val = valor.toString().trim();
-  if (val === '') {
-    Logger.log('⚠️ Valor vacío después de trim, ignorando');
-    return;
-  }
+    // LOG: Registrar TODA edición
+    Logger.log('═══════════════════════════════════════');
+    Logger.log('🔍 EDICIÓN DETECTADA:');
+    Logger.log('   Hoja: ' + hoja);
+    Logger.log('   Fila: ' + fila);
+    Logger.log('   Columna: ' + columna);
+    Logger.log('   Valor: "' + valor + '"');
+    Logger.log('═══════════════════════════════════════');
+
+    if (fila <= 1) {
+      Logger.log('⚠️ Fila es header, ignorando');
+      return;
+    }
+
+    if (!valor) {
+      Logger.log('⚠️ Valor vacío, ignorando');
+      return;
+    }
+
+    const val = valor.toString().trim();
+    if (val === '') {
+      Logger.log('⚠️ Valor vacío después de trim, ignorando');
+      return;
+    }
 
   // CASO 1: Lista de Espera - Asignación de Terapeuta (columna N = 14)
   if (hoja === 'Lista de Espera' && columna === 14) {
@@ -931,6 +942,11 @@ function alEditar(e) {
         Logger.log('❌ ERROR en enviarBienestarAListaEspera: ' + error.toString());
       }
     }
+  }
+  } finally {
+    // SIEMPRE liberar el lock al final
+    lock.releaseLock();
+    Logger.log('🔓 Lock liberado');
   }
 }
 
@@ -1497,7 +1513,7 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
 
     if (tipoFinal === 'deserciones') {
       // Para deserciones: marcar en rojo, mostrar mensaje, y ELIMINAR fila
-      sheetOrigen.getRange(fila, 1, 1, 10).setBackground('#f8d7da');
+      sheetOrigen.getRange(fila, 1, 1, 9).setBackground('#f8d7da');
       SpreadsheetApp.flush(); // Forzar actualización visual
 
       ss.toast(
@@ -1517,9 +1533,24 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
       Logger.log('✅ Fila eliminada exitosamente');
 
     } else if (tipoFinal === 'Proceso culminado') {
-      // Para procesos culminados: solo marcar en verde (NO eliminar)
-      sheetOrigen.getRange(fila, 1, 1, 10).setBackground('#d4edda');
-      ss.toast('✅ ' + nombre + '\n' + tipoFinal + '\nSesiones: ' + numSesion, 'Procesado', 4);
+      // Para procesos culminados: marcar en verde y ELIMINAR fila
+      sheetOrigen.getRange(fila, 1, 1, 9).setBackground('#d4edda');
+      SpreadsheetApp.flush(); // Forzar actualización visual
+
+      ss.toast(
+        '✅ PROCESO CULMINADO\n\n' +
+        'Participante: ' + nombre + '\n' +
+        'Sesiones: ' + numSesion + '\n\n' +
+        'Enviado a Procesos Culminados\n' +
+        'La fila se eliminará de Terapias',
+        'Proceso Completado',
+        5
+      );
+
+      // ELIMINAR la fila de Terapias después de copiarla
+      Logger.log('🗑️ Eliminando fila ' + fila + ' de Terapias');
+      sheetOrigen.deleteRow(fila);
+      Logger.log('✅ Fila eliminada exitosamente');
     }
   } else {
     Logger.log('❌ Error al copiar a la hoja');
@@ -1985,7 +2016,12 @@ function enviarEmailFinalizacion(participante, terapeuta, tipo, motivo, sesiones
 }
 
 function copiarACulminados(participante, terapeuta, creemosId, sesiones, motivo) {
+  // LOCK para prevenir inserciones concurrentes
+  const lock = LockService.getDocumentLock();
   try {
+    // Esperar hasta 10 segundos para obtener el lock
+    lock.waitLock(10000);
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Procesos Culminados');
 
@@ -2026,11 +2062,19 @@ function copiarACulminados(participante, terapeuta, creemosId, sesiones, motivo)
   } catch (error) {
     Logger.log('❌ Error culminados: ' + error.message);
     return false;
+  } finally {
+    // SIEMPRE liberar el lock
+    lock.releaseLock();
   }
 }
 
 function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo) {
+  // LOCK para prevenir inserciones concurrentes
+  const lock = LockService.getDocumentLock();
   try {
+    // Esperar hasta 10 segundos para obtener el lock
+    lock.waitLock(10000);
+
     Logger.log('🔍 copiarADeserciones - Inicio');
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Deserciones');
@@ -2091,8 +2135,12 @@ function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo
   } catch (error) {
     Logger.log('❌ Error en copiarADeserciones: ' + error.message);
     Logger.log('   Stack: ' + error.stack);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
     ss.toast('❌ Error al copiar a Deserciones: ' + error.message, 'Error', 5);
     return false;
+  } finally {
+    // SIEMPRE liberar el lock
+    lock.releaseLock();
   }
 }
 
