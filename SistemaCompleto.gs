@@ -16,6 +16,7 @@ function onOpen() {
       .addItem('📧 Configurar Email Director', 'configurarEmail')
       .addItem('👥 Configurar Emails Terapeutas', 'configurarEmailsTerapeutas')
       .addItem('✉️ Probar Envío de Email', 'probarEmail')
+      .addItem('👨‍⚕️ 🔍 PROBAR EMAILS TERAPEUTAS', 'probarEmailsTerapeutas')
       .addSeparator()
       .addItem('➕ Agregar Grupo de Asistencia', 'configurarAsistencia')
       .addItem('📋 Ver/Gestionar Grupos', 'verGruposAsistencia')
@@ -1817,6 +1818,144 @@ function probarEmail() {
     Logger.log('❌ Error enviando email: ' + error.message);
     return false;
   }
+}
+
+/**
+ * Prueba el envío de emails a los terapeutas
+ * Verifica cuáles tienen email configurado y permite enviar emails de prueba
+ */
+function probarEmailsTerapeutas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+
+  ss.toast('🔍 Verificando configuración de emails...', 'Diagnóstico', 2);
+
+  const terapeutas = ['Gerber', 'Melissa', 'Diana', 'Karina'];
+  let resumen = '📋 ESTADO DE EMAILS DE TERAPEUTAS\n\n';
+  let configurados = 0;
+  let noConfigurados = 0;
+
+  const emailsConfigurados = {};
+
+  terapeutas.forEach(terapeuta => {
+    const email = props.getProperty('EMAIL_' + terapeuta.toUpperCase());
+    if (email && email !== '') {
+      resumen += '✅ ' + terapeuta + ': ' + email + '\n';
+      emailsConfigurados[terapeuta] = email;
+      configurados++;
+    } else {
+      resumen += '❌ ' + terapeuta + ': NO CONFIGURADO\n';
+      noConfigurados++;
+    }
+  });
+
+  resumen += '\n━━━━━━━━━━━━━━━━━━━━\n';
+  resumen += 'Total configurados: ' + configurados + '/4\n';
+  resumen += 'Sin configurar: ' + noConfigurados + '/4\n\n';
+
+  if (noConfigurados > 0) {
+    resumen += '⚠️ IMPORTANTE:\n';
+    resumen += 'Para que los emails se envíen,\n';
+    resumen += 'debes configurar los emails primero:\n\n';
+    resumen += 'Menú → 🔧 Configuración\n';
+    resumen += '→ 👥 Configurar Emails Terapeutas\n\n';
+  }
+
+  if (configurados === 0) {
+    ui.alert(
+      '❌ No Hay Emails Configurados',
+      resumen,
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  resumen += '¿Deseas enviar un email de PRUEBA\n';
+  resumen += 'a los terapeutas configurados?';
+
+  const confirmacion = ui.alert(
+    '🔍 Diagnóstico de Emails',
+    resumen,
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmacion !== ui.Button.YES) {
+    return;
+  }
+
+  // Enviar emails de prueba
+  ss.toast('📧 Enviando emails de prueba...', 'Enviando', 3);
+
+  let exitos = 0;
+  let errores = 0;
+  let resultados = '\n📊 RESULTADOS:\n\n';
+
+  for (const [terapeuta, email] of Object.entries(emailsConfigurados)) {
+    try {
+      const asunto = '✅ Prueba - Asignación de Caso';
+      const cuerpo =
+        'Hola ' + terapeuta + ',\n\n' +
+        '✅ ESTE ES UN EMAIL DE PRUEBA ✅\n\n' +
+        'Si recibes este email, significa que el sistema\n' +
+        'está funcionando correctamente.\n\n' +
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+        'Cuando se te asigne un caso real, recibirás\n' +
+        'un email similar con la información del paciente\n' +
+        'y las instrucciones para confirmar asistencia.\n' +
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+        '📧 Tu email: ' + email + '\n' +
+        '📅 Fecha de prueba: ' + new Date().toLocaleString() + '\n' +
+        '📊 Google Sheet: ' + ss.getName() + '\n\n' +
+        '✅ El sistema está listo para enviarte notificaciones.\n\n' +
+        '---\n' +
+        'Sistema de Apoyo Emocional\n' +
+        'Notificación Automática';
+
+      Logger.log('📧 Enviando email de prueba a ' + terapeuta + ' (' + email + ')');
+      MailApp.sendEmail(email, asunto, cuerpo);
+
+      resultados += '✅ ' + terapeuta + ': EMAIL ENVIADO\n';
+      exitos++;
+      Logger.log('✅ Email enviado exitosamente a ' + terapeuta);
+
+    } catch (error) {
+      resultados += '❌ ' + terapeuta + ': ERROR\n';
+      resultados += '   → ' + error.message + '\n';
+      errores++;
+      Logger.log('❌ Error enviando email a ' + terapeuta + ': ' + error.message);
+    }
+  }
+
+  resultados += '\n━━━━━━━━━━━━━━━━━━━━\n';
+  resultados += 'Enviados: ' + exitos + '\n';
+  resultados += 'Errores: ' + errores + '\n\n';
+
+  if (exitos > 0) {
+    resultados += '✅ Los terapeutas con email configurado\n';
+    resultados += 'deben recibir el email de prueba.\n\n';
+    resultados += 'Revisa tu bandeja de entrada o spam.\n\n';
+  }
+
+  if (errores > 0) {
+    resultados += '❌ Hubo errores al enviar algunos emails.\n';
+    resultados += 'Revisa los permisos en Apps Script:\n';
+    resultados += 'Extensiones → Apps Script → Permisos\n\n';
+  }
+
+  ui.alert(
+    '📧 Prueba de Emails Completada',
+    resultados,
+    ui.ButtonSet.OK
+  );
+
+  ss.toast(
+    '✅ Prueba completada\n\n' +
+    'Enviados: ' + exitos + '\n' +
+    'Errores: ' + errores,
+    'Finalizado',
+    5
+  );
 }
 
 /**
