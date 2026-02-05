@@ -3891,7 +3891,9 @@ function importarDatosAutomaticoSilencioso() {
         }
       }
 
-      // Enviar automáticamente a Lista de Espera
+      // DESHABILITADO: Envío automático a Lista de Espera
+      // El usuario NO quiere envío automático - SOLO MANUAL
+      /*
       const quiereApoyo = apoyoEmocional ? apoyoEmocional.toString().toLowerCase().trim() : '';
       if (quiereApoyo === 'sí' || quiereApoyo === 'si' || quiereApoyo === 'yes') {
         try {
@@ -3902,6 +3904,7 @@ function importarDatosAutomaticoSilencioso() {
           // Silencioso
         }
       }
+      */
     }
 
     // Logging final (solo en log, no en pantalla)
@@ -4209,7 +4212,9 @@ function importarDatosAutomatico() {
         Logger.log('ℹ️ Protocolo NO activado (valor: "' + protocoloValorNormalizado + '")');
       }
 
-      // Enviar a Lista de Espera si quiere apoyo emocional
+      // DESHABILITADO: Envío automático a Lista de Espera
+      // El usuario NO quiere envío automático - SOLO MANUAL
+      /*
       const quiereApoyo = apoyoEmocional ? apoyoEmocional.toString().toLowerCase().trim() : '';
       Logger.log('🔍 Apoyo Emocional: "' + apoyoEmocional + '" (normalizado: "' + quiereApoyo + '")');
 
@@ -4233,6 +4238,7 @@ function importarDatosAutomatico() {
       } else if (apoyoEmocional) {
         Logger.log('ℹ️ NO quiere apoyo emocional (valor: "' + quiereApoyo + '")');
       }
+      */
     }
 
     ss.toast('', '', 1);
@@ -4510,7 +4516,9 @@ function verificarAlertasRapido() {
         }
       }
 
-      // Enviar automáticamente a Lista de Espera
+      // DESHABILITADO: Envío automático a Lista de Espera
+      // El usuario NO quiere envío automático - SOLO MANUAL
+      /*
       const quiereApoyo = apoyoEmocional ? apoyoEmocional.toString().toLowerCase().trim() : '';
       if (quiereApoyo === 'sí' || quiereApoyo === 'si' || quiereApoyo === 'yes') {
         try {
@@ -4521,6 +4529,7 @@ function verificarAlertasRapido() {
           // Silencioso
         }
       }
+      */
     }
 
     ss.toast('', '', 1);
