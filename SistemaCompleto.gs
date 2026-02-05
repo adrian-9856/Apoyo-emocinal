@@ -922,7 +922,11 @@ function alEditar(e) {
     }
   }
 
-  // CASO 5: Formulario de Bienestar - Enviar a Lista de Espera (columna E = 5)
+  // CASO 5: Formulario de Bienestar - DESHABILITADO POR PETICIÓN DEL USUARIO
+  // El usuario prefiere enviar MANUALMENTE desde el menú, NO automáticamente
+  // Si necesitas habilitar el envío automático, descomenta el código abajo
+
+  /*
   if (hoja === 'C_03_Formulario de Bienestar (2026)' && columna === 5) {
     Logger.log('✅ Detectada edición en Bienestar, columna E (Enviar a Lista)');
     Logger.log('   Valor ingresado: "' + val + '"');
@@ -946,6 +950,7 @@ function alEditar(e) {
       }
     }
   }
+  */
 }
 
 /**
@@ -1640,17 +1645,15 @@ function configurarEmailsTerapeutas() {
  */
 function enviarEmailAsignacionTerapeuta(terapeuta, nombreParticipante, fila) {
   try {
-    const emailTerapeuta = obtenerEmailTerapeuta(terapeuta);
+    Logger.log('🔍 Intentando enviar email a ' + terapeuta);
 
-    if (!emailTerapeuta) {
+    const emailTerapeuta = obtenerEmailTerapeuta(terapeuta);
+    Logger.log('   Email obtenido: ' + (emailTerapeuta || 'NO CONFIGURADO'));
+
+    if (!emailTerapeuta || emailTerapeuta === '') {
       Logger.log('⚠️ No hay email configurado para ' + terapeuta);
-      SpreadsheetApp.getActiveSpreadsheet().toast(
-        '⚠️ Email no configurado para ' + terapeuta + '\n\n' +
-        'Usa "📧 Configurar Emails Terapeutas" para configurar.',
-        'Sin Email',
-        5
-      );
-      return false;
+      Logger.log('⚠️ RETORNANDO FALSE - NO SE ENVIARÁ EMAIL');
+      return false; // No mostrar toast aquí - se maneja en asignarTerapeuta
     }
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1683,13 +1686,24 @@ function enviarEmailAsignacionTerapeuta(terapeuta, nombreParticipante, fila) {
       'Sistema de Apoyo Emocional\n' +
       'Notificación automática';
 
+    Logger.log('📧 Enviando email a: ' + emailTerapeuta);
+    Logger.log('   Asunto: ' + asunto);
+
     MailApp.sendEmail(emailTerapeuta, asunto, cuerpo);
 
-    Logger.log('✅ Email enviado a ' + terapeuta + ' (' + emailTerapeuta + ')');
+    Logger.log('✅ Email enviado exitosamente a ' + terapeuta + ' (' + emailTerapeuta + ')');
     return true;
 
   } catch (error) {
-    Logger.log('❌ Error enviando email a terapeuta: ' + error.message);
+    Logger.log('❌ ERROR ENVIANDO EMAIL: ' + error.message);
+    Logger.log('   Stack: ' + error.stack);
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      '❌ ERROR ENVIANDO EMAIL\n\n' +
+      'Error: ' + error.message + '\n\n' +
+      'Revisa que tienes permisos para enviar emails.',
+      'Error de Email',
+      10
+    );
     return false;
   }
 }
