@@ -841,9 +841,9 @@ function alEditar(e) {
     return;
   }
 
-  // CASO 1: Lista de Espera - Asignación de Terapeuta (columna N = 14)
-  if (hoja === 'Lista de Espera' && columna === 14) {
-    Logger.log('✅ Detectada edición en Lista de Espera, columna N (14)');
+  // CASO 1: Lista de Espera - Asignación de Terapeuta (columna M = 13)
+  if (hoja === 'Lista de Espera' && columna === 13) {
+    Logger.log('✅ Detectada edición en Lista de Espera, columna M (13) - Terapeuta Asignado');
     Logger.log('   Valor ingresado: "' + val + '"');
 
     if (['Gerber', 'Melissa', 'Diana', 'Karina'].indexOf(val) !== -1) {
@@ -864,9 +864,9 @@ function alEditar(e) {
     }
   }
 
-  // CASO 2: Lista de Espera - Confirmación de Asistencia (columna N = 15)
+  // CASO 2: Lista de Espera - Confirmación de Asistencia (columna N = 14)
   if (hoja === 'Lista de Espera' && columna === 14) {
-    Logger.log('✅ Detectada edición en Lista de Espera, columna N (14)');
+    Logger.log('✅ Detectada edición en Lista de Espera, columna N (14) - Asistió a Cita');
     Logger.log('   Valor ingresado: "' + val + '"');
 
     if (val === 'Vino' || val === 'No vino') {
