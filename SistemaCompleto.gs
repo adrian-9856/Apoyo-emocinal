@@ -1083,6 +1083,16 @@ function procesarConfirmacionAsistencia(sheetOrigen, fila, confirmacion) {
 }
 
 function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malestar, terapeuta, sheetOrigen, fila) {
+  // LockService: evita condición de carrera cuando el trigger dispara doble
+  const lock = LockService.getDocumentLock();
+  try {
+    lock.waitLock(8000); // espera hasta 8 segundos
+  } catch (e) {
+    Logger.log('⚠️ No se pudo obtener lock: ' + e.message);
+    SpreadsheetApp.getActiveSpreadsheet().toast('⚠️ Sistema ocupado, intenta de nuevo', 'Espera', 3);
+    return;
+  }
+
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const nuevos = ss.getSheetByName('Nuevos Ingresos');
@@ -1142,6 +1152,18 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     // Usar getLastRow() + 1 para agregar al final (más confiable)
     const nuevaFilaTerapias = terapias.getLastRow() + 1;
 
+    // Segunda verificación justo antes de escribir (datos frescos, con lock activo)
+    const datosFrescos = terapias.getDataRange().getValues();
+    for (let i = 1; i < datosFrescos.length; i++) {
+      if (datosFrescos[i][1] && datosFrescos[i][1].toString().trim() === nombre &&
+          datosFrescos[i][5] && datosFrescos[i][5].toString().trim() === 'En proceso') {
+        Logger.log('⚠️ Duplicado detectado en verificación final (race condition evitada): ' + nombre);
+        sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#d4edda');
+        ss.toast('✅ ' + nombre + ' ya está en Terapias (duplicado prevenido).', 'Ya en Terapias', 4);
+        return;
+      }
+    }
+
     const registroTerapias = [
       terapeuta,          // A: Terapeuta
       nombre,             // B: Participante
@@ -1166,6 +1188,8 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
   } catch (error) {
     Logger.log('❌ ERROR en enviarANuevosIngresosYTerapias: ' + error.toString());
     SpreadsheetApp.getActiveSpreadsheet().toast('❌ Error: ' + error.message, 'Error', 5);
+  } finally {
+    lock.releaseLock();
   }
 }
 
