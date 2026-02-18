@@ -1021,6 +1021,17 @@ function procesarConfirmacionAsistencia(sheetOrigen, fila, confirmacion) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   try {
+    // Verificar si esta fila ya fue procesada (por color de fondo)
+    const bgColor = sheetOrigen.getRange(fila, 1).getBackground().toLowerCase();
+    if (bgColor === '#d4edda') {
+      ss.toast('✅ Esta fila ya fue procesada como "Vino" (en Terapias).', 'Ya Procesado', 4);
+      return;
+    }
+    if (bgColor === '#f8d7da') {
+      ss.toast('✅ Esta fila ya fue procesada como "No vino" (en Personas no asistidas).', 'Ya Procesado', 4);
+      return;
+    }
+
     // Leer todos los datos necesarios (C-M = 11 columnas)
     const datos = sheetOrigen.getRange(fila, 3, 1, 11).getValues()[0];
     const nombre = datos[0];         // C
@@ -1088,14 +1099,10 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
       const estadoTerapia = datosTerapias[i][5];  // Columna F: Estado
       if (nombreTerapia && nombreTerapia.toString().trim() === nombre &&
           estadoTerapia && estadoTerapia.toString().trim() === 'En proceso') {
-        Logger.log('Duplicado activo encontrado en Terapias: ' + nombre + ' - eliminando de Lista de Espera');
-        sheetOrigen.deleteRow(fila);
-        ss.toast(
-          '✅ ' + nombre + ' ya está en Terapias (En proceso)\n\n' +
-          'Se eliminó de Lista de Espera para evitar duplicado.',
-          'Ya en Terapias',
-          5
-        );
+        Logger.log('Duplicado activo encontrado en Terapias: ' + nombre);
+        // No borrar — la fila se conserva en Lista de Espera con color verde
+        sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#d4edda');
+        ss.toast('✅ ' + nombre + ' ya está en Terapias (En proceso).', 'Ya en Terapias', 4);
         return;
       }
     }
@@ -1104,14 +1111,10 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     const datosNuevos = nuevos.getDataRange().getValues();
     for (let i = 1; i < datosNuevos.length; i++) {
       if (datosNuevos[i][2] && datosNuevos[i][2].toString().trim() === nombre) { // Columna C (índice 2)
-        Logger.log('⚠️ Duplicado encontrado en Nuevos Ingresos: ' + nombre + ' - eliminando de Lista de Espera');
-        sheetOrigen.deleteRow(fila);
-        ss.toast(
-          '✅ ' + nombre + ' ya está en Nuevos Ingresos.\n\n' +
-          'Se eliminó de Lista de Espera para evitar duplicado.',
-          'Ya en Nuevos Ingresos',
-          5
-        );
+        Logger.log('⚠️ Duplicado encontrado en Nuevos Ingresos: ' + nombre);
+        // No borrar — la fila se conserva en Lista de Espera con color verde
+        sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#d4edda');
+        ss.toast('✅ ' + nombre + ' ya está en Nuevos Ingresos.', 'Ya en Nuevos Ingresos', 4);
         return;
       }
     }
@@ -1153,12 +1156,12 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     terapias.getRange(nuevaFilaTerapias, 1, 1, 9).setValues([registroTerapias]);
     Logger.log('✅ Agregado a Terapias en fila: ' + nuevaFilaTerapias);
 
-    // ELIMINAR la fila de Lista de Espera (procesada exitosamente)
-    sheetOrigen.deleteRow(fila);
-    Logger.log('✅ Fila ' + fila + ' eliminada de Lista de Espera');
+    // Marcar fila en verde en Lista de Espera (procesada — Vino)
+    sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#d4edda');
+    Logger.log('✅ Fila ' + fila + ' marcada en verde en Lista de Espera (Vino - procesada)');
 
     SpreadsheetApp.flush();
-    ss.toast('✅ ' + nombre + '\n→ Nuevos Ingresos\n→ Terapias con ' + terapeuta + '\n\n✅ Eliminado de Lista de Espera', 'Asignado', 4);
+    ss.toast('✅ ' + nombre + '\n→ Nuevos Ingresos\n→ Terapias con ' + terapeuta + '\n\n🟢 Fila verde en Lista de Espera', 'Asignado', 5);
     Logger.log('✅ Proceso completado exitosamente');
   } catch (error) {
     Logger.log('❌ ERROR en enviarANuevosIngresosYTerapias: ' + error.toString());
@@ -1178,26 +1181,15 @@ function enviarAPersonasNoAsistidas(nombre, creemosId, genero, edad, malestar, t
     for (let i = 1; i < datosNoAsistidas.length; i++) {
       if (datosNoAsistidas[i][1] && datosNoAsistidas[i][1].toString().trim() === nombre.toString().trim()) { // Columna B (índice 1): Nombre
         Logger.log('⚠️ Duplicado detectado en Personas no asistidas: ' + nombre);
-        ss.toast('⚠️ ' + nombre + ' ya está en Personas no asistidas\n\n✅ Eliminado de Lista de Espera', 'Ya Registrado', 3);
-
-        // Aún así eliminar de Lista de Espera
-        sheetOrigen.deleteRow(fila);
-        Logger.log('✅ Fila ' + fila + ' eliminada de Lista de Espera (duplicado evitado)');
+        // No borrar — marcar rojo en Lista de Espera
+        sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#f8d7da');
+        ss.toast('✅ ' + nombre + ' ya está en Personas no asistidas.', 'Ya Registrado', 4);
         return;
       }
     }
 
-    // Buscar la primera fila vacía
-    let nuevaFila = 2;
-    const maxFilas = 200;
-
-    for (let i = 2; i <= maxFilas; i++) {
-      const nombreExistente = noAsistidas.getRange(i, 2).getValue(); // Columna B: Nombre
-      if (!nombreExistente || nombreExistente.toString().trim() === '') {
-        nuevaFila = i;
-        break;
-      }
-    }
+    // Usar getLastRow() + 1 para agregar al final
+    const nuevaFila = noAsistidas.getLastRow() + 1;
 
     const registro = [
       new Date(),
@@ -1213,12 +1205,12 @@ function enviarAPersonasNoAsistidas(nombre, creemosId, genero, edad, malestar, t
     noAsistidas.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
     Logger.log('✅ Agregado a Personas no asistidas en fila: ' + nuevaFila);
 
-    // ELIMINAR la fila de Lista de Espera (no asistió - procesado)
-    sheetOrigen.deleteRow(fila);
-    Logger.log('✅ Fila ' + fila + ' eliminada de Lista de Espera');
+    // Marcar fila en rojo en Lista de Espera (procesada — No vino)
+    sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#f8d7da');
+    Logger.log('✅ Fila ' + fila + ' marcada en rojo en Lista de Espera (No vino - procesada)');
 
     SpreadsheetApp.flush();
-    ss.toast('⚠️ ' + nombre + '\n→ Personas no asistidas (NO VINO)\n\n✅ Eliminado de Lista de Espera', 'No Asistió', 3);
+    ss.toast('⚠️ ' + nombre + '\n→ Personas no asistidas (NO VINO)\n\n🔴 Fila roja en Lista de Espera', 'No Asistió', 5);
     Logger.log('✅ Proceso de no asistencia completado');
   } catch (error) {
     Logger.log('❌ ERROR en enviarAPersonasNoAsistidas: ' + error.toString());
