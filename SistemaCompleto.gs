@@ -1041,7 +1041,13 @@ function procesarConfirmacionAsistencia(sheetOrigen, fila, confirmacion) {
     }
 
     if (!terapeuta || terapeuta.toString().trim() === '') {
-      ss.toast('⚠️ Error: No hay terapeuta asignado en esta fila', 'Error', 3);
+      // Limpiar la celda de confirmación para no dejar "Vino"/"No vino" sin procesar
+      sheetOrigen.getRange(fila, 14).clearContent();
+      ss.toast(
+        '⚠️ No hay terapeuta asignado en esta fila.\n\n' +
+        'Primero asigna un terapeuta en columna M,\nluego selecciona "Vino" o "No vino".',
+        'Falta Terapeuta', 5
+      );
       return;
     }
 
@@ -1111,17 +1117,8 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     }
 
     // 1. Agregar a Nuevos Ingresos (documentación)
-    // Buscar la primera fila vacía en Nuevos Ingresos
-    let nuevaFilaNuevos = 2;
-    const maxFilasNuevos = 200;
-
-    for (let i = 2; i <= maxFilasNuevos; i++) {
-      const nombreExistente = nuevos.getRange(i, 3).getValue(); // Columna C: Nombre
-      if (!nombreExistente || nombreExistente.toString().trim() === '') {
-        nuevaFilaNuevos = i;
-        break;
-      }
-    }
+    // Usar getLastRow() + 1 para agregar al final (más confiable que buscar vacíos)
+    const nuevaFilaNuevos = nuevos.getLastRow() + 1;
 
     const numeroIngreso = nuevaFilaNuevos - 1; // Restar 1 porque fila 1 es header
     const fechaIngreso = new Date();
@@ -3531,16 +3528,18 @@ function actualizarFormulasReporte() {
     reporte.getRange('C14').setFormula('=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Sí")+COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Si"),0)');
 
     // Filas 17-20: Casos activos por terapeuta (columna B: casos activos)
-    reporte.getRange('B17').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Gerber",Terapias!G:G,"En proceso"),0)');
-    reporte.getRange('B18').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Melissa",Terapias!G:G,"En proceso"),0)');
-    reporte.getRange('B19').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Diana",Terapias!G:G,"En proceso"),0)');
-    reporte.getRange('B20').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Karina",Terapias!G:G,"En proceso"),0)');
+    // Terapias: A=Terapeuta, B=Participante, C=Creamos ID, D=Género,
+    //           E=No.Sesión, F=Estado, G=Motivo, H=Sesiones Mes Anterior, I=Inasistencias
+    reporte.getRange('B17').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Gerber",Terapias!F:F,"En proceso"),0)');
+    reporte.getRange('B18').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Melissa",Terapias!F:F,"En proceso"),0)');
+    reporte.getRange('B19').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Diana",Terapias!F:F,"En proceso"),0)');
+    reporte.getRange('B20').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Karina",Terapias!F:F,"En proceso"),0)');
 
-    // Filas 17-20: Sesiones mes (columna C) - FILTRADO POR "En proceso"
-    reporte.getRange('C17').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Gerber")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)');
-    reporte.getRange('C18').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Melissa")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)');
-    reporte.getRange('C19').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Diana")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)');
-    reporte.getRange('C20').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Karina")*(Terapias!G2:G500="En proceso")*(Terapias!F2:F500-Terapias!I2:I500)),0)');
+    // Filas 17-20: Sesiones mes (columna C) = No.Sesión(E) - Sesiones Mes Anterior(H)
+    reporte.getRange('C17').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Gerber")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)');
+    reporte.getRange('C18').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Melissa")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)');
+    reporte.getRange('C19').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Diana")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)');
+    reporte.getRange('C20').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Karina")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)');
 
     // Fila 21: TOTAL casos activos y sesiones
     reporte.getRange('B21').setFormula('=IFERROR(SUM(B17:B20),0)');
@@ -5748,14 +5747,16 @@ function limpiarYRepararHojas() {
       let filasLimpiadas = 0;
 
       // Recorrer todas las filas (desde la 2 en adelante)
+      // Terapias: A=Terapeuta, B=Participante, C=Creamos ID, D=Género,
+      //           E=No.Sesión, F=Estado, G=Motivo, H=Sesiones Mes Anterior, I=Inasistencias
       for (let fila = 2; fila <= ultimaFila; fila++) {
-        const participante = terapias.getRange(fila, 3).getValue(); // Columna C: Participante
+        const participante = terapias.getRange(fila, 2).getValue(); // Columna B: Participante
 
         // Si NO tiene participante, es una fila vacía que debe limpiarse
         if (!participante || participante.toString().trim() === '') {
-          // Limpiar solo las columnas con valores iniciales incorrectos (M y N)
-          terapias.getRange(fila, 13).clearContent(); // Columna M: Sesiones Mes Anterior
-          terapias.getRange(fila, 14).clearContent(); // Columna N: Inasistencias
+          // Limpiar columnas H (Sesiones Mes Anterior) e I (Inasistencias)
+          terapias.getRange(fila, 8).clearContent(); // Columna H: Sesiones Mes Anterior
+          terapias.getRange(fila, 9).clearContent(); // Columna I: Inasistencias
           filasLimpiadas++;
         } else {
           filasConDatos++;
@@ -5776,7 +5777,7 @@ function limpiarYRepararHojas() {
       '📋 SIGUIENTE PASO:\n' +
       'Verifica que todo esté correcto:\n\n' +
       '1. Nuevos Ingresos debe tener 7 columnas (A-G)\n' +
-      '2. Terapias debe tener 14 columnas (A-N)\n' +
+      '2. Terapias debe tener 9 columnas (A-I)\n' +
       '3. No debe haber valores iniciales en filas vacías\n\n' +
       '¡El sistema está listo para usar!';
 
