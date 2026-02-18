@@ -53,6 +53,8 @@ function onOpen() {
 
     // Menú principal
     ui.createMenu('🏥 Apoyo Emocional')
+      .addItem('🔴 INSTALACIÓN COMPLETA', 'instalacionCompleta')
+      .addSeparator()
       .addSubMenu(menuInstalacion)
       .addSubMenu(menuConfiguracion)
       .addSeparator()
@@ -1071,14 +1073,19 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
 
     Logger.log('Iniciando envío a Nuevos Ingresos y Terapias...');
 
-    // Verificar duplicados en Terapias
+    // Verificar duplicados ACTIVOS en Terapias (solo filas con estado "En proceso")
+    // Nota: deserciones y procesos culminados permanecen en Terapias con otro color,
+    // por eso se filtra por estado para no bloquear nuevas asignaciones.
     const datosTerapias = terapias.getDataRange().getValues();
     for (let i = 1; i < datosTerapias.length; i++) {
-      if (datosTerapias[i][1] && datosTerapias[i][1].toString().trim() === nombre) { // Columna B (índice 1): Participante
+      const nombreTerapia = datosTerapias[i][1];  // Columna B: Participante
+      const estadoTerapia = datosTerapias[i][5];  // Columna F: Estado
+      if (nombreTerapia && nombreTerapia.toString().trim() === nombre &&
+          estadoTerapia && estadoTerapia.toString().trim() === 'En proceso') {
         sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#fff3cd');
         sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar terapeuta (columna M)
-        ss.toast('⚠️ ' + nombre + ' ya está en Terapias', 'Ya Asignado', 3);
-        Logger.log('Duplicado encontrado en Terapias: ' + nombre);
+        ss.toast('⚠️ ' + nombre + ' ya está en Terapias (En proceso)', 'Ya Asignado', 3);
+        Logger.log('Duplicado activo encontrado en Terapias: ' + nombre);
         return;
       }
     }
@@ -1130,17 +1137,8 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     Logger.log('✅ Agregado a Nuevos Ingresos en fila: ' + nuevaFilaNuevos);
 
     // 2. Crear registro en Terapias
-    // Buscar la primera fila vacía en Terapias
-    let nuevaFilaTerapias = 2;
-    const maxFilasTerapias = 200;
-
-    for (let i = 2; i <= maxFilasTerapias; i++) {
-      const participanteExistente = terapias.getRange(i, 3).getValue(); // Columna C: Participante
-      if (!participanteExistente || participanteExistente.toString().trim() === '') {
-        nuevaFilaTerapias = i;
-        break;
-      }
-    }
+    // Usar getLastRow() + 1 para agregar al final (más confiable)
+    const nuevaFilaTerapias = terapias.getLastRow() + 1;
 
     const registroTerapias = [
       terapeuta,          // A: Terapeuta
@@ -5144,6 +5142,140 @@ function enviarAlertaSuicidio(registro, headers) {
       5
     );
     return false;
+  }
+}
+
+/**
+ * INSTALACIÓN COMPLETA DEL SISTEMA
+ * Ejecuta todos los pasos necesarios de una sola vez:
+ * hojas, validaciones, triggers, fórmulas, reportes y Bienestar.
+ */
+function instalacionCompleta() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const respuesta = ui.alert(
+    '🔴 INSTALACIÓN COMPLETA',
+    'Esta opción instala y configura TODO el sistema de una sola vez:\n\n' +
+    '1️⃣ Crear / verificar todas las hojas\n' +
+    '2️⃣ Configurar todos los desplegables (dropdowns)\n' +
+    '3️⃣ Recrear el Reporte con fórmulas correctas\n' +
+    '4️⃣ Reinstalar trigger onEdit (asignación + asistencia)\n' +
+    '5️⃣ Reinstalar trigger de tiempo (reportes cada hora)\n' +
+    '6️⃣ Crear hoja de Bienestar si no existe\n' +
+    '7️⃣ Actualizar todos los reportes\n\n' +
+    '⚠️ No borra datos existentes.\n\n' +
+    '¿Continuar con la instalación completa?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) return;
+
+  const pasos = [];
+
+  try {
+    // PASO 1: Crear / verificar hojas
+    ss.toast('1️⃣ Creando hojas...', 'Instalación Completa', -1);
+    try {
+      crearHojas();
+      pasos.push('✅ Hojas creadas / verificadas');
+    } catch (e) {
+      pasos.push('⚠️ Hojas: ' + e.message);
+    }
+
+    // PASO 2: Configurar validaciones (dropdowns)
+    ss.toast('2️⃣ Configurando desplegables...', 'Instalación Completa', -1);
+    try {
+      const hojas = ['Lista de Espera', 'Nuevos Ingresos', 'Terapias',
+                     'Procesos Culminados', 'Deserciones',
+                     'Intervención de casos', 'Personas no asistidas'];
+      hojas.forEach(h => {
+        const s = ss.getSheetByName(h);
+        if (s) s.getRange('A1:Z1000').clearDataValidations();
+      });
+      configurarValidaciones();
+      pasos.push('✅ Desplegables configurados');
+    } catch (e) {
+      pasos.push('⚠️ Validaciones: ' + e.message);
+    }
+
+    // PASO 3: Recrear Reporte con fórmulas correctas
+    ss.toast('3️⃣ Actualizando Reporte...', 'Instalación Completa', -1);
+    try {
+      const reporteViejo = ss.getSheetByName('Reporte');
+      if (reporteViejo) ss.deleteSheet(reporteViejo);
+      crearReporte();
+      pasos.push('✅ Reporte recreado con fórmulas correctas');
+    } catch (e) {
+      pasos.push('⚠️ Reporte: ' + e.message);
+    }
+
+    // PASO 4: Reinstalar trigger onEdit
+    ss.toast('4️⃣ Instalando trigger onEdit...', 'Instalación Completa', -1);
+    try {
+      ScriptApp.getProjectTriggers().forEach(t => {
+        if (t.getHandlerFunction() === 'alEditar') ScriptApp.deleteTrigger(t);
+      });
+      ScriptApp.newTrigger('alEditar').forSpreadsheet(ss).onEdit().create();
+      pasos.push('✅ Trigger onEdit instalado (asignación + asistencia)');
+    } catch (e) {
+      pasos.push('⚠️ Trigger onEdit: ' + e.message);
+    }
+
+    // PASO 5: Reinstalar trigger de tiempo
+    ss.toast('5️⃣ Instalando trigger de tiempo...', 'Instalación Completa', -1);
+    try {
+      ScriptApp.getProjectTriggers().forEach(t => {
+        if (t.getHandlerFunction() === 'actualizarReportes') ScriptApp.deleteTrigger(t);
+      });
+      ScriptApp.newTrigger('actualizarReportes').timeBased().everyHours(1).create();
+      pasos.push('✅ Trigger de tiempo instalado (reportes cada hora)');
+    } catch (e) {
+      pasos.push('⚠️ Trigger de tiempo: ' + e.message);
+    }
+
+    // PASO 6: Crear hoja Bienestar si no existe
+    ss.toast('6️⃣ Verificando hoja Bienestar...', 'Instalación Completa', -1);
+    try {
+      if (!ss.getSheetByName('C_03_Formulario de Bienestar (2026)')) {
+        crearFormularioBienestar();
+        pasos.push('✅ Hoja Bienestar creada');
+      } else {
+        pasos.push('✅ Hoja Bienestar ya existe');
+      }
+    } catch (e) {
+      pasos.push('⚠️ Bienestar: ' + e.message);
+    }
+
+    // PASO 7: Actualizar reportes
+    ss.toast('7️⃣ Actualizando reportes...', 'Instalación Completa', -1);
+    try {
+      actualizarReportes();
+      pasos.push('✅ Reportes actualizados');
+    } catch (e) {
+      pasos.push('⚠️ Reportes: ' + e.message);
+    }
+
+    ss.toast('', '', 1);
+
+    ui.alert(
+      '🎉 INSTALACIÓN COMPLETA EXITOSA',
+      'Todos los pasos completados:\n\n' +
+      pasos.join('\n') + '\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      '📋 PRÓXIMOS PASOS:\n' +
+      '1. Configurar emails: Menú → 🔧 Configuración → 📧 Configurar Emails Terapeutas\n' +
+      '2. Probar emails: Menú → 🔧 Configuración → 👨‍⚕️ PROBAR EMAILS TERAPEUTAS\n' +
+      '3. Probar flujo: Asignar terapeuta en Lista de Espera → confirmar "Vino"',
+      ui.ButtonSet.OK
+    );
+
+    Logger.log('✅ Instalación completa exitosa: ' + pasos.join(' | '));
+
+  } catch (error) {
+    ss.toast('', '', 1);
+    ui.alert('❌ Error en instalación', error.message, ui.ButtonSet.OK);
+    Logger.log('❌ Error en instalacionCompleta: ' + error.message);
   }
 }
 
