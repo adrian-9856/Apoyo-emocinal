@@ -1082,10 +1082,14 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
       const estadoTerapia = datosTerapias[i][5];  // Columna F: Estado
       if (nombreTerapia && nombreTerapia.toString().trim() === nombre &&
           estadoTerapia && estadoTerapia.toString().trim() === 'En proceso') {
-        sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#fff3cd');
-        sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar terapeuta (columna M)
-        ss.toast('⚠️ ' + nombre + ' ya está en Terapias (En proceso)', 'Ya Asignado', 3);
-        Logger.log('Duplicado activo encontrado en Terapias: ' + nombre);
+        Logger.log('Duplicado activo encontrado en Terapias: ' + nombre + ' - eliminando de Lista de Espera');
+        sheetOrigen.deleteRow(fila);
+        ss.toast(
+          '✅ ' + nombre + ' ya está en Terapias (En proceso)\n\n' +
+          'Se eliminó de Lista de Espera para evitar duplicado.',
+          'Ya en Terapias',
+          5
+        );
         return;
       }
     }
@@ -1094,16 +1098,14 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     const datosNuevos = nuevos.getDataRange().getValues();
     for (let i = 1; i < datosNuevos.length; i++) {
       if (datosNuevos[i][2] && datosNuevos[i][2].toString().trim() === nombre) { // Columna C (índice 2)
-        Logger.log('⚠️ Duplicado encontrado en Nuevos Ingresos: ' + nombre);
+        Logger.log('⚠️ Duplicado encontrado en Nuevos Ingresos: ' + nombre + ' - eliminando de Lista de Espera');
+        sheetOrigen.deleteRow(fila);
         ss.toast(
-          '⚠️ DUPLICADO DETECTADO\n\n' +
-          nombre + ' ya está en Nuevos Ingresos.\n\n' +
-          'No se agregará nuevamente.',
-          'Ya Existe',
-          4
+          '✅ ' + nombre + ' ya está en Nuevos Ingresos.\n\n' +
+          'Se eliminó de Lista de Espera para evitar duplicado.',
+          'Ya en Nuevos Ingresos',
+          5
         );
-        sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#fff3cd');
-        sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar terapeuta (columna M)
         return;
       }
     }
