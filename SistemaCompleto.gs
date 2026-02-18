@@ -1522,28 +1522,25 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
     Logger.log('✅ Copia exitosa');
 
     if (tipoFinal === 'deserciones') {
-      // Para deserciones: marcar en rojo, mostrar mensaje, y ELIMINAR fila
+      // Para deserciones: marcar en rojo, mostrar mensaje. NO se elimina la fila.
       sheetOrigen.getRange(fila, 1, 1, 9).setBackground('#f8d7da');
       SpreadsheetApp.flush(); // Forzar actualización visual
 
       ss.toast(
-        '✅ DESERCIÓN PROCESADA\n\n' +
+        '✅ DESERCIÓN REGISTRADA\n\n' +
         'Participante: ' + nombre + '\n' +
         'Motivo: ' + motivo + '\n' +
         'Sesiones: ' + numSesion + '\n\n' +
-        'Enviado a hoja Deserciones\n' +
-        'La fila se eliminará de Terapias',
+        'Copiado a hoja Deserciones\n' +
+        'El registro permanece en Terapias (marcado en rojo)',
         'Deserción Registrada',
-        5
+        6
       );
 
-      // ELIMINAR la fila de Terapias después de copiarla
-      Logger.log('🗑️ Eliminando fila ' + fila + ' de Terapias');
-      sheetOrigen.deleteRow(fila);
-      Logger.log('✅ Fila eliminada exitosamente');
+      Logger.log('✅ Deserción procesada. Fila conservada en Terapias con color rojo.');
 
     } else if (tipoFinal === 'Proceso culminado') {
-      // Para procesos culminados: marcar en verde y ELIMINAR fila
+      // Para procesos culminados: marcar en verde. NO se elimina la fila.
       sheetOrigen.getRange(fila, 1, 1, 9).setBackground('#d4edda');
       SpreadsheetApp.flush(); // Forzar actualización visual
 
@@ -1551,16 +1548,13 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
         '✅ PROCESO CULMINADO\n\n' +
         'Participante: ' + nombre + '\n' +
         'Sesiones: ' + numSesion + '\n\n' +
-        'Enviado a Procesos Culminados\n' +
-        'La fila se eliminará de Terapias',
+        'Copiado a Procesos Culminados\n' +
+        'El registro permanece en Terapias (marcado en verde)',
         'Proceso Completado',
-        5
+        6
       );
 
-      // ELIMINAR la fila de Terapias después de copiarla
-      Logger.log('🗑️ Eliminando fila ' + fila + ' de Terapias');
-      sheetOrigen.deleteRow(fila);
-      Logger.log('✅ Fila eliminada exitosamente');
+      Logger.log('✅ Proceso culminado. Fila conservada en Terapias con color verde.');
     }
   } else {
     Logger.log('❌ Error al copiar a la hoja');
