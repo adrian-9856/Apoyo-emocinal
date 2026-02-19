@@ -5243,7 +5243,8 @@ function instalacionCompleta() {
     '4️⃣ Reinstalar trigger onEdit (asignación + asistencia)\n' +
     '5️⃣ Reinstalar trigger de tiempo (reportes cada hora)\n' +
     '6️⃣ Crear hoja de Bienestar si no existe\n' +
-    '7️⃣ Actualizar todos los reportes\n\n' +
+    '7️⃣ Crear hojas Formulario de Interés, Referencias y Derivaciones Institucionales\n' +
+    '8️⃣ Actualizar todos los reportes\n\n' +
     '⚠️ No borra datos existentes.\n\n' +
     '¿Continuar con la instalación completa?',
     ui.ButtonSet.YES_NO
@@ -5327,8 +5328,41 @@ function instalacionCompleta() {
       pasos.push('⚠️ Bienestar: ' + e.message);
     }
 
-    // PASO 7: Actualizar reportes
-    ss.toast('7️⃣ Actualizando reportes...', 'Instalación Completa', -1);
+    // PASO 7: Crear hojas de captación (Interés, Referencias, Derivaciones)
+    ss.toast('7️⃣ Creando hojas de captación...', 'Instalación Completa', -1);
+    try {
+      if (!ss.getSheetByName('Formulario de Interés')) {
+        crearHojaFormularioInteres();
+        pasos.push('✅ Hoja Formulario de Interés creada');
+      } else {
+        pasos.push('✅ Hoja Formulario de Interés ya existe');
+      }
+    } catch (e) {
+      pasos.push('⚠️ Formulario de Interés: ' + e.message);
+    }
+    try {
+      if (!ss.getSheetByName('Referencias')) {
+        crearHojaReferencias();
+        pasos.push('✅ Hoja Referencias creada');
+      } else {
+        pasos.push('✅ Hoja Referencias ya existe');
+      }
+    } catch (e) {
+      pasos.push('⚠️ Referencias: ' + e.message);
+    }
+    try {
+      if (!ss.getSheetByName('Derivaciones Institucionales')) {
+        crearHojaDerivacionesInstitucionales();
+        pasos.push('✅ Hoja Derivaciones Institucionales creada');
+      } else {
+        pasos.push('✅ Hoja Derivaciones Institucionales ya existe');
+      }
+    } catch (e) {
+      pasos.push('⚠️ Derivaciones Institucionales: ' + e.message);
+    }
+
+    // PASO 8: Actualizar reportes
+    ss.toast('8️⃣ Actualizando reportes...', 'Instalación Completa', -1);
     try {
       actualizarReportes();
       pasos.push('✅ Reportes actualizados');
