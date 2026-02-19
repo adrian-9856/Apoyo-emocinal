@@ -61,6 +61,7 @@ function onOpen() {
       .addItem('📦 Compactar Lista Espera', 'compactarListaEspera')
       .addSeparator()
       .addItem('🔍 Diagnóstico CSV Hoja de interés', 'diagnosticarFormularioInteres')
+      .addItem('🔍 Diagnóstico CSV Referencias y Derivaciones', 'diagnosticarReferenciasYDerivaciones')
       .addItem('📦 Migrar datos de hoja antigua a Hoja de interés', 'migrarDatosAntiguosInteres');
 
     // Menú principal
@@ -498,9 +499,9 @@ function crearReporte() {
     ['Personas que no asistieron a primera cita', '=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)', '=IFERROR(COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
     ['', '', '', ''],
 
-    // SECCIÓN 3: DERIVACIONES
-    ['DERIVACIONES INSTITUCIONALES', 'Total', '', ''],
-    ['Total derivaciones institucionales', '=IFERROR(COUNTA(\'Derivaciones Institucionales\'!E:E)-1,0)', '', ''],
+    // SECCIÓN 3: DERIVACIONES — cuenta desde Lista de Espera (col I = tipo de derivación)
+    ['DERIVACIONES INSTITUCIONALES', 'Total', 'Este mes', ''],
+    ['Total derivaciones institucionales', '=IFERROR(COUNTIF(\'Lista de Espera\'!I:I,"Derivación Institucional"),0)', '=IFERROR(COUNTIFS(\'Lista de Espera\'!I:I,"Derivación Institucional",\'Lista de Espera\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Lista de Espera\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
     ['', '', '', ''],
 
     // SECCIÓN 4: BIENESTAR (Formularios de KoboToolbox)
@@ -542,8 +543,8 @@ function crearReporte() {
     // SECCIÓN 10: CAPTACIÓN (formularios de ingreso)
     ['CAPTACIÓN', 'Total', 'Este mes', ''],
     ['Hoja de interés (Terapia Individual)', '=IFERROR(COUNTA(\'Hoja de interés\'!C:C)-1,0)', '=IFERROR(COUNTIFS(\'Hoja de interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Hoja de interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
-    ['Referencias de programas recibidas', '=IFERROR(COUNTA(\'Referencias de programas\'!D:D)-1,0)', '=IFERROR(COUNTIFS(\'Referencias de programas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias de programas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
-    ['Derivaciones institucionales recibidas', '=IFERROR(COUNTA(\'Derivaciones Institucionales\'!E:E)-1,0)', '=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '']
+    ['Referencias de programas recibidas', '=IFERROR(COUNTIF(\'Lista de Espera\'!I:I,"Referencia de Programa"),0)', '=IFERROR(COUNTIFS(\'Lista de Espera\'!I:I,"Referencia de Programa",\'Lista de Espera\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Lista de Espera\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
+    ['Derivaciones institucionales recibidas', '=IFERROR(COUNTIF(\'Lista de Espera\'!I:I,"Derivación Institucional"),0)', '=IFERROR(COUNTIFS(\'Lista de Espera\'!I:I,"Derivación Institucional",\'Lista de Espera\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Lista de Espera\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '']
   ];
 
   // Escribir datos
@@ -3615,8 +3616,10 @@ function actualizarFormulasReporte() {
     reporte.getRange('B8').setFormula('=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)');
     reporte.getRange('C8').setFormula('=IFERROR(COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
-    // Fila 11: Derivaciones institucionales (cuenta desde la hoja propia, columna E = Nombre Completo)
-    reporte.getRange('B11').setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!E:E)-1,0)');
+    // Fila 11: Derivaciones institucionales — cuenta desde Lista de Espera (col I = tipo derivación)
+    // Más confiable: muestra aunque la hoja de importación esté vacía
+    reporte.getRange('B11').setFormula('=IFERROR(COUNTIF(\'Lista de Espera\'!I:I,"Derivación Institucional"),0)');
+    reporte.getRange('C11').setFormula('=IFERROR(COUNTIFS(\'Lista de Espera\'!I:I,"Derivación Institucional",\'Lista de Espera\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Lista de Espera\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
     // Fila 14: Formulario de Bienestar
     reporte.getRange('B14').setFormula('=IFERROR(COUNTA(\'C_03_Formulario de Bienestar (2026)\'!A:A)-1,0)');
@@ -3663,37 +3666,35 @@ function actualizarFormulasReporte() {
     reporte.getRange('B35').setFormula('=IFERROR(B21,0)');
 
     // ── SECCIÓN 10: CAPTACIÓN ──────────────────────────────────────────────────
-    // Fila 36 es separador vacío; Fila 37 = header CAPTACIÓN
-    // Si la fila 37 aún no tiene el header, escribirlo junto con sus datos
-    if (!reporte.getRange('A37').getValue() || reporte.getRange('A37').getValue() === '') {
-      reporte.getRange('A36:D36').setValues([['', '', '', '']]);
-      reporte.getRange('A37:D37').setValues([['CAPTACIÓN', 'Total', 'Este mes', '']]);
-      reporte.getRange('A37:D37')
-        .setBackground('#1565c0').setFontColor('white').setFontWeight('bold')
-        .setHorizontalAlignment('center').setVerticalAlignment('middle').setFontSize(11);
-      reporte.setRowHeight(37, 35);
-      reporte.getRange('A38').setValue('Hoja de interés (Terapia Individual)');
-      reporte.getRange('A39').setValue('Referencias de programas recibidas');
-      reporte.getRange('A40').setValue('Derivaciones institucionales recibidas');
-      [38, 39, 40].forEach((row, idx) => {
-        reporte.getRange('A' + row + ':D' + row)
-          .setBackground(idx % 2 === 0 ? '#ffffff' : '#f5f5f5')
-          .setFontSize(10).setVerticalAlignment('middle');
-        reporte.setRowHeight(row, 28);
-      });
-    }
+    // Fila 36 separador; Fila 37 = header CAPTACIÓN; Filas 38-40 = datos
+    // Siempre se escribe para garantizar que exista con los textos correctos
+    reporte.getRange('A36:D36').setValues([['', '', '', '']]);
+    reporte.getRange('A37:D37').setValues([['CAPTACIÓN', 'Total', 'Este mes', '']]);
+    reporte.getRange('A37:D37')
+      .setBackground('#1565c0').setFontColor('white').setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle').setFontSize(11);
+    reporte.setRowHeight(37, 35);
+    reporte.getRange('A38').setValue('Hoja de interés (Terapia Individual)');
+    reporte.getRange('A39').setValue('Referencias de programas recibidas');
+    reporte.getRange('A40').setValue('Derivaciones institucionales recibidas');
+    [38, 39, 40].forEach((row, idx) => {
+      reporte.getRange('A' + row + ':D' + row)
+        .setBackground(idx % 2 === 0 ? '#ffffff' : '#f5f5f5')
+        .setFontSize(10).setVerticalAlignment('middle');
+      reporte.setRowHeight(row, 28);
+    });
 
     // Fila 38: Hoja de interés — contar por columna C (Nombre Completo, siempre lleno)
     reporte.getRange('B38').setFormula('=IFERROR(COUNTA(\'Hoja de interés\'!C:C)-1,0)');
     reporte.getRange('C38').setFormula('=IFERROR(COUNTIFS(\'Hoja de interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Hoja de interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
-    // Fila 39: Referencias
-    reporte.getRange('B39').setFormula('=IFERROR(COUNTA(\'Referencias de programas\'!D:D)-1,0)');
-    reporte.getRange('C39').setFormula('=IFERROR(COUNTIFS(\'Referencias de programas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias de programas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    // Fila 39: Referencias — cuenta desde Lista de Espera col I = "Referencia de Programa"
+    reporte.getRange('B39').setFormula('=IFERROR(COUNTIF(\'Lista de Espera\'!I:I,"Referencia de Programa"),0)');
+    reporte.getRange('C39').setFormula('=IFERROR(COUNTIFS(\'Lista de Espera\'!I:I,"Referencia de Programa",\'Lista de Espera\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Lista de Espera\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
-    // Fila 40: Derivaciones Institucionales (captación)
-    reporte.getRange('B40').setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!E:E)-1,0)');
-    reporte.getRange('C40').setFormula('=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    // Fila 40: Derivaciones Institucionales (igual que B11, desde Lista de Espera)
+    reporte.getRange('B40').setFormula('=IFERROR(COUNTIF(\'Lista de Espera\'!I:I,"Derivación Institucional"),0)');
+    reporte.getRange('C40').setFormula('=IFERROR(COUNTIFS(\'Lista de Espera\'!I:I,"Derivación Institucional",\'Lista de Espera\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Lista de Espera\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
     ss.toast(
       '✅ FORMULAS ACTUALIZADAS\n\n' +
@@ -6029,6 +6030,92 @@ function diagnosticarFormularioInteres() {
 }
 
 /**
+ * Diagnóstico rápido de importaciones de Referencias y Derivaciones.
+ * Verifica las URLs, columnas detectadas y cantidad de registros nuevos que se importarían.
+ */
+function diagnosticarReferenciasYDerivaciones() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  let info = '🔍 DIAGNÓSTICO — Referencias y Derivaciones\n';
+  info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+  const fuentes = [
+    { url: URL_REFERENCIAS,  nombre: 'Referencias de programas',     hoja: 'Referencias de programas',    colKey: 8 },
+    { url: URL_DERIVACIONES, nombre: 'Derivaciones Institucionales',  hoja: 'Derivaciones Institucionales', colKey: 10 }
+  ];
+
+  fuentes.forEach(fuente => {
+    info += '📂 ' + fuente.nombre + '\n';
+    try {
+      const resp = UrlFetchApp.fetch(fuente.url, { muteHttpExceptions: true, followRedirects: true });
+      const code = resp.getResponseCode();
+      if (code !== 200) {
+        info += '  ❌ HTTP ' + code + ' — URL inaccesible\n\n';
+        return;
+      }
+      const csvTexto = resp.getContentText();
+      if (!csvTexto || csvTexto.trim().length === 0) {
+        info += '  ❌ Respuesta vacía\n\n';
+        return;
+      }
+      const filas = _parsearCSV(csvTexto);
+      info += '  ✅ HTTP 200 — ' + (filas.length - 1) + ' registros en KoboToolbox\n';
+      if (filas.length <= 1) { info += '  (sin datos)\n\n'; return; }
+
+      const hCSV = filas[0];
+      const iUUID    = _buscarCol(hCSV, ['_uuid', 'uuid']);
+      const iNombre  = _buscarCol(hCSV, ['nombre completo', 'nombre_completo', 'nombre']);
+      const iServicio= _buscarCol(hCSV, ['servicio al que deriva', 'servicio_al_que_deriva', 'servicio']);
+      info += '  Nombre:   ' + (iNombre >= 0   ? '"' + hCSV[iNombre]  + '"' : '❌ no encontrada') + '\n';
+      info += '  Servicio: ' + (iServicio >= 0 ? '"' + hCSV[iServicio] + '"' : '⚠️ no encontrada') + '\n';
+      info += '  _uuid:    ' + (iUUID >= 0     ? '"' + hCSV[iUUID]    + '"' : '⚠️ no encontrado') + '\n';
+
+      const sheetExist = ss.getSheetByName(fuente.hoja);
+      const existingUUIDs = sheetExist && sheetExist.getLastRow() > 1
+        ? new Set(sheetExist.getRange(2, fuente.colKey + 1, sheetExist.getLastRow() - 1, 1)
+            .getValues().flat().map(v => (v||'').toString().trim()).filter(Boolean))
+        : new Set();
+      info += '  Hoja local: ' +
+              (sheetExist ? (sheetExist.getLastRow() - 1) + ' filas ya importadas' : '❌ no existe') + '\n';
+
+      let nuevos = 0, omitidosFiltro = 0;
+      filas.slice(1).forEach(f => {
+        const uuid = iUUID >= 0 ? (f[iUUID] || '').trim() : '';
+        if (uuid && existingUUIDs.has(uuid)) return;
+        if (fuente.nombre === 'Referencias de programas' && iServicio >= 0) {
+          const s = (f[iServicio] || '').toString().toLowerCase();
+          if (!s.includes('terapia_individual') && !s.includes('terapia individual') && !s.includes('terapia')) {
+            omitidosFiltro++;
+            return;
+          }
+        }
+        nuevos++;
+      });
+      info += '  → Nuevos a importar: ' + nuevos;
+      if (omitidosFiltro > 0) info += '  |  Sin Terapia Individual: ' + omitidosFiltro;
+      info += '\n\n';
+
+    } catch (e) {
+      info += '  ❌ Error: ' + e.message + '\n\n';
+    }
+  });
+
+  // Estado en Lista de Espera
+  const listaEspera = ss.getSheetByName('Lista de Espera');
+  if (listaEspera && listaEspera.getLastRow() > 1) {
+    const tipos = listaEspera.getRange(2, 9, listaEspera.getLastRow() - 1, 1).getValues().flat();
+    const contRefs   = tipos.filter(v => v === 'Referencia de Programa').length;
+    const contDerivs = tipos.filter(v => v === 'Derivación Institucional').length;
+    info += '📋 Lista de Espera col I (Derivación o Referencia):\n';
+    info += '  Referencias de Programa:       ' + contRefs + '\n';
+    info += '  Derivaciones Institucionales:  ' + contDerivs + '\n';
+  }
+
+  ui.alert('🔍 Diagnóstico Referencias y Derivaciones', info, ui.ButtonSet.OK);
+}
+
+/**
  * Envía un registro de Hoja de interés a Lista de Espera.
  * Columnas fijas: A=FechaImport B=CreamosID C=NombreCompleto D=Género E=Zona F=Servicios G=Enviar
  * Se llama desde alEditar cuando columna G (7) = "Sí".
@@ -6329,37 +6416,38 @@ function importarDerivacionesInstitucionales() {
       : [];
     const uuidsSet = new Set(existentes.map(v => (v || '').toString().trim()).filter(Boolean));
 
-    let nuevos = 0;
+    const filasNuevas = [];
     for (let i = 1; i < filas.length; i++) {
       const f = filas[i];
       const uuid = iUUID >= 0 ? (f[iUUID] || '').trim() : '';
       if (uuid && uuidsSet.has(uuid)) continue;
 
-      const nuevaFila = [
-        iFecha >= 0         ? f[iFecha]         : new Date(), // A: Fecha
-        iNomDeriva >= 0     ? f[iNomDeriva]     : '',          // B: Nombre quien deriva
-        iTelDeriva >= 0     ? f[iTelDeriva]     : '',          // C: Tel. quien deriva
-        iOrg >= 0           ? f[iOrg]           : '',          // D: Organización
-        iNombre >= 0        ? f[iNombre]        : '',          // E: Nombre Completo
-        iEdad >= 0          ? f[iEdad]          : '',          // F: Edad
-        iTelParticipante >= 0 ? f[iTelParticipante] : '',      // G: Teléfono (participante)
-        iDireccion >= 0     ? f[iDireccion]     : '',          // H: Dirección
-        iMotivo >= 0        ? f[iMotivo]        : '',          // I: Motivo
-        iServicio >= 0      ? f[iServicio]      : '',          // J: Servicio
-        uuid,                                                   // K: _uuid
-        ''                                                      // L: Enviar (usuario)
-      ];
-
-      const dest = sheet.getLastRow() + 1;
-      sheet.getRange(dest, 1, 1, 12).setValues([nuevaFila]);
+      const fechaRaw = iFecha >= 0 ? (f[iFecha] || '').trim() : '';
+      filasNuevas.push([
+        fechaRaw ? new Date(fechaRaw) : new Date(), // A: Fecha
+        iNomDeriva >= 0     ? f[iNomDeriva]         : '', // B: Nombre quien deriva
+        iTelDeriva >= 0     ? f[iTelDeriva]         : '', // C: Tel. quien deriva
+        iOrg >= 0           ? f[iOrg]               : '', // D: Organización
+        iNombre >= 0        ? f[iNombre]             : '', // E: Nombre Completo
+        iEdad >= 0          ? f[iEdad]               : '', // F: Edad
+        iTelParticipante >= 0 ? f[iTelParticipante] : '', // G: Teléfono (participante)
+        iDireccion >= 0     ? f[iDireccion]         : '', // H: Dirección
+        iMotivo >= 0        ? f[iMotivo]             : '', // I: Motivo
+        iServicio >= 0      ? f[iServicio]           : '', // J: Servicio
+        uuid,                                               // K: _uuid
+        ''                                                  // L: Enviar (usuario)
+      ]);
       if (uuid) uuidsSet.add(uuid);
-      nuevos++;
     }
 
-    const msg = nuevos > 0
-      ? '✅ ' + nuevos + ' derivaciones importadas'
+    if (filasNuevas.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, filasNuevas.length, 12).setValues(filasNuevas);
+    }
+
+    const msg = filasNuevas.length > 0
+      ? '✅ ' + filasNuevas.length + ' derivaciones importadas'
       : 'ℹ️ Sin registros nuevos';
-    ss.toast(msg, nuevos > 0 ? 'Importación Completa' : 'Importación', 4);
+    ss.toast(msg, filasNuevas.length > 0 ? 'Importación Completa' : 'Importación', 4);
     Logger.log(msg);
 
   } catch (e) {
