@@ -2778,22 +2778,27 @@ function actualizarReportes() {
       return;
     }
 
-    // 1. Actualizar fecha y hora solamente
-    reporte.getRange('B2').setValue(new Date());
+    // Auto-reparar fórmulas si están desactualizadas (p.ej. B11 apunta a Lista de Espera)
+    // o si la sección Captación (fila 37) aún no existe en el reporte
+    const fB11 = reporte.getRange('B11').getFormula();
+    const fB5  = reporte.getRange('B5').getFormula();
+    const necesitaReparacion = !fB5 || !fB5.startsWith('=') ||
+                               (fB11 && fB11.includes('Lista de Espera')) ||
+                               !reporte.getRange('A37').getValue();
+    if (necesitaReparacion) {
+      Logger.log('🔧 actualizarReportes: reparando fórmulas desactualizadas...');
+      actualizarFormulasReporte();
+    }
 
-    // 2. NO sobrescribir las fórmulas de casos activos por terapeuta
-    // Las celdas B14-B17 y C14-C17 deben mantener sus fórmulas
-    // NO tocar esas celdas aquí
+    // Actualizar sello de tiempo
+    reporte.getRange('B2').setFormula('=TEXT(NOW(),"DD/MM/YYYY HH:MM")');
 
-    // 3. Forzar recalculo de todas las fórmulas del reporte
+    // Forzar recalculo
     SpreadsheetApp.flush();
 
-    // Toast de confirmación
     try {
-      ss.toast('✅ Reportes actualizados correctamente\n' + new Date().toLocaleString(), 'Actualización', 3);
-    } catch (e) {
-      // Si falla el toast (en ejecuciones automáticas), continuar
-    }
+      ss.toast('✅ Reporte actualizado — ' + new Date().toLocaleTimeString(), 'Reporte', 3);
+    } catch (e) { /* sin UI en trigger automático */ }
 
     Logger.log('📊 Reportes actualizados: ' + new Date());
     return true;
@@ -2801,9 +2806,7 @@ function actualizarReportes() {
     Logger.log('❌ Error actualizando reportes: ' + error.message);
     try {
       SpreadsheetApp.getActiveSpreadsheet().toast('Error al actualizar reportes: ' + error.message, 'Error', 3);
-    } catch (e) {
-      // Ignorar si falla
-    }
+    } catch (e) { /* ignorar */ }
     return false;
   }
 }
@@ -3704,85 +3707,78 @@ function diagnosticarReporte() {
   const ui = SpreadsheetApp.getUi();
 
   try {
-    const terapias = ss.getSheetByName('Terapias');
     const reporte = ss.getSheetByName('Reporte');
-
-    if (!terapias) {
-      ui.alert('❌ Error', 'No se encontró la hoja Terapias', ui.ButtonSet.OK);
-      return;
-    }
-
     if (!reporte) {
-      ui.alert('❌ Error', 'No se encontró la hoja Reporte', ui.ButtonSet.OK);
+      ui.alert('❌ No existe la hoja "Reporte". Usa Instalación → Instalar Sistema para crearla.', '', ui.ButtonSet.OK);
       return;
     }
 
-    // Obtener datos de Terapias
-    const datos = terapias.getDataRange().getValues();
-    let totalRegistros = 0;
-    let casosGerber = 0;
-    let casosMelissa = 0;
-    let casosDiana = 0;
-    let casosKarina = 0;
-    let terapeutasEncontrados = [];
-    let estadosEncontrados = [];
+    // Todas las hojas que el reporte referencia + celda donde aparece su dato
+    const checks = [
+      { nombre: 'Nuevos Ingresos',                  col: 'C', celda: 'B5',  desc: 'Nuevos Ingresos' },
+      { nombre: 'Personas no asistidas',             col: 'B', celda: 'B8',  desc: 'No asistidas' },
+      { nombre: 'Derivaciones Institucionales',      col: 'E', celda: 'B11', desc: 'Derivaciones' },
+      { nombre: 'C_03_Formulario de Bienestar (2026)', col: 'A', celda: 'B14', desc: 'Bienestar' },
+      { nombre: 'Terapias',                          col: 'A', celda: 'B21', desc: 'Terapias total' },
+      { nombre: 'Procesos Culminados',               col: 'A', celda: 'B24', desc: 'Culminados' },
+      { nombre: 'Deserciones',                       col: 'A', celda: 'B27', desc: 'Deserciones' },
+      { nombre: 'Intervención de casos',             col: 'A', celda: 'B30', desc: 'Intervención' },
+      { nombre: 'Formulario de Interés',             col: 'B', celda: 'B38', desc: 'Interés (captación)' },
+      { nombre: 'Referencias',                       col: 'D', celda: 'B39', desc: 'Referencias (captación)' }
+    ];
 
-    for (let i = 1; i < datos.length; i++) {
-      const terapeuta = datos[i][0]; // Columna A
-      const participante = datos[i][1]; // Columna B
-      const estado = datos[i][5]; // Columna F
+    let info = '🔍 DIAGNÓSTICO COMPLETO DEL REPORTE\n';
+    info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
 
-      if (participante && participante.toString().trim() !== '') {
-        totalRegistros++;
+    let hayProblemas = false;
 
-        if (terapeuta) terapeutasEncontrados.push('"' + terapeuta + '"');
-        if (estado) estadosEncontrados.push('"' + estado + '"');
+    checks.forEach(c => {
+      const hoja = ss.getSheetByName(c.nombre);
+      const existe = !!hoja;
+      const filas = existe ? Math.max(0, hoja.getLastRow() - 1) : 0;
+      const valorCelda = existe ? reporte.getRange(c.celda).getValue() : '—';
+      const formulaCelda = reporte.getRange(c.celda).getFormula();
+      const tieneFormula = formulaCelda && formulaCelda.startsWith('=');
 
-        if (terapeuta === 'Gerber' && estado === 'En proceso') casosGerber++;
-        if (terapeuta === 'Melissa' && estado === 'En proceso') casosMelissa++;
-        if (terapeuta === 'Diana' && estado === 'En proceso') casosDiana++;
-        if (terapeuta === 'Karina' && estado === 'En proceso') casosKarina++;
+      let estado;
+      if (!existe) {
+        estado = '❌ Hoja NO existe';
+        hayProblemas = true;
+      } else if (!tieneFormula) {
+        estado = '⚠️ Celda sin fórmula (valor fijo: ' + valorCelda + ')';
+        hayProblemas = true;
+      } else if (filas === 0) {
+        estado = '✅ Hoja existe — SIN datos todavía';
+      } else {
+        estado = '✅ ' + filas + ' registros → muestra: ' + valorCelda;
       }
+
+      info += '• ' + c.desc + ' [' + c.celda + ']\n  ' + estado + '\n';
+    });
+
+    // Verificar también fórmula B11 (la que se había corregido)
+    const fB11 = reporte.getRange('B11').getFormula();
+    if (fB11 && fB11.includes('Lista de Espera')) {
+      info += '\n⚠️ FÓRMULA DESACTUALIZADA: B11 apunta a "Lista de Espera" — necesita corrección.\n';
+      hayProblemas = true;
     }
 
-    // Ver qué hay en las celdas del reporte
-    const celdasReporte = {
-      B14: reporte.getRange('B14').getValue(),
-      C14: reporte.getRange('C14').getValue(),
-      B14_formula: reporte.getRange('B14').getFormula()
-    };
+    if (hayProblemas) {
+      info += '\n🔧 ACCIÓN RECOMENDADA:\n';
+      info += 'Menú → Mantenimiento → "Actualizar Fórmulas Reporte"\n';
+      info += 'Esto repara todas las fórmulas en un solo paso.';
+    } else {
+      info += '\n✅ Todas las fórmulas están correctas.\n';
+      info += 'Si sigues viendo ceros, significa que las hojas están vacías\n';
+      info += '(aún no se han ingresado datos en esas secciones).';
+    }
 
-    const mensaje =
-      '═══ DIAGNÓSTICO DEL REPORTE ═══\n\n' +
-      '📊 DATOS EN TERAPIAS:\n' +
-      'Total registros: ' + totalRegistros + '\n\n' +
-      'Casos "En proceso" por terapeuta:\n' +
-      '  • Gerber: ' + casosGerber + '\n' +
-      '  • Melissa: ' + casosMelissa + '\n' +
-      '  • Diana: ' + casosDiana + '\n' +
-      '  • Karina: ' + casosKarina + '\n\n' +
-      '🔍 TERAPEUTAS ENCONTRADOS (primeros 5):\n' +
-      terapeutasEncontrados.slice(0, 5).join(', ') + '\n\n' +
-      '🔍 ESTADOS ENCONTRADOS (únicos):\n' +
-      [...new Set(estadosEncontrados)].slice(0, 5).join(', ') + '\n\n' +
-      '📋 CELDA B14 (Casos Gerber):\n' +
-      'Valor: ' + celdasReporte.B14 + '\n' +
-      'Fórmula: ' + (celdasReporte.B14_formula || 'SIN FÓRMULA') + '\n\n' +
-      '═══════════════════════════\n' +
-      'Si ves "No configurado" es porque\n' +
-      'la celda tiene TEXTO en lugar de FÓRMULA.';
-
-    ui.alert('Diagnóstico del Reporte', mensaje, ui.ButtonSet.OK);
-
-    Logger.log('Diagnóstico completado');
-    Logger.log('Total registros: ' + totalRegistros);
-    Logger.log('Gerber: ' + casosGerber);
-    Logger.log('Terapeutas: ' + [...new Set(terapeutasEncontrados)].join(', '));
-    Logger.log('Estados: ' + [...new Set(estadosEncontrados)].join(', '));
+    ui.alert('Diagnóstico del Reporte', info, ui.ButtonSet.OK);
+    Logger.log('Diagnóstico reporte:\n' + info);
 
   } catch (error) {
     ui.alert('❌ Error', error.message, ui.ButtonSet.OK);
-    Logger.log('❌ Error en diagnóstico: ' + error.message);
+    Logger.log('❌ Error en diagnosticarReporte: ' + error.message);
   }
 }
 
