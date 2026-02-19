@@ -125,6 +125,12 @@ function actualizarTodo() {
   } catch(e) { pasos.push('⚠️ Derivaciones: ' + e.message); }
   pasos.push('✅ Importación captación completada');
 
+  ss.toast('🔄 Paso 2.5/4 — Completando datos faltantes desde hoja maestra...', 'Actualizando Todo', -1);
+  try {
+    rellenarDatosFaltantes();
+    pasos.push('✅ Datos faltantes completados');
+  } catch(e) { pasos.push('⚠️ Rellenar datos: ' + e.message); }
+
   ss.toast('🔄 Paso 3/4 — Actualizando fórmulas del Reporte...', 'Actualizando Todo', -1);
   try {
     actualizarFormulasReporte();
@@ -204,7 +210,14 @@ function mantenimientoAutomatico() {
       }
     }
 
-    // 3. Actualizar reportes
+    // 3. Rellenar datos faltantes desde hoja maestra (silencioso, no lanza si no existe)
+    try {
+      rellenarDatosFaltantes();
+    } catch (eFill) {
+      Logger.log('⚠️ rellenarDatosFaltantes: ' + eFill.message);
+    }
+
+    // 4. Actualizar reportes
     actualizarReportes();
     Logger.log('✅ Reportes actualizados');
 
@@ -352,12 +365,20 @@ function verificarInstalacion() {
 function crearHojas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
+  // Hojas que NUNCA se deben eliminar (datos maestros externos)
+  const HOJAS_PROTEGIDAS = ['Copy of CREAMOS ID nuevo'];
+
   const hojas = ss.getSheets();
   for (let i = hojas.length - 1; i > 0; i--) {
-    ss.deleteSheet(hojas[i]);
+    if (!HOJAS_PROTEGIDAS.includes(hojas[i].getName())) {
+      ss.deleteSheet(hojas[i]);
+    }
   }
 
-  hojas[0].setName('Nuevos Ingresos');
+  // Si la hoja protegida existe, renombrar la primera hoja; si no, usar la primera
+  const hojasRestantes = ss.getSheets();
+  const primeraEditable = hojasRestantes.find(h => !HOJAS_PROTEGIDAS.includes(h.getName()));
+  if (primeraEditable) primeraEditable.setName('Nuevos Ingresos');
 
   crearListaEspera();
   crearNuevosIngresos();
@@ -730,6 +751,15 @@ function configurarValidaciones() {
     .build();
   espera.getRange('E2:E200').setDataValidation(generoRule);
   terapias.getRange('D2:D200').setDataValidation(generoRule);
+
+  // Género en Hoja de interés (col D) — allowInvalid=true para no romper datos importados
+  const hojaInteres = ss.getSheetByName('Hoja de interés');
+  if (hojaInteres) {
+    const generoInteresRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Hombre', 'Mujer', 'Trans hombre', 'No binario', 'Otro'])
+      .setAllowInvalid(true).build();
+    hojaInteres.getRange('D2:D1000').setDataValidation(generoInteresRule);
+  }
 
   // Edad en Lista de Espera es ahora texto libre (sin validación)
 
@@ -5848,6 +5878,13 @@ function crearHojaFormularioInteres() {
       .requireValueInList(['Sí', 'No'], true).setAllowInvalid(false).build()
   );
 
+  // Dropdown de Género en columna D (permite valores importados no normalizados)
+  sheet.getRange('D2:D1000').setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Hombre', 'Mujer', 'Trans hombre', 'No binario', 'Otro'], true)
+      .setAllowInvalid(true).build()
+  );
+
   Logger.log('✅ Hoja Hoja de interés creada');
   return sheet;
 }
@@ -7194,5 +7231,137 @@ function migrarDatosAntiguosInteres() {
     'para enviar cada uno a Lista de Espera.',
     ui.ButtonSet.OK
   );
+}
+
+// =====================================================================
+// AUTO-RELLENAR DATOS FALTANTES DESDE HOJA MAESTRA
+// =====================================================================
+
+/**
+ * Usa "Copy of CREAMOS ID nuevo" como tabla de lookup para completar
+ * datos faltantes (Nombre, Edad) en todas las hojas del sistema.
+ *
+ * Columnas esperadas en la hoja maestra (detectadas por encabezado):
+ *   Nombre completo | Creamos ID | Año que entró Creamos | Age | Numero de DPI
+ *
+ * Hojas objetivo y sus columnas:
+ *   Lista de Espera     → CreamosID=D(4), Nombre=C(3), Edad=F(6)
+ *   Nuevos Ingresos     → CreamosID=D(4), Nombre=C(3), Edad=F(6)
+ *   Terapias Individual → CreamosID=C(3), Nombre=B(2)
+ *   Retiradx            → CreamosID=D(4), Nombre=B(2)
+ *   Hoja de interés     → CreamosID=B(2), Nombre=C(3)
+ */
+function rellenarDatosFaltantes() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const NOMBRE_LOOKUP = 'Copy of CREAMOS ID nuevo';
+
+  const lookup = ss.getSheetByName(NOMBRE_LOOKUP);
+  if (!lookup) {
+    Logger.log('⚠️ rellenarDatosFaltantes: hoja "' + NOMBRE_LOOKUP + '" no encontrada, se omite');
+    return;
+  }
+
+  // --- Leer hoja maestra ---
+  const lastRowL = lookup.getLastRow();
+  if (lastRowL < 2) {
+    Logger.log('ℹ️ rellenarDatosFaltantes: hoja maestra vacía');
+    return;
+  }
+
+  const datosLookup = lookup.getRange(1, 1, lastRowL, lookup.getLastColumn()).getValues();
+  const headersL = datosLookup[0].map(h => h.toString().toLowerCase().trim());
+
+  // Detectar columnas en la hoja maestra
+  const iLNombre  = headersL.findIndex(h => h.includes('nombre'));
+  const iLCreamos = headersL.findIndex(h => h.includes('creamos id') || h === 'creamos_id' || (h.includes('creamos') && !h.includes('entraste') && !h.includes('ya parti')));
+  const iLEdad    = headersL.findIndex(h => h === 'age' || h.includes('edad') || h.includes('age '));
+  const iLAnio    = headersL.findIndex(h => h.includes('año') || h.includes('ano') || h.includes('year'));
+
+  Logger.log('🔍 Hoja maestra: iNombre=' + iLNombre + ' iCreamos=' + iLCreamos +
+             ' iEdad=' + iLEdad + ' iAnio=' + iLAnio);
+
+  if (iLCreamos < 0) {
+    Logger.log('⚠️ rellenarDatosFaltantes: columna "Creamos ID" no encontrada en hoja maestra');
+    return;
+  }
+
+  // Construir mapa: CreamosID (normalizado) → datos
+  const mapaLookup = {};
+  for (let i = 1; i < datosLookup.length; i++) {
+    const fila = datosLookup[i];
+    const cid  = (fila[iLCreamos] || '').toString().trim();
+    if (!cid) continue;
+    const cidNorm = cid.toLowerCase();
+    mapaLookup[cidNorm] = {
+      nombre : iLNombre >= 0  ? (fila[iLNombre]  || '').toString().trim() : '',
+      edad   : iLEdad   >= 0  ? (fila[iLEdad]    || '').toString().trim() : '',
+      anio   : iLAnio   >= 0  ? (fila[iLAnio]    || '').toString().trim() : ''
+    };
+  }
+
+  const nMaestra = Object.keys(mapaLookup).length;
+  Logger.log('📋 Mapa lookup: ' + nMaestra + ' registros con Creamos ID');
+  if (nMaestra === 0) return;
+
+  let totalRellenos = 0;
+
+  // --- Definición de hojas objetivo ---
+  // { nombre, colCreamosID (1-based), colNombre (1-based), colEdad (1-based, 0=no aplica) }
+  const objetivos = [
+    { nombre: 'Lista de Espera',     colCreamosID: 4, colNombre: 3, colEdad: 6  },
+    { nombre: 'Nuevos Ingresos',     colCreamosID: 4, colNombre: 3, colEdad: 6  },
+    { nombre: 'Terapias Individual', colCreamosID: 3, colNombre: 2, colEdad: 0  },
+    { nombre: 'Retiradx',            colCreamosID: 4, colNombre: 2, colEdad: 0  },
+    { nombre: 'Hoja de interés',     colCreamosID: 2, colNombre: 3, colEdad: 0  }
+  ];
+
+  objetivos.forEach(function(obj) {
+    const hoja = ss.getSheetByName(obj.nombre);
+    if (!hoja) return;
+
+    const lastRow = hoja.getLastRow();
+    if (lastRow < 2) return;
+
+    // Leer columnas necesarias en una sola operación
+    // Necesitamos: CreamosID, Nombre, [Edad]
+    const maxCol = Math.max(obj.colCreamosID, obj.colNombre, obj.colEdad || 0);
+    const datos  = hoja.getRange(2, 1, lastRow - 1, maxCol).getValues();
+
+    let rellenos = 0;
+    datos.forEach(function(fila, idx) {
+      const cid = (fila[obj.colCreamosID - 1] || '').toString().trim();
+      if (!cid) return;
+
+      const entrada = mapaLookup[cid.toLowerCase()];
+      if (!entrada) return;
+
+      const filaNum = idx + 2; // fila real en la hoja (1-based, con encabezado en fila 1)
+
+      // Rellenar Nombre si está vacío
+      const nombreActual = (fila[obj.colNombre - 1] || '').toString().trim();
+      if (!nombreActual && entrada.nombre) {
+        hoja.getRange(filaNum, obj.colNombre).setValue(entrada.nombre);
+        rellenos++;
+      }
+
+      // Rellenar Edad si aplica y está vacía
+      if (obj.colEdad > 0 && entrada.edad) {
+        const edadActual = (fila[obj.colEdad - 1] || '').toString().trim();
+        if (!edadActual) {
+          hoja.getRange(filaNum, obj.colEdad).setValue(entrada.edad);
+          rellenos++;
+        }
+      }
+    });
+
+    if (rellenos > 0) {
+      Logger.log('✅ ' + obj.nombre + ': ' + rellenos + ' campo(s) rellenado(s)');
+    } else {
+      Logger.log('ℹ️ ' + obj.nombre + ': sin campos faltantes que rellenar');
+    }
+    totalRellenos += rellenos;
+  });
+
+  Logger.log('🎉 rellenarDatosFaltantes completado: ' + totalRellenos + ' campo(s) en total');
 }
 
