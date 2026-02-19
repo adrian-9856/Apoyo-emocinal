@@ -67,15 +67,16 @@ function onOpen() {
     // Menú principal
     ui.createMenu('🏥 Apoyo Emocional')
       .addItem('🔴 INSTALACIÓN COMPLETA', 'instalacionCompleta')
-      .addSeparator()
-      .addSubMenu(menuInstalacion)
-      .addSubMenu(menuConfiguracion)
+      .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodo')
       .addSeparator()
       .addItem('📊 Actualizar Reportes', 'actualizarReportes')
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
       .addSeparator()
       .addSubMenu(menuCaptacion)
       .addSubMenu(menuBienestar)
+      .addSeparator()
+      .addSubMenu(menuInstalacion)
+      .addSubMenu(menuConfiguracion)
       .addSubMenu(menuMantenimiento)
       .addSeparator()
       .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos')
@@ -92,6 +93,52 @@ function onOpen() {
     // solo registrar el error y continuar
     Logger.log('onOpen ejecutado desde contexto sin UI disponible: ' + error.message);
   }
+}
+
+/**
+ * UN SOLO BOTÓN que hace todo:
+ *   1. Renombra hojas con nombres viejos
+ *   2. Importa Hoja de interés, Referencias y Derivaciones desde KoboToolbox
+ *   3. Actualiza fórmulas del Reporte
+ *   4. Recalcula el Reporte
+ * Diseñado para usuarios no técnicos: presionar este botón es suficiente.
+ */
+function actualizarTodo() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const pasos = [];
+
+  ss.toast('🔄 Paso 1/4 — Verificando nombres de hojas...', 'Actualizando Todo', -1);
+  try {
+    const cambios = repararNombresHojas();
+    pasos.push('✅ Nombres de hojas: ' + (cambios.length > 0 ? cambios.join(', ') : 'ya correctos'));
+  } catch(e) { pasos.push('⚠️ Nombres: ' + e.message); }
+
+  ss.toast('🔄 Paso 2/4 — Importando datos desde KoboToolbox...', 'Actualizando Todo', -1);
+  try {
+    importarFormularioInteres();
+  } catch(e) { pasos.push('⚠️ Hoja de interés: ' + e.message); }
+  try {
+    importarReferencias();
+  } catch(e) { pasos.push('⚠️ Referencias: ' + e.message); }
+  try {
+    importarDerivacionesInstitucionales();
+  } catch(e) { pasos.push('⚠️ Derivaciones: ' + e.message); }
+  pasos.push('✅ Importación captación completada');
+
+  ss.toast('🔄 Paso 3/4 — Actualizando fórmulas del Reporte...', 'Actualizando Todo', -1);
+  try {
+    actualizarFormulasReporte();
+    pasos.push('✅ Fórmulas del Reporte actualizadas');
+  } catch(e) { pasos.push('⚠️ Fórmulas: ' + e.message); }
+
+  ss.toast('🔄 Paso 4/4 — Recalculando Reporte...', 'Actualizando Todo', -1);
+  try {
+    actualizarReportes();
+    pasos.push('✅ Reporte actualizado');
+  } catch(e) { pasos.push('⚠️ Reporte: ' + e.message); }
+
+  ss.toast('✅ ¡Todo actualizado!', 'Actualizar Todo', 5);
+  Logger.log('✅ actualizarTodo completado:\n' + pasos.join('\n'));
 }
 
 /**
@@ -519,8 +566,8 @@ function crearReporte() {
     ['', '', '', ''],
 
     // SECCIÓN 6: PROCESOS CULMINADOS
-    ['PROCESOS CULMINADOS', 'Total', 'Este mes', 'Promedio sesiones'],
-    ['Procesos terapeuticos completados', '=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF(B24>0,ROUND(AVERAGE(\'Procesos Culminados\'!E2:E500),1),0),0)'],
+    ['PROCESOS CULMINADOS', 'Total', 'Este mes', 'Tasa culminación (12 ses.)'],
+    ['Tasa de culminación de Terapia Individual', '=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF((B24+B27)>0,ROUND(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12")/(B24+B27)*100,1)&"%","0%"),"0%")'],
     ['', '', '', ''],
 
     // SECCIÓN 7: RETIRADX
@@ -2795,10 +2842,12 @@ function actualizarReportes() {
     const fB11 = reporte.getRange('B11').getFormula();
     const fB5  = reporte.getRange('B5').getFormula();
     const fB38 = reporte.getRange('B38').getFormula();
+    const fD24 = reporte.getRange('D24').getFormula();
     const necesitaReparacion = !fB5 || !fB5.startsWith('=') ||
-                               (fB11 && fB11.includes('Lista de Espera')) ||
+                               (fB11 && !fB11.includes('Lista de Espera\'!I')) ||  // B11 debe contar Lista de Espera
                                !reporte.getRange('A37').getValue() ||
-                               (fB38 && fB38.includes('!B:B'));  // fórmula vieja cuenta col B en vez de C
+                               (fB38 && fB38.includes('!B:B')) ||    // fórmula vieja cuenta col B
+                               (fD24 && fD24.includes('AVERAGE'));   // D24 aún usa AVERAGE en vez de COUNTIF
     if (necesitaReparacion) {
       Logger.log('🔧 actualizarReportes: reparando fórmulas desactualizadas...');
       actualizarFormulasReporte();
@@ -3643,10 +3692,16 @@ function actualizarFormulasReporte() {
     reporte.getRange('B21').setFormula('=IFERROR(SUM(B17:B20),0)');
     reporte.getRange('C21').setFormula('=IFERROR(SUM(C17:C20),0)');
 
-    // Fila 24: Procesos culminados
+    // Fila 23: header — actualizar columna D a "Tasa culminación"
+    reporte.getRange('D23').setValue('Tasa culminación (12 ses.)');
+
+    // Fila 24: Tasa de culminación de Terapia Individual
+    // A24 = etiqueta, B24 = total culminados, C24 = este mes,
+    // D24 = % quienes completaron 12+ sesiones del total que concluyeron (culminados + retiradxs)
+    reporte.getRange('A24').setValue('Tasa de culminación de Terapia Individual');
     reporte.getRange('B24').setFormula('=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)');
     reporte.getRange('C24').setFormula('=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    reporte.getRange('D24').setFormula('=IFERROR(IF(B24>0,ROUND(AVERAGE(\'Procesos Culminados\'!E2:E500),1),0),0)');
+    reporte.getRange('D24').setFormula('=IFERROR(IF((B24+B27)>0,ROUND(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12")/(B24+B27)*100,1)&"%","0%"),"0%")');
 
     // Fila 27: Retiradx
     reporte.getRange('B27').setFormula('=IFERROR(COUNTA(Retiradx!A:A)-1,0)');
@@ -5759,8 +5814,8 @@ function _buscarCol(headers, fragmentos) {
 // Solo se envían a Lista de Espera: Nombre, Creamos ID, Género, Servicio.
 // =====================================================================
 
-var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/est9tdYNZsCo5SLiwqKeUfe/data.csv';  // histórico 2024-2026
-var URL_FORMULARIO_INTERES_2026 = 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/eseYzEgWw6Tui9y2eppZy3L/data.csv';  // formulario 2026
+var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esuV4RKqQhYUUaUizfWBP8S/data.csv';  // histórico 2024-2026
+var URL_FORMULARIO_INTERES_2026 = '';  // dejar vacío si no hay URL activa (la anterior caducó)
 
 /** Columna de "Enviar" en Hoja de interés (1-based) */
 var COL_ENVIAR_INTERES = 7;
@@ -5818,7 +5873,9 @@ function _extraerFilasInteres(csvTexto, fuente, uuidsSet, creamosSet, nombresSet
   // --- Mapeo de columnas ---
   // Fecha: columna start o _submission_time
   const iFecha     = _buscarCol(hCSV, ['_submission_time', 'start']);
-  const iCreamosID = _buscarCol(hCSV, ['creamos id', 'creamos_id', 'creamos']);
+  // Creamos ID: buscar solo "creamos id" o "creamos_id" para no confundir con
+  // "¿Eres ya participante de Creamos?" (que también contiene "creamos" pero es YES/NO)
+  const iCreamosID = _buscarCol(hCSV, ['creamos id', 'creamos_id']);
   // Nombres: preferir "Inicio/Nombre(s)" o "Nombre(s)" exacto, luego cualquier "nombre"
   const iNombres   = _buscarCol(hCSV, ['inicio/nombre', 'nombre(s)', 'nombres']);
   const iApellidos = _buscarCol(hCSV, ['inicio/apellido', 'apellido(s)', 'apellidos']);
@@ -5921,6 +5978,10 @@ function importarFormularioInteres() {
     ];
 
     for (const fuente of urls) {
+      if (!fuente.url) {
+        Logger.log('⏭️ ' + fuente.nombre + ': URL vacía — se omite');
+        continue;
+      }
       ss.toast('📥 Descargando ' + fuente.nombre + '...', 'Importando', 8);
       try {
         const resp = UrlFetchApp.fetch(fuente.url, { muteHttpExceptions: true, followRedirects: true });
