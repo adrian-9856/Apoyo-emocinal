@@ -53,13 +53,13 @@ function onOpen() {
     // Submenú: Mantenimiento
     const menuMantenimiento = ui.createMenu('🛠️ Mantenimiento')
       .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
-      .addItem('⚡ Reparar Terapias (Fecha + Validaciones)', 'repararTerapias')
+      .addItem('⚡ Reparar Terapias Individual (Fecha + Validaciones)', 'repararTerapias')
       .addItem('🔧 Reparar Fórmulas Lista Espera', 'repararFormulasListaEspera')
       .addItem('🔧 Actualizar Fórmulas Reporte', 'actualizarFormulasReporte')
       .addItem('🔍 Diagnosticar Reporte', 'diagnosticarReporte')
       .addItem('📦 Compactar Lista Espera', 'compactarListaEspera')
       .addSeparator()
-      .addItem('🔍 Diagnóstico CSV Formulario de Interés', 'diagnosticarFormularioInteres');
+      .addItem('🔍 Diagnóstico CSV Hoja de interés', 'diagnosticarFormularioInteres');
 
     // Menú principal
     ui.createMenu('🏥 Apoyo Emocional')
@@ -229,7 +229,7 @@ function instalarSistema() {
       '✓ Trigger onEdit instalado (para diálogos)\n' +
       '✓ Trigger de tiempo instalado (reportes cada hora)\n\n' +
       '🎯 El sistema está listo para usar.\n\n' +
-      'NOTA: Si los diálogos de deserción no aparecen,\n' +
+      'NOTA: Si los diálogos de retiro no aparecen,\n' +
       'use el menú: 🏥 Apoyo Emocional → ✏️ Instalar Trigger onEdit',
       'INSTALACIÓN COMPLETA',
       10
@@ -249,8 +249,8 @@ function verificarInstalacion() {
 
   let mensaje = '📋 VERIFICACIÓN DEL SISTEMA\n\n';
 
-  const hojasRequeridas = ['Lista de Espera', 'Nuevos Ingresos', 'Terapias',
-                           'Procesos Culminados', 'Deserciones', 'Intervención de casos',
+  const hojasRequeridas = ['Lista de Espera', 'Nuevos Ingresos', 'Terapias Individual',
+                           'Procesos Culminados', 'Retiradx', 'Intervención de casos',
                            'Personas no asistidas', 'Reporte', 'Reportes Mensuales'];
   let hojasOk = 0;
   hojasRequeridas.forEach(nombre => {
@@ -380,7 +380,7 @@ function crearNuevosIngresos() {
 
 function crearTerapias() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.insertSheet('Terapias');
+  const sheet = ss.insertSheet('Terapias Individual');
 
   const headers = [
     'Terapeuta', 'Participante', 'Creamos ID', 'Género',
@@ -417,7 +417,7 @@ function crearProcesosCulminados() {
 
 function crearDeserciones() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.insertSheet('Deserciones');
+  const sheet = ss.insertSheet('Retiradx');
 
   const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creamos ID', 'Sesiones', 'Motivo'];
 
@@ -498,10 +498,10 @@ function crearReporte() {
 
     // SECCIÓN 5: CASOS ACTIVOS
     ['CASOS ACTIVOS POR TERAPEUTA', 'Casos activos', 'Sesiones mes', ''],
-    ['Gerber', '=IFERROR(COUNTIFS(Terapias!A:A,"Gerber",Terapias!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Gerber")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)', ''],
-    ['Melissa', '=IFERROR(COUNTIFS(Terapias!A:A,"Melissa",Terapias!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Melissa")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)', ''],
-    ['Diana', '=IFERROR(COUNTIFS(Terapias!A:A,"Diana",Terapias!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Diana")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)', ''],
-    ['Karina', '=IFERROR(COUNTIFS(Terapias!A:A,"Karina",Terapias!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((Terapias!A2:A500="Karina")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)', ''],
+    ['Gerber', '=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,"Gerber",\'Terapias Individual\'!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!A2:A500="Gerber")*(\'Terapias Individual\'!F2:F500="En proceso")*(\'Terapias Individual\'!E2:E500-\'Terapias Individual\'!H2:H500)),0)', ''],
+    ['Melissa', '=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,"Melissa",\'Terapias Individual\'!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!A2:A500="Melissa")*(\'Terapias Individual\'!F2:F500="En proceso")*(\'Terapias Individual\'!E2:E500-\'Terapias Individual\'!H2:H500)),0)', ''],
+    ['Diana', '=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,"Diana",\'Terapias Individual\'!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!A2:A500="Diana")*(\'Terapias Individual\'!F2:F500="En proceso")*(\'Terapias Individual\'!E2:E500-\'Terapias Individual\'!H2:H500)),0)', ''],
+    ['Karina', '=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,"Karina",\'Terapias Individual\'!F:F,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!A2:A500="Karina")*(\'Terapias Individual\'!F2:F500="En proceso")*(\'Terapias Individual\'!E2:E500-\'Terapias Individual\'!H2:H500)),0)', ''],
     ['TOTAL', '=IFERROR(SUM(B17:B20),0)', '=IFERROR(SUM(C17:C20),0)', ''],
     ['', '', '', ''],
 
@@ -510,9 +510,9 @@ function crearReporte() {
     ['Procesos terapeuticos completados', '=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF(B24>0,ROUND(AVERAGE(\'Procesos Culminados\'!E2:E500),1),0),0)'],
     ['', '', '', ''],
 
-    // SECCIÓN 7: DESERCIONES
-    ['DESERCIONES', 'Total', 'Este mes', 'Tasa desercion'],
-    ['Participantes que desertaron', '=IFERROR(COUNTA(Deserciones!A:A)-1,0)', '=IFERROR(COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF((B24+B27)>0,ROUND(B27/(B24+B27)*100,1)&"%","0%"),"0%")'],
+    // SECCIÓN 7: RETIRADX
+    ['RETIRADX', 'Total', 'Este mes', 'Tasa retiro'],
+    ['Participantxs que se retiraron', '=IFERROR(COUNTA(Retiradx!A:A)-1,0)', '=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF((B24+B27)>0,ROUND(B27/(B24+B27)*100,1)&"%","0%"),"0%")'],
     ['', '', '', ''],
 
     // SECCIÓN 8: INTERVENCION DE CASOS
@@ -529,8 +529,8 @@ function crearReporte() {
 
     // SECCIÓN 10: CAPTACIÓN (formularios de ingreso)
     ['CAPTACIÓN', 'Total', 'Este mes', ''],
-    ['Formulario de Interés (Terapia Individual)', '=IFERROR(COUNTA(\'Formulario de Interés\'!B:B)-1,0)', '=IFERROR(COUNTIFS(\'Formulario de Interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Formulario de Interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
-    ['Referencias de programas recibidas', '=IFERROR(COUNTA(\'Referencias\'!D:D)-1,0)', '=IFERROR(COUNTIFS(\'Referencias\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
+    ['Hoja de interés (Terapia Individual)', '=IFERROR(COUNTA(\'Hoja de interés\'!B:B)-1,0)', '=IFERROR(COUNTIFS(\'Hoja de interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Hoja de interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
+    ['Referencias de programas recibidas', '=IFERROR(COUNTA(\'Referencias de programas\'!D:D)-1,0)', '=IFERROR(COUNTIFS(\'Referencias de programas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias de programas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
     ['Derivaciones institucionales recibidas', '=IFERROR(COUNTA(\'Derivaciones Institucionales\'!E:E)-1,0)', '=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '']
   ];
 
@@ -619,7 +619,7 @@ function crearReportesMensuales() {
   const sheet = ss.insertSheet('Reportes Mensuales');
 
   const headers = [
-    'Mes/Año', 'Nuevos Ingresos', 'Culminados', 'Deserciones', 'Gestión Casos',
+    'Mes/Año', 'Nuevos Ingresos', 'Culminados', 'Retiradx', 'Gestión Casos',
     'Total Activos', 'Tasa Éxito (%)',
     'Sesiones Gerber', 'Sesiones Melissa', 'Sesiones Diana', 'Sesiones Karina',
     'Activos Gerber', 'Activos Melissa', 'Activos Diana', 'Activos Karina',
@@ -644,10 +644,10 @@ function crearReportesMensuales() {
 function configurarValidaciones() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const nuevos = ss.getSheetByName('Nuevos Ingresos');
-  const terapias = ss.getSheetByName('Terapias');
+  const terapias = ss.getSheetByName('Terapias Individual');
   const espera = ss.getSheetByName('Lista de Espera');
   const intervencion = ss.getSheetByName('Intervención de casos');
-  const deserciones = ss.getSheetByName('Deserciones');
+  const retirxs = ss.getSheetByName('Retiradx');
 
   // LIMPIAR TODAS las validaciones existentes primero
   // clearDataValidations() debe llamarse sobre un rango, no sobre la hoja
@@ -657,8 +657,8 @@ function configurarValidaciones() {
   if (intervencion) {
     intervencion.getRange('A1:Z200').clearDataValidations();
   }
-  if (deserciones) {
-    deserciones.getRange('A1:Z200').clearDataValidations();
+  if (retirxs) {
+    retirxs.getRange('A1:Z200').clearDataValidations();
   }
 
   // Validaciones de género
@@ -693,7 +693,7 @@ function configurarValidaciones() {
 
   // Validaciones de estado - Terapias columna F
   const estadoRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['En proceso', 'Proceso culminado', 'deserciones'])
+    .requireValueInList(['En proceso', 'Proceso culminado', 'retirxs'])
     .setAllowInvalid(false)
     .build();
   terapias.getRange('F2:F200').setDataValidation(estadoRule);
@@ -725,8 +725,8 @@ function configurarValidaciones() {
     // NO validación en columna F (Motivo) - debe ser texto libre
   }
 
-  // Validaciones de Motivos de Deserción - en Deserciones columna F
-  if (deserciones) {
+  // Validaciones de Motivos de Retiro - en Retiradx columna F
+  if (retirxs) {
     const motivoDesercionRule = SpreadsheetApp.newDataValidation()
       .requireValueInList([
         'Otras prioridades',
@@ -753,7 +753,7 @@ function configurarValidaciones() {
       ])
       .setAllowInvalid(true)
       .build();
-    deserciones.getRange('F2:F200').setDataValidation(motivoDesercionRule);
+    retirxs.getRange('F2:F200').setDataValidation(motivoDesercionRule);
   }
 
   // =====================================================================
@@ -784,7 +784,7 @@ function configurarValidaciones() {
 
 function configurarFormatos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const terapias = ss.getSheetByName('Terapias');
+  const terapias = ss.getSheetByName('Terapias Individual');
 
   const procesoRule = SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo('En proceso')
@@ -910,7 +910,7 @@ function alEditar(e) {
   }
 
   // CASO 3: Terapias - Cambio de Número de Sesión (columna E)
-  if (hoja === 'Terapias' && columna === 5) {
+  if (hoja === 'Terapias Individual' && columna === 5) {
     Logger.log('✅ Detectado cambio en No. Sesión en Terapias');
     Logger.log('   Fila: ' + fila + ', Nuevo valor: ' + val);
 
@@ -927,9 +927,9 @@ function alEditar(e) {
   }
 
   // CASO 4: Terapias - Cambio de Estado (columna F)
-  if (hoja === 'Terapias' && columna === 6) {
-    if (val === 'Proceso culminado' || val === 'deserciones') {
-      Logger.log('✅ Detectado cambio de estado en Terapias: ' + val);
+  if (hoja === 'Terapias Individual' && columna === 6) {
+    if (val === 'Proceso culminado' || val === 'retirxs') {
+      Logger.log('✅ Detectado cambio de estado en Terapias Individual: ' + val);
       Logger.log('▶️ EJECUTANDO procesarFinalizacionTerapia...');
 
       try {
@@ -973,9 +973,9 @@ function alEditar(e) {
   }
   */
 
-  // CASO 6: Formulario de Interés — columna G (7) = "Sí"
-  if (hoja === 'Formulario de Interés' && columna === 7) {
-    Logger.log('✅ Detectada edición en Formulario de Interés, columna G (7)');
+  // CASO 6: Hoja de interés — columna G (7) = "Sí"
+  if (hoja === 'Hoja de interés' && columna === 7) {
+    Logger.log('✅ Detectada edición en Hoja de interés, columna G (7)');
     if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
       Logger.log('▶️ EJECUTANDO enviarInteresAListaEspera...');
       try {
@@ -989,7 +989,7 @@ function alEditar(e) {
   }
 
   // CASO 7: Referencias — columna J (10) = "Sí"
-  if (hoja === 'Referencias' && columna === 10) {
+  if (hoja === 'Referencias de programas' && columna === 10) {
     Logger.log('✅ Detectada edición en Referencias, columna J (10)');
     if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
       Logger.log('▶️ EJECUTANDO enviarReferenciaAListaEspera...');
@@ -1087,7 +1087,7 @@ function procesarConfirmacionAsistencia(sheetOrigen, fila, confirmacion) {
     // Verificar si esta fila ya fue procesada (por color de fondo)
     const bgColor = sheetOrigen.getRange(fila, 1).getBackground().toLowerCase();
     if (bgColor === '#d4edda') {
-      ss.toast('✅ Esta fila ya fue procesada como "Vino" (en Terapias).', 'Ya Procesado', 4);
+      ss.toast('✅ Esta fila ya fue procesada como "Vino" (en Terapias Individual).', 'Ya Procesado', 4);
       return;
     }
     if (bgColor === '#f8d7da') {
@@ -1132,7 +1132,7 @@ function procesarConfirmacionAsistencia(sheetOrigen, fila, confirmacion) {
 
     if (confirmacion === 'Vino') {
       // SI VINO: enviar a AMBOS - Nuevos Ingresos (documentación) Y Terapias
-      Logger.log('Enviando a Nuevos Ingresos y Terapias: ' + nombreLimpio);
+      Logger.log('Enviando a Nuevos Ingresos y Terapias Individual: ' + nombreLimpio);
       enviarANuevosIngresosYTerapias(nombreLimpio, creemosId, genero, edad, malestar, terapeutaNombre, sheetOrigen, fila);
     } else if (confirmacion === 'No vino') {
       // NO VINO: enviar a Personas no asistidas
@@ -1159,12 +1159,12 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const nuevos = ss.getSheetByName('Nuevos Ingresos');
-    const terapias = ss.getSheetByName('Terapias');
+    const terapias = ss.getSheetByName('Terapias Individual');
 
     Logger.log('Iniciando envío a Nuevos Ingresos y Terapias...');
 
     // Verificar duplicados ACTIVOS en Terapias (solo filas con estado "En proceso")
-    // Nota: deserciones y procesos culminados permanecen en Terapias con otro color,
+    // Nota: retirxs y procesos culminados permanecen en Terapias con otro color,
     // por eso se filtra por estado para no bloquear nuevas asignaciones.
     const datosTerapias = terapias.getDataRange().getValues();
     for (let i = 1; i < datosTerapias.length; i++) {
@@ -1172,10 +1172,10 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
       const estadoTerapia = datosTerapias[i][5];  // Columna F: Estado
       if (nombreTerapia && nombreTerapia.toString().trim() === nombre &&
           estadoTerapia && estadoTerapia.toString().trim() === 'En proceso') {
-        Logger.log('Duplicado activo encontrado en Terapias: ' + nombre);
+        Logger.log('Duplicado activo encontrado en Terapias Individual: ' + nombre);
         // No borrar — la fila se conserva en Lista de Espera con color verde
         sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#d4edda');
-        ss.toast('✅ ' + nombre + ' ya está en Terapias (En proceso).', 'Ya en Terapias', 4);
+        ss.toast('✅ ' + nombre + ' ya está en Terapias Individual (En proceso).', 'Ya en Terapias', 4);
         return;
       }
     }
@@ -1222,7 +1222,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
           datosFrescos[i][5] && datosFrescos[i][5].toString().trim() === 'En proceso') {
         Logger.log('⚠️ Duplicado detectado en verificación final (race condition evitada): ' + nombre);
         sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#d4edda');
-        ss.toast('✅ ' + nombre + ' ya está en Terapias (duplicado prevenido).', 'Ya en Terapias', 4);
+        ss.toast('✅ ' + nombre + ' ya está en Terapias Individual (duplicado prevenido).', 'Ya en Terapias', 4);
         return;
       }
     }
@@ -1246,10 +1246,10 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     Logger.log('✅ Fila ' + fila + ' marcada en verde en Lista de Espera (Vino - procesada)');
 
     SpreadsheetApp.flush();
-    ss.toast('✅ ' + nombre + '\n→ Nuevos Ingresos\n→ Terapias con ' + terapeuta + '\n\n🟢 Fila verde en Lista de Espera', 'Asignado', 5);
+    ss.toast('✅ ' + nombre + '\n→ Nuevos Ingresos\n→ Terapias Individual con ' + terapeuta + '\n\n🟢 Fila verde en Lista de Espera', 'Asignado', 5);
     Logger.log('✅ Proceso completado exitosamente');
   } catch (error) {
-    Logger.log('❌ ERROR en enviarANuevosIngresosYTerapias: ' + error.toString());
+    Logger.log('❌ ERROR en enviarANuevosIngresosYTerapias Individual: ' + error.toString());
     SpreadsheetApp.getActiveSpreadsheet().toast('❌ Error: ' + error.message, 'Error', 5);
   } finally {
     lock.releaseLock();
@@ -1307,7 +1307,7 @@ function enviarAPersonasNoAsistidas(nombre, creemosId, genero, edad, malestar, t
 
 function asignarATerapias(sheetOrigen, fila, terapeuta) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const terapias = ss.getSheetByName('Terapias');
+  const terapias = ss.getSheetByName('Terapias Individual');
 
   const datos = sheetOrigen.getRange(fila, 3, 1, 5).getValues()[0];
   const nombre = datos[0];
@@ -1326,7 +1326,7 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
   for (let i = 1; i < datosTerapias.length; i++) {
     if (datosTerapias[i][1] && datosTerapias[i][1].toString().trim() === nombreLimpio) { // Columna B (índice 1): Participante
       sheetOrigen.getRange(fila, 1, 1, 7).setBackground('#fff3cd');
-      ss.toast(nombreLimpio + ' ya está en Terapias', 'Ya Asignado', 2);
+      ss.toast(nombreLimpio + ' ya está en Terapias Individual', 'Ya Asignado', 2);
       return;
     }
   }
@@ -1362,7 +1362,7 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
   sheetOrigen.getRange(fila, 1, 1, 7).setBackground('#d4edda');
 
   SpreadsheetApp.flush(); // Forzar actualización
-  ss.toast('✅ ' + nombreLimpio + '\n→ ' + terapeuta + '\nCaso creado en Terapias', 'Asignado', 3);
+  ss.toast('✅ ' + nombreLimpio + '\n→ ' + terapeuta + '\nCaso creado en Terapias Individual', 'Asignado', 3);
 }
 
 /**
@@ -1429,7 +1429,7 @@ function registrarAsistenciaSesion(sheet, fila, numSesion) {
 }
 
 /**
- * Muestra un diálogo para seleccionar motivo de deserción usando ui.prompt
+ * Muestra un diálogo para seleccionar motivo de retiro usando ui.prompt
  */
 function mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion) {
   const ui = SpreadsheetApp.getUi();
@@ -1470,7 +1470,7 @@ function mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion) {
     'Ingrese el NÚMERO (1-21) del motivo:';
 
   const respuesta = ui.prompt(
-    'Motivo de Deserción',
+    'Motivo de Retiro',
     mensaje,
     ui.ButtonSet.OK_CANCEL
   );
@@ -1498,7 +1498,7 @@ function mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion) {
 }
 
 /**
- * Procesa la finalización de terapia (Proceso culminado o deserciones)
+ * Procesa la finalización de terapia (Proceso culminado o retirxs)
  */
 function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1521,10 +1521,10 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
 
   let motivo = '';
 
-  // Solo para DESERCIONES pedir motivo con diálogo
-  if (tipoFinal === 'deserciones') {
+  // Solo para RETIRADX pedir motivo con diálogo
+  if (tipoFinal === 'retirxs') {
     try {
-      Logger.log('📋 Solicitando motivo de deserción para: ' + nombre);
+      Logger.log('📋 Solicitando motivo de retiro para: ' + nombre);
       motivo = mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion);
       Logger.log('✅ Motivo recibido: ' + motivo);
 
@@ -1532,7 +1532,7 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
         // Usuario canceló o no seleccionó nada
         Logger.log('⚠️ Usuario canceló o no seleccionó motivo');
         sheetOrigen.getRange(fila, 6).setValue('En proceso'); // Columna F: Estado
-        ss.toast('❌ Deserción cancelada\n\nNo se seleccionó motivo', 'Cancelado', 3);
+        ss.toast('❌ Retiro cancelada\n\nNo se seleccionó motivo', 'Cancelado', 3);
         return;
       }
     } catch (error) {
@@ -1543,11 +1543,11 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
 
       ss.toast(
         '⚠️ ERROR: No se puede mostrar el diálogo\n\n' +
-        'Para que funcione el diálogo de deserciones, debe:\n' +
+        'Para que funcione el diálogo de retirxs, debe:\n' +
         '1. Ir al menú: 🏥 Apoyo Emocional\n' +
         '2. Hacer clic en: ✏️ Instalar Trigger onEdit\n' +
         '3. Autorizar los permisos\n\n' +
-        'Después de instalar el trigger, vuelva a seleccionar "deserciones".\n\n' +
+        'Después de instalar el trigger, vuelva a seleccionar "retirxs".\n\n' +
         'Error: ' + error.message,
         'Trigger No Instalado',
         15
@@ -1586,8 +1586,8 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
   if (tipoFinal === 'Proceso culminado') {
     Logger.log('📂 Copiando a Procesos Culminados...');
     ok = copiarACulminados(nombre, terapeuta, creemosId, numSesion, motivo);
-  } else if (tipoFinal === 'deserciones') {
-    Logger.log('📂 Copiando a Deserciones...');
+  } else if (tipoFinal === 'retirxs') {
+    Logger.log('📂 Copiando a Retiradx...');
     Logger.log('   Participante: ' + nombre);
     Logger.log('   Terapeuta: ' + terapeuta);
     Logger.log('   Motivo: ' + motivo);
@@ -1597,8 +1597,8 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
   if (ok) {
     Logger.log('✅ Copia exitosa');
 
-    if (tipoFinal === 'deserciones') {
-      // Para deserciones: marcar en rojo, mostrar mensaje. NO se elimina la fila.
+    if (tipoFinal === 'retirxs') {
+      // Para retirxs: marcar en rojo, mostrar mensaje. NO se elimina la fila.
       sheetOrigen.getRange(fila, 1, 1, 9).setBackground('#f8d7da');
       SpreadsheetApp.flush(); // Forzar actualización visual
 
@@ -1607,13 +1607,13 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
         'Participante: ' + nombre + '\n' +
         'Motivo: ' + motivo + '\n' +
         'Sesiones: ' + numSesion + '\n\n' +
-        'Copiado a hoja Deserciones\n' +
-        'El registro permanece en Terapias (marcado en rojo)',
-        'Deserción Registrada',
+        'Copiado a hoja Retiradx\n' +
+        'El registro permanece en Terapias Individual (marcado en rojo)',
+        'Retiro Registrada',
         6
       );
 
-      Logger.log('✅ Deserción procesada. Fila conservada en Terapias con color rojo.');
+      Logger.log('✅ Retiro procesada. Fila conservada en Terapias con color rojo.');
 
     } else if (tipoFinal === 'Proceso culminado') {
       // Para procesos culminados: marcar en verde. NO se elimina la fila.
@@ -1625,7 +1625,7 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
         'Participante: ' + nombre + '\n' +
         'Sesiones: ' + numSesion + '\n\n' +
         'Copiado a Procesos Culminados\n' +
-        'El registro permanece en Terapias (marcado en verde)',
+        'El registro permanece en Terapias Individual (marcado en verde)',
         'Proceso Completado',
         6
       );
@@ -1751,7 +1751,7 @@ function enviarEmailAsignacionTerapeuta(terapeuta, nombreParticipante, fila) {
       '⚠️ IMPORTANTE:\n' +
       'Una vez que selecciones "Vino" o "No vino", el sistema\n' +
       'automáticamente moverá el caso a la hoja correspondiente:\n' +
-      '• Si VINO → Nuevos Ingresos + Terapias (trabajo activo)\n' +
+      '• Si VINO → Nuevos Ingresos + Terapias Individual (trabajo activo)\n' +
       '• Si NO VINO → Personas no asistidas (sin registro)\n\n' +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
       'Sistema de Apoyo Emocional\n' +
@@ -2304,25 +2304,25 @@ function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo
 
     Logger.log('🔍 copiarADeserciones - Inicio');
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName('Deserciones');
+    const sheet = ss.getSheetByName('Retiradx');
 
     if (!sheet) {
-      Logger.log('❌ Hoja "Deserciones" no encontrada');
-      ss.toast('❌ Error: Hoja "Deserciones" no existe', 'Error', 5);
+      Logger.log('❌ Hoja "Retiradx" no encontrada');
+      ss.toast('❌ Error: Hoja "Retiradx" no existe', 'Error', 5);
       return false;
     }
 
-    Logger.log('✅ Hoja Deserciones encontrada');
+    Logger.log('✅ Hoja Retiradx encontrada');
 
     // VERIFICAR SI YA EXISTE para evitar duplicados
     const datos = sheet.getDataRange().getValues();
     for (let i = 1; i < datos.length; i++) {
       const nombreExistente = datos[i][1]; // Columna B: Participante
       if (nombreExistente && nombreExistente.toString().trim() === participante.toString().trim()) {
-        Logger.log('⚠️ Participante ya existe en Deserciones: ' + participante);
+        Logger.log('⚠️ Participante ya existe en Retiradx: ' + participante);
         ss.toast(
           '⚠️ DUPLICADO DETECTADO\n\n' +
-          participante + ' ya está en Deserciones.\n\n' +
+          participante + ' ya está en Retiradx.\n\n' +
           'No se agregará nuevamente.',
           'Ya Existe',
           4
@@ -2343,7 +2343,7 @@ function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo
       }
     }
 
-    Logger.log('📍 Nueva fila para deserción: ' + nuevaFila);
+    Logger.log('📍 Nueva fila para retiro: ' + nuevaFila);
 
     const datosNuevos = [new Date(), participante, terapeuta, creemosId || '', parseInt(sesiones) || 1, motivo];
 
@@ -2356,14 +2356,14 @@ function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo
     Logger.log('   Motivo: ' + motivo);
 
     sheet.getRange(nuevaFila, 1, 1, 6).setValues([datosNuevos]);
-    Logger.log('✅ Datos guardados en fila ' + nuevaFila + ' de hoja Deserciones');
+    Logger.log('✅ Datos guardados en fila ' + nuevaFila + ' de hoja Retiradx');
 
     return true;
   } catch (error) {
     Logger.log('❌ Error en copiarADeserciones: ' + error.message);
     Logger.log('   Stack: ' + error.stack);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    ss.toast('❌ Error al copiar a Deserciones: ' + error.message, 'Error', 5);
+    ss.toast('❌ Error al copiar a Retiradx: ' + error.message, 'Error', 5);
     return false;
   } finally {
     // SIEMPRE liberar el lock
@@ -3018,8 +3018,8 @@ function instalarTriggerOnEdit() {
     ss.toast(
       '✅ Trigger onEdit instalado correctamente\n\n' +
       'Ahora los diálogos de motivo funcionarán correctamente cuando:\n' +
-      '- Seleccione "Proceso culminado" en Estado de Terapias\n' +
-      '- Seleccione "deserciones" en Estado de Terapias',
+      '- Seleccione "Proceso culminado" en Estado de Terapias Individual\n' +
+      '- Seleccione "retirxs" en Estado de Terapias Individual',
       'Trigger onEdit Instalado',
       6
     );
@@ -3052,7 +3052,7 @@ function guardarReporteMensual() {
     // Referencias correctas según el diseño del reporte
     const nuevosIngresos = reporte.getRange('C5').getValue(); // Nuevos ingresos este mes (fila 5)
     const culminados = reporte.getRange('C24').getValue(); // Culminados este mes (fila 24)
-    const deserciones = reporte.getRange('C27').getValue(); // Deserciones este mes (fila 27)
+    const retirxs = reporte.getRange('C27').getValue(); // Retiradx este mes (fila 27)
     const gestion = reporte.getRange('B30').getValue(); // Total en intervención (fila 30)
     const activos = reporte.getRange('B21').getValue(); // Total casos activos (fila 21)
     const tasaExito = reporte.getRange('B34').getValue(); // Tasa de éxito (fila 34)
@@ -3076,7 +3076,7 @@ function guardarReporteMensual() {
       mesActual,
       nuevosIngresos,
       culminados,
-      deserciones,
+      retirxs,
       gestion,
       activos,
       tasaExito,
@@ -3127,7 +3127,7 @@ function actualizarSesionesMesAnterior() {
   try {
     // Actualizar "Sesiones Mes Anterior" en Terapias
     // Copiar el valor actual de "No. Sesión" (columna F) a "Sesiones Mes Anterior" (columna I)
-    const terapias = ss.getSheetByName('Terapias');
+    const terapias = ss.getSheetByName('Terapias Individual');
     if (terapias && terapias.getLastRow() > 1) {
       const ultimaFila = terapias.getLastRow();
 
@@ -3143,7 +3143,7 @@ function actualizarSesionesMesAnterior() {
         }
       }
 
-      Logger.log('✅ Terapias: Sesiones del mes anterior actualizadas');
+      Logger.log('✅ Terapias Individual: Sesiones del mes anterior actualizadas');
     }
 
     // Actualizar reportes
@@ -3167,8 +3167,8 @@ function repararValidaciones() {
     ss.toast('🔧 Reparando sistema...', 'Reparación', 2);
 
     // 1. Limpiar TODAS las validaciones de datos de todas las hojas
-    const hojas = ['Lista de Espera', 'Nuevos Ingresos', 'Terapias',
-                   'Procesos Culminados', 'Deserciones', 'Intervención de casos',
+    const hojas = ['Lista de Espera', 'Nuevos Ingresos', 'Terapias Individual',
+                   'Procesos Culminados', 'Retiradx', 'Intervención de casos',
                    'Personas no asistidas'];
 
     hojas.forEach(nombreHoja => {
@@ -3252,7 +3252,7 @@ function crearDatosPrueba() {
     'CÓMO PROBAR EL SISTEMA:\n' +
     '1. En columna N (Terapeuta Asignado) seleccione un terapeuta\n' +
     '2. En columna N (Asistió a Cita) seleccione Vino o No vino\n' +
-    '3. Si Vino + tiene terapeuta → Nuevos Ingresos + Terapias\n' +
+    '3. Si Vino + tiene terapeuta → Nuevos Ingresos + Terapias Individual\n' +
     '4. Si No vino → Personas no asistidas\n\n' +
     'Use el menú "Limpiar Todos los Datos" cuando termine.',
     'Datos de Prueba',
@@ -3271,9 +3271,9 @@ function limpiarTodosLosDatos() {
     'Se limpiarán todas las hojas:\n' +
     '- Lista de Espera\n' +
     '- Nuevos Ingresos\n' +
-    '- Terapias\n' +
+    '- Terapias Individual\n' +
     '- Procesos Culminados\n' +
-    '- Deserciones\n' +
+    '- Retiradx\n' +
     '- Intervención de casos\n' +
     '- Personas no asistidas\n' +
     '- Reportes Mensuales\n' +
@@ -3308,7 +3308,7 @@ function limpiarTodosLosDatos() {
     }
 
     // Limpiar Terapias (desde fila 2)
-    const terapias = ss.getSheetByName('Terapias');
+    const terapias = ss.getSheetByName('Terapias Individual');
     if (terapias.getLastRow() > 1) {
       terapias.getRange(2, 1, terapias.getLastRow() - 1, 10).clearContent();
       terapias.getRange(2, 1, terapias.getLastRow() - 1, 10).setBackground(null);
@@ -3320,10 +3320,10 @@ function limpiarTodosLosDatos() {
       culminados.getRange(2, 1, culminados.getLastRow() - 1, 6).clearContent();
     }
 
-    // Limpiar Deserciones (desde fila 2)
-    const deserciones = ss.getSheetByName('Deserciones');
-    if (deserciones.getLastRow() > 1) {
-      deserciones.getRange(2, 1, deserciones.getLastRow() - 1, 6).clearContent();
+    // Limpiar Retiradx (desde fila 2)
+    const retirxs = ss.getSheetByName('Retiradx');
+    if (retirxs.getLastRow() > 1) {
+      retirxs.getRange(2, 1, retirxs.getLastRow() - 1, 6).clearContent();
     }
 
     // Limpiar Intervención de Casos (desde fila 2)
@@ -3370,7 +3370,7 @@ function limpiarTodosLosDatos() {
 }
 
 /**
- * Repara la hoja de Terapias: columna Fecha y validaciones
+ * Repara la hoja de Terapias Individual: columna Fecha y validaciones
  * Soluciona problemas cuando se agregó la columna Fecha
  */
 function repararTerapias() {
@@ -3378,8 +3378,8 @@ function repararTerapias() {
   const ui = SpreadsheetApp.getUi();
 
   const confirmacion = ui.alert(
-    '⚡ Reparar Hoja de Terapias',
-    '¿Deseas reparar la hoja de Terapias?\n\n' +
+    '⚡ Reparar Hoja de Terapias Individual',
+    '¿Deseas reparar la hoja de Terapias Individual?\n\n' +
     'Esto hará:\n' +
     '• INSERTAR columna Fecha (B) si no existe\n' +
     '• Mover datos una columna a la derecha\n' +
@@ -3393,11 +3393,11 @@ function repararTerapias() {
   }
 
   try {
-    ss.toast('Reparando hoja de Terapias...', 'Reparando', 3);
+    ss.toast('Reparando hoja de Terapias Individual...', 'Reparando', 3);
 
-    const terapias = ss.getSheetByName('Terapias');
+    const terapias = ss.getSheetByName('Terapias Individual');
     if (!terapias) {
-      ui.alert('❌ Error', 'No se encontró la hoja "Terapias"', ui.ButtonSet.OK);
+      ui.alert('❌ Error', 'No se encontró la hoja "Terapias Individual"', ui.ButtonSet.OK);
       return;
     }
 
@@ -3471,7 +3471,7 @@ function repararTerapias() {
 
     // Estado (F)
     const estadoRule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(['En proceso', 'Proceso culminado', 'deserciones'])
+      .requireValueInList(['En proceso', 'Proceso culminado', 'retirxs'])
       .setAllowInvalid(false)
       .build();
     terapias.getRange('F2:F200').setDataValidation(estadoRule);
@@ -3610,18 +3610,18 @@ function actualizarFormulasReporte() {
     reporte.getRange('C14').setFormula('=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Sí")+COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Si"),0)');
 
     // Filas 17-20: Casos activos por terapeuta (columna B: casos activos)
-    // Terapias: A=Terapeuta, B=Participante, C=Creamos ID, D=Género,
+    // Terapias Individual: A=Terapeuta, B=Participante, C=Creamos ID, D=Género,
     //           E=No.Sesión, F=Estado, G=Motivo, H=Sesiones Mes Anterior, I=Inasistencias
-    reporte.getRange('B17').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Gerber",Terapias!F:F,"En proceso"),0)');
-    reporte.getRange('B18').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Melissa",Terapias!F:F,"En proceso"),0)');
-    reporte.getRange('B19').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Diana",Terapias!F:F,"En proceso"),0)');
-    reporte.getRange('B20').setFormula('=IFERROR(COUNTIFS(Terapias!A:A,"Karina",Terapias!F:F,"En proceso"),0)');
+    reporte.getRange('B17').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,"Gerber",\'Terapias Individual\'!F:F,"En proceso"),0)');
+    reporte.getRange('B18').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,"Melissa",\'Terapias Individual\'!F:F,"En proceso"),0)');
+    reporte.getRange('B19').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,"Diana",\'Terapias Individual\'!F:F,"En proceso"),0)');
+    reporte.getRange('B20').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,"Karina",\'Terapias Individual\'!F:F,"En proceso"),0)');
 
     // Filas 17-20: Sesiones mes (columna C) = No.Sesión(E) - Sesiones Mes Anterior(H)
-    reporte.getRange('C17').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Gerber")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)');
-    reporte.getRange('C18').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Melissa")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)');
-    reporte.getRange('C19').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Diana")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)');
-    reporte.getRange('C20').setFormula('=IFERROR(SUMPRODUCT((Terapias!A2:A500="Karina")*(Terapias!F2:F500="En proceso")*(Terapias!E2:E500-Terapias!H2:H500)),0)');
+    reporte.getRange('C17').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!A2:A500="Gerber")*(\'Terapias Individual\'!F2:F500="En proceso")*(\'Terapias Individual\'!E2:E500-\'Terapias Individual\'!H2:H500)),0)');
+    reporte.getRange('C18').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!A2:A500="Melissa")*(\'Terapias Individual\'!F2:F500="En proceso")*(\'Terapias Individual\'!E2:E500-\'Terapias Individual\'!H2:H500)),0)');
+    reporte.getRange('C19').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!A2:A500="Diana")*(\'Terapias Individual\'!F2:F500="En proceso")*(\'Terapias Individual\'!E2:E500-\'Terapias Individual\'!H2:H500)),0)');
+    reporte.getRange('C20').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!A2:A500="Karina")*(\'Terapias Individual\'!F2:F500="En proceso")*(\'Terapias Individual\'!E2:E500-\'Terapias Individual\'!H2:H500)),0)');
 
     // Fila 21: TOTAL casos activos y sesiones
     reporte.getRange('B21').setFormula('=IFERROR(SUM(B17:B20),0)');
@@ -3632,9 +3632,9 @@ function actualizarFormulasReporte() {
     reporte.getRange('C24').setFormula('=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
     reporte.getRange('D24').setFormula('=IFERROR(IF(B24>0,ROUND(AVERAGE(\'Procesos Culminados\'!E2:E500),1),0),0)');
 
-    // Fila 27: Deserciones
-    reporte.getRange('B27').setFormula('=IFERROR(COUNTA(Deserciones!A:A)-1,0)');
-    reporte.getRange('C27').setFormula('=IFERROR(COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Deserciones!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    // Fila 27: Retiradx
+    reporte.getRange('B27').setFormula('=IFERROR(COUNTA(Retiradx!A:A)-1,0)');
+    reporte.getRange('C27').setFormula('=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)');
     reporte.getRange('D27').setFormula('=IFERROR(IF((B24+B27)>0,ROUND(B27/(B24+B27)*100,1)&"%","0%"),"0%")');
 
     // Fila 30: Intervención de casos
@@ -3659,7 +3659,7 @@ function actualizarFormulasReporte() {
         .setBackground('#1565c0').setFontColor('white').setFontWeight('bold')
         .setHorizontalAlignment('center').setVerticalAlignment('middle').setFontSize(11);
       reporte.setRowHeight(37, 35);
-      reporte.getRange('A38').setValue('Formulario de Interés (Terapia Individual)');
+      reporte.getRange('A38').setValue('Hoja de interés (Terapia Individual)');
       reporte.getRange('A39').setValue('Referencias de programas recibidas');
       reporte.getRange('A40').setValue('Derivaciones institucionales recibidas');
       [38, 39, 40].forEach((row, idx) => {
@@ -3670,13 +3670,13 @@ function actualizarFormulasReporte() {
       });
     }
 
-    // Fila 38: Formulario de Interés
-    reporte.getRange('B38').setFormula('=IFERROR(COUNTA(\'Formulario de Interés\'!B:B)-1,0)');
-    reporte.getRange('C38').setFormula('=IFERROR(COUNTIFS(\'Formulario de Interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Formulario de Interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    // Fila 38: Hoja de interés
+    reporte.getRange('B38').setFormula('=IFERROR(COUNTA(\'Hoja de interés\'!B:B)-1,0)');
+    reporte.getRange('C38').setFormula('=IFERROR(COUNTIFS(\'Hoja de interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Hoja de interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
     // Fila 39: Referencias
-    reporte.getRange('B39').setFormula('=IFERROR(COUNTA(\'Referencias\'!D:D)-1,0)');
-    reporte.getRange('C39').setFormula('=IFERROR(COUNTIFS(\'Referencias\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    reporte.getRange('B39').setFormula('=IFERROR(COUNTA(\'Referencias de programas\'!D:D)-1,0)');
+    reporte.getRange('C39').setFormula('=IFERROR(COUNTIFS(\'Referencias de programas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias de programas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
     // Fila 40: Derivaciones Institucionales (captación)
     reporte.getRange('B40').setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!E:E)-1,0)');
@@ -3719,12 +3719,12 @@ function diagnosticarReporte() {
       { nombre: 'Personas no asistidas',             col: 'B', celda: 'B8',  desc: 'No asistidas' },
       { nombre: 'Derivaciones Institucionales',      col: 'E', celda: 'B11', desc: 'Derivaciones' },
       { nombre: 'C_03_Formulario de Bienestar (2026)', col: 'A', celda: 'B14', desc: 'Bienestar' },
-      { nombre: 'Terapias',                          col: 'A', celda: 'B21', desc: 'Terapias total' },
+      { nombre: 'Terapias Individual',                          col: 'A', celda: 'B21', desc: 'Terapias total' },
       { nombre: 'Procesos Culminados',               col: 'A', celda: 'B24', desc: 'Culminados' },
-      { nombre: 'Deserciones',                       col: 'A', celda: 'B27', desc: 'Deserciones' },
+      { nombre: 'Retiradx',                       col: 'A', celda: 'B27', desc: 'Retiradx' },
       { nombre: 'Intervención de casos',             col: 'A', celda: 'B30', desc: 'Intervención' },
-      { nombre: 'Formulario de Interés',             col: 'B', celda: 'B38', desc: 'Interés (captación)' },
-      { nombre: 'Referencias',                       col: 'D', celda: 'B39', desc: 'Referencias (captación)' }
+      { nombre: 'Hoja de interés',             col: 'B', celda: 'B38', desc: 'Interés (captación)' },
+      { nombre: 'Referencias de programas',                       col: 'D', celda: 'B39', desc: 'Referencias (captación)' }
     ];
 
     let info = '🔍 DIAGNÓSTICO COMPLETO DEL REPORTE\n';
@@ -5272,7 +5272,7 @@ function instalacionCompleta() {
     '4️⃣ Reinstalar trigger onEdit (asignación + asistencia)\n' +
     '5️⃣ Reinstalar trigger de tiempo (reportes cada hora)\n' +
     '6️⃣ Crear hoja de Bienestar si no existe\n' +
-    '7️⃣ Crear hojas Formulario de Interés, Referencias y Derivaciones Institucionales\n' +
+    '7️⃣ Crear hojas Hoja de interés, Referencias y Derivaciones Institucionales\n' +
     '8️⃣ Activar auto-actualización de captación (cada hora)\n' +
     '9️⃣ Actualizar todos los reportes\n\n' +
     '⚠️ No borra datos existentes.\n\n' +
@@ -5297,8 +5297,8 @@ function instalacionCompleta() {
     // PASO 2: Configurar validaciones (dropdowns)
     ss.toast('2️⃣ Configurando desplegables...', 'Instalación Completa', -1);
     try {
-      const hojas = ['Lista de Espera', 'Nuevos Ingresos', 'Terapias',
-                     'Procesos Culminados', 'Deserciones',
+      const hojas = ['Lista de Espera', 'Nuevos Ingresos', 'Terapias Individual',
+                     'Procesos Culminados', 'Retiradx',
                      'Intervención de casos', 'Personas no asistidas'];
       hojas.forEach(h => {
         const s = ss.getSheetByName(h);
@@ -5361,17 +5361,17 @@ function instalacionCompleta() {
     // PASO 7: Crear hojas de captación (Interés, Referencias, Derivaciones)
     ss.toast('7️⃣ Creando hojas de captación...', 'Instalación Completa', -1);
     try {
-      if (!ss.getSheetByName('Formulario de Interés')) {
+      if (!ss.getSheetByName('Hoja de interés')) {
         crearHojaFormularioInteres();
-        pasos.push('✅ Hoja Formulario de Interés creada');
+        pasos.push('✅ Hoja Hoja de interés creada');
       } else {
-        pasos.push('✅ Hoja Formulario de Interés ya existe');
+        pasos.push('✅ Hoja Hoja de interés ya existe');
       }
     } catch (e) {
-      pasos.push('⚠️ Formulario de Interés: ' + e.message);
+      pasos.push('⚠️ Hoja de interés: ' + e.message);
     }
     try {
-      if (!ss.getSheetByName('Referencias')) {
+      if (!ss.getSheetByName('Referencias de programas')) {
         crearHojaReferencias();
         pasos.push('✅ Hoja Referencias creada');
       } else {
@@ -5469,15 +5469,15 @@ function instalarActualizaciones() {
       Utilities.sleep(1000);
     }
 
-    // 2. Crear hoja Formulario de Interés si no existe
-    if (!ss.getSheetByName('Formulario de Interés')) {
+    // 2. Crear hoja Hoja de interés si no existe
+    if (!ss.getSheetByName('Hoja de interés')) {
       crearHojaFormularioInteres();
-      ss.toast('✅ Hoja Formulario de Interés creada', 'Instalando', 2);
+      ss.toast('✅ Hoja Hoja de interés creada', 'Instalando', 2);
       Utilities.sleep(1000);
     }
 
     // 3. Crear hoja Referencias si no existe
-    if (!ss.getSheetByName('Referencias')) {
+    if (!ss.getSheetByName('Referencias de programas')) {
       crearHojaReferencias();
       ss.toast('✅ Hoja Referencias creada', 'Instalando', 2);
       Utilities.sleep(1000);
@@ -5511,7 +5511,7 @@ function instalarActualizaciones() {
       'Nuevas funciones disponibles:\n' +
       '• Formulario de Bienestar (2026)\n' +
       '• Derivaciones y Referencias\n' +
-      '• Formulario de Interés (terapia individual)\n' +
+      '• Hoja de interés (terapia individual)\n' +
       '• Importar datos desde KoboToolbox\n' +
       '• Alertas automáticas de protocolo de suicidio\n\n' +
       'Usa el menú "🏥 Apoyo Emocional" para acceder\n' +
@@ -5533,7 +5533,7 @@ function instalarActualizaciones() {
 
 
 // =====================================================================
-// UTILIDADES COMPARTIDAS (Formulario de Interés, Referencias,
+// UTILIDADES COMPARTIDAS (Hoja de interés, Referencias,
 //                          Derivaciones Institucionales)
 // =====================================================================
 
@@ -5681,20 +5681,20 @@ function _buscarCol(headers, fragmentos) {
 var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esLPozzAX85W2xSv98r2AVM/data.csv';  // histórico 2024-2026
 var URL_FORMULARIO_INTERES_2026 = 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/eseYzEgWw6Tui9y2eppZy3L/data.csv';  // formulario 2026
 
-/** Columna de "Enviar" en Formulario de Interés (1-based) */
+/** Columna de "Enviar" en Hoja de interés (1-based) */
 var COL_ENVIAR_INTERES = 7;
 
 /**
- * Crea la hoja "Formulario de Interés" con estructura fija.
+ * Crea la hoja "Hoja de interés" con estructura fija.
  */
 function crearHojaFormularioInteres() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (ss.getSheetByName('Formulario de Interés')) {
-    Logger.log('⚠️ Hoja Formulario de Interés ya existe');
-    return ss.getSheetByName('Formulario de Interés');
+  if (ss.getSheetByName('Hoja de interés')) {
+    Logger.log('⚠️ Hoja Hoja de interés ya existe');
+    return ss.getSheetByName('Hoja de interés');
   }
 
-  const sheet = ss.insertSheet('Formulario de Interés');
+  const sheet = ss.insertSheet('Hoja de interés');
   const headers = [
     'Fecha Import', 'Creamos ID', 'Nombre Completo',
     'Género', 'Zona', 'Servicios de Interés', 'Enviar a Lista de Espera'
@@ -5712,12 +5712,12 @@ function crearHojaFormularioInteres() {
       .requireValueInList(['Sí', 'No'], true).setAllowInvalid(false).build()
   );
 
-  Logger.log('✅ Hoja Formulario de Interés creada');
+  Logger.log('✅ Hoja Hoja de interés creada');
   return sheet;
 }
 
 /**
- * Extrae filas nuevas de un CSV de Formulario de Interés dado su texto ya descargado.
+ * Extrae filas nuevas de un CSV de Hoja de interés dado su texto ya descargado.
  * Filtra solo "Terapia Individual". Actualiza los sets de dedup pasados por referencia.
  * Devuelve array de filas [fecha, creamosID, nombreCompleto, genero, zona, servicios, ''].
  */
@@ -5798,10 +5798,10 @@ function _extraerFilasInteres(csvTexto, fuente, uuidsSet, creamosSet) {
  */
 function importarFormularioInteres() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.toast('📥 Importando Formulario de Interés (2 fuentes)...', 'Importando', 10);
+  ss.toast('📥 Importando Hoja de interés (2 fuentes)...', 'Importando', 10);
 
   try {
-    let sheet = ss.getSheetByName('Formulario de Interés');
+    let sheet = ss.getSheetByName('Hoja de interés');
     if (!sheet) sheet = crearHojaFormularioInteres();
 
     // Construir sets de dedup con datos ya existentes en la hoja
@@ -5849,7 +5849,7 @@ function importarFormularioInteres() {
     const msg = todasFilasNuevas.length > 0
       ? '✅ ' + todasFilasNuevas.length + ' registros nuevos importados'
       : 'ℹ️ Sin registros nuevos' + (totalOmitidos > 0 ? ' (' + totalOmitidos + ' sin Terapia Individual)' : '');
-    Logger.log('📊 Total Formulario de Interés: ' + todasFilasNuevas.length + ' nuevos, ' + totalOmitidos + ' omitidos');
+    Logger.log('📊 Total Hoja de interés: ' + todasFilasNuevas.length + ' nuevos, ' + totalOmitidos + ' omitidos');
     ss.toast(msg, todasFilasNuevas.length > 0 ? 'Importación Completa' : 'Importación', 5);
 
   } catch (e) {
@@ -5859,7 +5859,7 @@ function importarFormularioInteres() {
 }
 
 /**
- * Diagnóstico del CSV de Formulario de Interés — revisa ambas fuentes.
+ * Diagnóstico del CSV de Hoja de interés — revisa ambas fuentes.
  * Muestra columnas detectadas, cuántos registros pasarían el filtro y estado HTTP.
  */
 function diagnosticarFormularioInteres() {
@@ -5872,7 +5872,7 @@ function diagnosticarFormularioInteres() {
     { url: URL_FORMULARIO_INTERES_2026, nombre: 'Formulario 2026' }
   ];
 
-  let info = '🔍 DIAGNÓSTICO — Formulario de Interés (2 fuentes)\n';
+  let info = '🔍 DIAGNÓSTICO — Hoja de interés (2 fuentes)\n';
   info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
 
   try {
@@ -5925,7 +5925,7 @@ function diagnosticarFormularioInteres() {
       }
     });
 
-    ui.alert('🔍 Diagnóstico Formulario de Interés', info, ui.ButtonSet.OK);
+    ui.alert('🔍 Diagnóstico Hoja de interés', info, ui.ButtonSet.OK);
 
   } catch (e) {
     ui.alert('❌ Error', 'Error al diagnosticar:\n' + e.message, ui.ButtonSet.OK);
@@ -5934,7 +5934,7 @@ function diagnosticarFormularioInteres() {
 }
 
 /**
- * Envía un registro de Formulario de Interés a Lista de Espera.
+ * Envía un registro de Hoja de interés a Lista de Espera.
  * Columnas fijas: A=FechaImport B=CreamosID C=NombreCompleto D=Género E=Zona F=Servicios G=Enviar
  * Se llama desde alEditar cuando columna G (7) = "Sí".
  */
@@ -5949,7 +5949,7 @@ function enviarInteresAListaEspera(sheet, fila) {
     edad:       '',
     malestar:   'Interesado en Terapia Individual',
     telefono:   '',
-    derivacion: 'Formulario de Interés',
+    derivacion: 'Hoja de interés',
     quienDeriva: '',
     programa:   '',
     servicio:   'Terapia Individual'
@@ -5977,16 +5977,16 @@ var URL_REFERENCIAS = 'https://kf.kobotoolbox.org/api/v2/assets/an6ckBVY2QRQPhTd
 var COL_ENVIAR_REFERENCIAS = 10;
 
 /**
- * Crea la hoja "Referencias" con estructura fija.
+ * Crea la hoja "Referencias de programas" con estructura fija.
  */
 function crearHojaReferencias() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (ss.getSheetByName('Referencias')) {
+  if (ss.getSheetByName('Referencias de programas')) {
     Logger.log('⚠️ Hoja Referencias ya existe');
-    return ss.getSheetByName('Referencias');
+    return ss.getSheetByName('Referencias de programas');
   }
 
-  const sheet = ss.insertSheet('Referencias');
+  const sheet = ss.insertSheet('Referencias de programas');
   const headers = [
     'Fecha', 'Programa que refiere', 'Persona que refiere',
     'Nombre Completo', 'Teléfono', 'Dirección',
@@ -6031,7 +6031,7 @@ function importarReferencias() {
     const filas = _parsearCSV(resp.getContentText());
     if (filas.length <= 1) { ss.toast('ℹ️ Sin datos', 'Info', 3); return; }
 
-    let sheet = ss.getSheetByName('Referencias');
+    let sheet = ss.getSheetByName('Referencias de programas');
     if (!sheet) sheet = crearHojaReferencias();
 
     const hCSV = filas[0];
@@ -6340,7 +6340,7 @@ function instalarAutoImportCaptacion() {
   ui.alert(
     '✅ Auto-actualización activada',
     'Las hojas de captación se actualizarán automáticamente cada 10 minutos:\n\n' +
-    '• 💡 Formulario de Interés\n' +
+    '• 💡 Hoja de interés\n' +
     '• 🔗 Referencias\n' +
     '• 🏛️ Derivaciones Institucionales\n\n' +
     'Puedes también usar "⚡ Importar Datos Ahora" en cualquier momento.',
@@ -6711,7 +6711,7 @@ function limpiarYRepararHojas() {
     '🧹 LIMPIAR Y REPARAR HOJAS',
     '⚠️ ADVERTENCIA: Esta función va a:\n\n' +
     '1. Eliminar columnas extra en "Nuevos Ingresos" (H, I, J)\n' +
-    '2. Limpiar valores iniciales incorrectos en "Terapias"\n' +
+    '2. Limpiar valores iniciales incorrectos en "Terapias Individual"\n' +
     '3. Recrear la estructura correcta de las hojas\n\n' +
     '❗ IMPORTANTE: Los datos válidos se mantendrán.\n\n' +
     '¿Deseas continuar?',
@@ -6749,17 +6749,17 @@ function limpiarYRepararHojas() {
       mensajeResultado += '⚠️ Nuevos Ingresos: No existe\n';
     }
 
-    // ===== PASO 2: Limpiar "Terapias" =====
-    ss.toast('Limpiando Terapias...', 'Paso 2/2', 5);
+    // ===== PASO 2: Limpiar "Terapias Individual" =====
+    ss.toast('Limpiando Terapias Individual...', 'Paso 2/2', 5);
 
-    const terapias = ss.getSheetByName('Terapias');
+    const terapias = ss.getSheetByName('Terapias Individual');
     if (terapias) {
       const ultimaFila = terapias.getLastRow();
       let filasConDatos = 0;
       let filasLimpiadas = 0;
 
       // Recorrer todas las filas (desde la 2 en adelante)
-      // Terapias: A=Terapeuta, B=Participante, C=Creamos ID, D=Género,
+      // Terapias Individual: A=Terapeuta, B=Participante, C=Creamos ID, D=Género,
       //           E=No.Sesión, F=Estado, G=Motivo, H=Sesiones Mes Anterior, I=Inasistencias
       for (let fila = 2; fila <= ultimaFila; fila++) {
         const participante = terapias.getRange(fila, 2).getValue(); // Columna B: Participante
@@ -6775,11 +6775,11 @@ function limpiarYRepararHojas() {
         }
       }
 
-      mensajeResultado += '✅ Terapias: ' + filasLimpiadas + ' filas limpiadas\n';
+      mensajeResultado += '✅ Terapias Individual: ' + filasLimpiadas + ' filas limpiadas\n';
       mensajeResultado += '   (' + filasConDatos + ' casos activos mantenidos)\n';
       Logger.log('✅ Terapias limpiado: ' + filasLimpiadas + ' filas, ' + filasConDatos + ' casos activos');
     } else {
-      mensajeResultado += '⚠️ Terapias: No existe\n';
+      mensajeResultado += '⚠️ Terapias Individual: No existe\n';
     }
 
     // ===== FINALIZACIÓN =====
@@ -6789,7 +6789,7 @@ function limpiarYRepararHojas() {
       '📋 SIGUIENTE PASO:\n' +
       'Verifica que todo esté correcto:\n\n' +
       '1. Nuevos Ingresos debe tener 7 columnas (A-G)\n' +
-      '2. Terapias debe tener 9 columnas (A-I)\n' +
+      '2. Terapias Individual debe tener 9 columnas (A-I)\n' +
       '3. No debe haber valores iniciales en filas vacías\n\n' +
       '¡El sistema está listo para usar!';
 
@@ -6809,7 +6809,7 @@ function limpiarYRepararHojas() {
 }
 
 /**
- * Migra datos históricos de una hoja antigua al nuevo "Formulario de Interés".
+ * Migra datos históricos de una hoja antigua al nuevo "Hoja de interés".
  * Útil para traer registros previos a 2020 o de cualquier hoja con formato distinto.
  * Pregunta al usuario el nombre exacto de la hoja origen.
  */
@@ -6839,7 +6839,7 @@ function migrarDatosAntiguosInteres() {
   }
 
   // Obtener o crear hoja destino
-  let destino = ss.getSheetByName('Formulario de Interés');
+  let destino = ss.getSheetByName('Hoja de interés');
   if (!destino) destino = crearHojaFormularioInteres();
 
   const datosOrigen = origen.getDataRange().getValues();
@@ -6917,7 +6917,7 @@ function migrarDatosAntiguosInteres() {
   if (nuevosDatos.length === 0) {
     ui.alert('ℹ️ No hay registros nuevos para migrar.\n\n' +
              '• Duplicados / filas vacías omitidas: ' + omitidos + '\n\n' +
-             'Todos los registros de "' + nombreHoja + '" ya existen en Formulario de Interés.');
+             'Todos los registros de "' + nombreHoja + '" ya existen en Hoja de interés.');
     return;
   }
 
@@ -6935,7 +6935,7 @@ function migrarDatosAntiguosInteres() {
     '• Registros migrados: ' + nuevosDatos.length + '\n' +
     '• Duplicados / vacíos omitidos: ' + omitidos + '\n\n' +
     'Los registros migrados aparecen en color naranja claro en\n' +
-    '"Formulario de Interés". Puedes usar la columna G (Enviar)\n' +
+    '"Hoja de interés". Puedes usar la columna G (Enviar)\n' +
     'para enviar cada uno a Lista de Espera.',
     ui.ButtonSet.OK
   );
