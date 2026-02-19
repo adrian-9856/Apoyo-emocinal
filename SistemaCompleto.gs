@@ -5682,7 +5682,8 @@ function _buscarCol(headers, fragmentos) {
 // Solo se envían a Lista de Espera: Nombre, Creamos ID, Género, Servicio.
 // =====================================================================
 
-var URL_FORMULARIO_INTERES = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/est9tdYNZsCo5SLiwqKeUfe/data.csv';
+var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esLPozzAX85W2xSv98r2AVM/data.csv';  // histórico 2024-2026
+var URL_FORMULARIO_INTERES_2026 = 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/eseYzEgWw6Tui9y2eppZy3L/data.csv';  // formulario 2026
 
 /** Columna de "Enviar" en Formulario de Interés (1-based) */
 var COL_ENVIAR_INTERES = 7;
@@ -5720,125 +5721,140 @@ function crearHojaFormularioInteres() {
 }
 
 /**
+ * Extrae filas nuevas de un CSV de Formulario de Interés dado su texto ya descargado.
+ * Filtra solo "Terapia Individual". Actualiza los sets de dedup pasados por referencia.
+ * Devuelve array de filas [fecha, creamosID, nombreCompleto, genero, zona, servicios, ''].
+ */
+function _extraerFilasInteres(csvTexto, fuente, uuidsSet, creamosSet) {
+  const resultado = { filas: [], omitidos: 0 };
+
+  const filas = _parsearCSV(csvTexto);
+  if (filas.length <= 1) {
+    Logger.log('ℹ️ ' + fuente + ': CSV sin filas de datos');
+    return resultado;
+  }
+
+  const hCSV = filas[0];
+  Logger.log('📋 ' + fuente + ' columnas: ' + hCSV.join(' | '));
+
+  const iCreamosID = _buscarCol(hCSV, ['creamos']);
+  const iNombres   = _buscarCol(hCSV, ['nombre']);
+  const iApellidos = _buscarCol(hCSV, ['apellido']);
+  const iGenero    = _buscarCol(hCSV, ['género', 'genero', 'sexo']);
+  const iZona      = _buscarCol(hCSV, ['zona']);
+  const iServicios = _buscarCol(hCSV, ['servicio', 'grupo', 'apoyo emocional', 'interesa', 'inscribir']);
+  const iUUID      = _buscarCol(hCSV, ['_uuid', 'uuid']);
+
+  Logger.log('📍 ' + fuente + ': iCreamosID=' + iCreamosID + ' iNombres=' + iNombres +
+             ' iApellidos=' + iApellidos + ' iServicios=' + iServicios + ' iUUID=' + iUUID);
+
+  for (let i = 1; i < filas.length; i++) {
+    const f = filas[i];
+
+    // Filtrar por Terapia Individual (si no se encuentra la columna, incluir todo)
+    if (iServicios >= 0) {
+      const s = (f[iServicios] || '').toString().toLowerCase();
+      if (!s.includes('terapia_individual') && !s.includes('terapia individual') && !s.includes('terapia')) {
+        resultado.omitidos++;
+        continue;
+      }
+    }
+
+    const uuid      = iUUID >= 0      ? (f[iUUID]      || '').trim() : '';
+    const creamosID = iCreamosID >= 0 ? (f[iCreamosID] || '').trim() : '';
+
+    // Deduplicar por uuid y por CreamosID
+    if (uuid && uuidsSet.has(uuid)) continue;
+    if (creamosID && creamosSet.has(creamosID)) continue;
+
+    const nombres        = iNombres >= 0   ? (f[iNombres]   || '').trim() : '';
+    const apellidos      = iApellidos >= 0 ? (f[iApellidos] || '').trim() : '';
+    const nombreCompleto = [nombres, apellidos].filter(Boolean).join(' ').trim();
+    const genero         = iGenero >= 0    ? (f[iGenero]    || '').trim() : '';
+    const zona           = iZona >= 0      ? (f[iZona]      || '').trim() : '';
+    const servicios      = iServicios >= 0 ? (f[iServicios] || '').trim() : 'Terapia Individual';
+
+    resultado.filas.push([
+      new Date(),     // A: Fecha import
+      creamosID,      // B: Creamos ID
+      nombreCompleto, // C: Nombre Completo
+      genero,         // D: Género
+      zona,           // E: Zona
+      servicios,      // F: Servicios de interés
+      ''              // G: Enviar a Lista de Espera (usuario selecciona)
+    ]);
+
+    // Actualizar sets para no duplicar entre sí los dos CSV
+    if (uuid) uuidsSet.add(uuid);
+    if (creamosID) creamosSet.add(creamosID);
+  }
+
+  return resultado;
+}
+
+/**
  * Importa desde KoboToolbox los registros con Terapia Individual.
- * Solo agrega filas nuevas (dedup por _uuid, luego por Creamos ID).
- * Preserva todos los registros existentes.
- *
- * FILTRO: solo se importan filas que contienen "terapia" en la columna de servicios.
- * Si esa columna no se encuentra, se importan TODOS los registros (con advertencia).
+ * Consulta DOS fuentes:
+ *   1. URL_FORMULARIO_INTERES_HIST — histórico 2024-2026
+ *   2. URL_FORMULARIO_INTERES_2026 — formulario activo 2026
+ * Solo agrega filas nuevas (dedup por _uuid + Creamos ID compartido entre ambas fuentes).
+ * Escribe en lote para mayor rendimiento.
  */
 function importarFormularioInteres() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.toast('📥 Importando Formulario de Interés...', 'Importando', 8);
+  ss.toast('📥 Importando Formulario de Interés (2 fuentes)...', 'Importando', 10);
 
   try {
-    const resp = UrlFetchApp.fetch(URL_FORMULARIO_INTERES, {
-      muteHttpExceptions: true, followRedirects: true
-    });
-    if (resp.getResponseCode() !== 200) {
-      ss.toast('❌ Error HTTP ' + resp.getResponseCode(), 'Error', 5);
-      Logger.log('❌ HTTP ' + resp.getResponseCode() + ' al importar Formulario de Interés');
-      return;
-    }
-
-    const csvTexto = resp.getContentText();
-    if (!csvTexto || csvTexto.trim().length === 0) {
-      ss.toast('⚠️ El CSV llegó vacío — revisa la URL o el formulario', 'Advertencia', 5);
-      Logger.log('⚠️ CSV vacío para Formulario de Interés');
-      return;
-    }
-
-    const filas = _parsearCSV(csvTexto);
-    if (filas.length <= 1) {
-      ss.toast('ℹ️ CSV sin filas de datos (solo encabezado)', 'Info', 4);
-      Logger.log('ℹ️ CSV solo tiene encabezado, sin respuestas todavía');
-      return;
-    }
-
     let sheet = ss.getSheetByName('Formulario de Interés');
     if (!sheet) sheet = crearHojaFormularioInteres();
 
-    const hCSV = filas[0];
-    Logger.log('📋 Columnas CSV Formulario de Interés: ' + hCSV.join(' | '));
-
-    // Detectar columnas — búsqueda amplia para capturar nombres con acentos/variaciones
-    const iCreamosID = _buscarCol(hCSV, ['creamos']);
-    const iNombres   = _buscarCol(hCSV, ['nombre']);       // captura Nombre(s) y Nombres
-    const iApellidos = _buscarCol(hCSV, ['apellido']);
-    const iGenero    = _buscarCol(hCSV, ['género', 'genero', 'sexo']);
-    const iZona      = _buscarCol(hCSV, ['zona']);
-    // Columna de servicios: KoboToolbox puede llamarla de varias formas
-    const iServicios = _buscarCol(hCSV, [
-      'servicio', 'grupo', 'apoyo emocional', 'interesa', 'inscribir'
-    ]);
-    const iUUID = _buscarCol(hCSV, ['_uuid', 'uuid']);
-
-    Logger.log('📍 iCreamosID=' + iCreamosID + ' iNombres=' + iNombres +
-               ' iApellidos=' + iApellidos + ' iServicios=' + iServicios +
-               ' iUUID=' + iUUID);
-
-    if (iCreamosID < 0 && iNombres < 0) {
-      ss.toast('❌ CSV sin columna de Creamos ID o Nombre — usa 🔍 Diagnóstico', 'Error', 6);
-      Logger.log('❌ No se encontró Creamos ID ni Nombre. Headers: ' + hCSV.join(' | '));
-      return;
-    }
-
+    // Construir sets de dedup con datos ya existentes en la hoja
     const existentes = sheet.getLastRow() > 1
       ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 7).getValues()
       : [];
     const uuidsSet   = new Set(existentes.map(r => (r[6] || '').toString().trim()).filter(Boolean));
     const creamosSet = new Set(existentes.map(r => (r[1] || '').toString().trim()).filter(Boolean));
 
-    let nuevos = 0;
-    let omitidos = 0;
+    const todasFilasNuevas = [];
+    let totalOmitidos = 0;
+    const urls = [
+      { url: URL_FORMULARIO_INTERES_HIST, nombre: 'Histórico 2024-2026' },
+      { url: URL_FORMULARIO_INTERES_2026, nombre: 'Formulario 2026' }
+    ];
 
-    for (let i = 1; i < filas.length; i++) {
-      const f = filas[i];
-
-      // Filtrar por Terapia Individual solo si se encontró la columna de servicios
-      if (iServicios >= 0) {
-        const servicios = (f[iServicios] || '').toString().toLowerCase();
-        const esTerapia = servicios.includes('terapia_individual') ||
-                          servicios.includes('terapia individual') ||
-                          servicios.includes('terapia');
-        if (!esTerapia) { omitidos++; continue; }
+    for (const fuente of urls) {
+      ss.toast('📥 Descargando ' + fuente.nombre + '...', 'Importando', 8);
+      try {
+        const resp = UrlFetchApp.fetch(fuente.url, { muteHttpExceptions: true, followRedirects: true });
+        if (resp.getResponseCode() !== 200) {
+          Logger.log('⚠️ HTTP ' + resp.getResponseCode() + ' en ' + fuente.nombre);
+          continue;
+        }
+        const csvTexto = resp.getContentText();
+        if (!csvTexto || csvTexto.trim().length === 0) {
+          Logger.log('⚠️ CSV vacío: ' + fuente.nombre);
+          continue;
+        }
+        const r = _extraerFilasInteres(csvTexto, fuente.nombre, uuidsSet, creamosSet);
+        todasFilasNuevas.push(...r.filas);
+        totalOmitidos += r.omitidos;
+        Logger.log('✅ ' + fuente.nombre + ': ' + r.filas.length + ' nuevos, ' + r.omitidos + ' omitidos');
+      } catch (eFuente) {
+        Logger.log('❌ Error en fuente ' + fuente.nombre + ': ' + eFuente.message);
       }
-
-      const uuid      = iUUID >= 0      ? (f[iUUID]      || '').trim() : '';
-      const creamosID = iCreamosID >= 0 ? (f[iCreamosID] || '').trim() : '';
-
-      if (uuid && uuidsSet.has(uuid)) continue;
-      if (creamosID && creamosSet.has(creamosID)) continue;
-
-      const nombres        = iNombres >= 0   ? (f[iNombres]   || '').trim() : '';
-      const apellidos      = iApellidos >= 0 ? (f[iApellidos] || '').trim() : '';
-      const nombreCompleto = [nombres, apellidos].filter(Boolean).join(' ').trim();
-      const genero         = iGenero >= 0    ? (f[iGenero]    || '').trim() : '';
-      const zona           = iZona >= 0      ? (f[iZona]      || '').trim() : '';
-      const servicios      = iServicios >= 0 ? (f[iServicios] || '').trim() : '';
-
-      const nuevaFila = [
-        new Date(),     // A: Fecha import
-        creamosID,      // B: Creamos ID
-        nombreCompleto, // C: Nombre Completo
-        genero,         // D: Género
-        zona,           // E: Zona
-        servicios,      // F: Servicios de interés
-        ''              // G: Enviar a Lista de Espera (usuario selecciona)
-      ];
-
-      const dest = sheet.getLastRow() + 1;
-      sheet.getRange(dest, 1, 1, 7).setValues([nuevaFila]);
-      if (uuid) uuidsSet.add(uuid);
-      if (creamosID) creamosSet.add(creamosID);
-      nuevos++;
     }
 
-    Logger.log('✅ Formulario de Interés: ' + nuevos + ' nuevos, ' + omitidos + ' omitidos (otro servicio)');
-    const msg = nuevos > 0
-      ? '✅ ' + nuevos + ' registros importados'
-      : 'ℹ️ Sin registros nuevos' + (omitidos > 0 ? ' (' + omitidos + ' sin Terapia Individual)' : '');
-    ss.toast(msg, nuevos > 0 ? 'Importación Completa' : 'Importación', 5);
+    // Escribir en lote
+    if (todasFilasNuevas.length > 0) {
+      const dest = sheet.getLastRow() + 1;
+      sheet.getRange(dest, 1, todasFilasNuevas.length, 7).setValues(todasFilasNuevas);
+    }
+
+    const msg = todasFilasNuevas.length > 0
+      ? '✅ ' + todasFilasNuevas.length + ' registros nuevos importados'
+      : 'ℹ️ Sin registros nuevos' + (totalOmitidos > 0 ? ' (' + totalOmitidos + ' sin Terapia Individual)' : '');
+    Logger.log('📊 Total Formulario de Interés: ' + todasFilasNuevas.length + ' nuevos, ' + totalOmitidos + ' omitidos');
+    ss.toast(msg, todasFilasNuevas.length > 0 ? 'Importación Completa' : 'Importación', 5);
 
   } catch (e) {
     Logger.log('❌ Error en importarFormularioInteres: ' + e.message + '\n' + e.stack);
@@ -5847,84 +5863,71 @@ function importarFormularioInteres() {
 }
 
 /**
- * Diagnóstico del CSV de Formulario de Interés.
- * Muestra las columnas detectadas y cuántos registros pasarían el filtro.
- * Útil para depurar cuando no aparecen datos.
+ * Diagnóstico del CSV de Formulario de Interés — revisa ambas fuentes.
+ * Muestra columnas detectadas, cuántos registros pasarían el filtro y estado HTTP.
  */
 function diagnosticarFormularioInteres() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
-  ss.toast('🔍 Descargando CSV...', 'Diagnóstico', 5);
+  ss.toast('🔍 Revisando ambas fuentes...', 'Diagnóstico', 6);
+
+  const fuentes = [
+    { url: URL_FORMULARIO_INTERES_HIST, nombre: 'Histórico 2024-2026' },
+    { url: URL_FORMULARIO_INTERES_2026, nombre: 'Formulario 2026' }
+  ];
+
+  let info = '🔍 DIAGNÓSTICO — Formulario de Interés (2 fuentes)\n';
+  info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
 
   try {
-    const resp = UrlFetchApp.fetch(URL_FORMULARIO_INTERES, {
-      muteHttpExceptions: true, followRedirects: true
-    });
+    fuentes.forEach(fuente => {
+      info += '📂 ' + fuente.nombre + '\n';
+      try {
+        const resp = UrlFetchApp.fetch(fuente.url, { muteHttpExceptions: true, followRedirects: true });
+        if (resp.getResponseCode() !== 200) {
+          info += '  ❌ HTTP ' + resp.getResponseCode() + ' — URL caducada o incorrecta\n\n';
+          return;
+        }
+        const csvTexto = resp.getContentText();
+        if (!csvTexto || csvTexto.trim().length === 0) {
+          info += '  ❌ CSV vacío\n\n';
+          return;
+        }
+        const filas = _parsearCSV(csvTexto);
+        info += '  Respuestas totales: ' + (filas.length - 1) + '\n';
 
-    let info = '🔍 DIAGNÓSTICO — Formulario de Interés\n';
-    info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+        if (filas.length <= 1) { info += '  (sin datos)\n\n'; return; }
 
-    if (resp.getResponseCode() !== 200) {
-      info += '❌ Error HTTP: ' + resp.getResponseCode() + '\n';
-      info += 'La URL puede estar caducada o ser incorrecta.\n';
-      ui.alert('Diagnóstico', info, ui.ButtonSet.OK);
-      return;
-    }
+        const hCSV = filas[0];
+        const iCreamosID = _buscarCol(hCSV, ['creamos']);
+        const iNombres   = _buscarCol(hCSV, ['nombre']);
+        const iServicios = _buscarCol(hCSV, ['servicio', 'grupo', 'apoyo emocional', 'interesa', 'inscribir']);
+        const iUUID      = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
-    const csvTexto = resp.getContentText();
-    if (!csvTexto || csvTexto.trim().length === 0) {
-      info += '❌ CSV vacío — el formulario no tiene respuestas todavía\n';
-      info += '   o la URL de exportación no es correcta.\n';
-      ui.alert('Diagnóstico', info, ui.ButtonSet.OK);
-      return;
-    }
+        info += '  Creamos ID: ' + (iCreamosID >= 0 ? hCSV[iCreamosID] : '❌ no encontrada') + '\n';
+        info += '  Nombre:     ' + (iNombres >= 0   ? hCSV[iNombres]   : '❌ no encontrada') + '\n';
+        info += '  Servicios:  ' + (iServicios >= 0 ? hCSV[iServicios] : '⚠️ no encontrada') + '\n';
+        info += '  _uuid:      ' + (iUUID >= 0      ? hCSV[iUUID]      : '⚠️ no encontrado') + '\n';
 
-    const filas = _parsearCSV(csvTexto);
-    info += '📊 Total filas (con encabezado): ' + filas.length + '\n';
-    info += '📊 Respuestas: ' + (filas.length - 1) + '\n\n';
-
-    if (filas.length === 0) {
-      info += '❌ CSV no parseó correctamente.\n';
-      ui.alert('Diagnóstico', info, ui.ButtonSet.OK);
-      return;
-    }
-
-    const hCSV = filas[0];
-    info += '📋 Columnas detectadas (' + hCSV.length + '):\n';
-    hCSV.forEach((h, i) => { info += '  [' + i + '] ' + h + '\n'; });
-    info += '\n';
-
-    const iCreamosID = _buscarCol(hCSV, ['creamos']);
-    const iNombres   = _buscarCol(hCSV, ['nombre']);
-    const iServicios = _buscarCol(hCSV, ['servicio', 'grupo', 'apoyo emocional', 'interesa', 'inscribir']);
-    const iUUID      = _buscarCol(hCSV, ['_uuid', 'uuid']);
-
-    info += '🎯 Columnas mapeadas:\n';
-    info += '  Creamos ID: ' + (iCreamosID >= 0 ? '[' + iCreamosID + '] ' + hCSV[iCreamosID] : '❌ NO ENCONTRADA') + '\n';
-    info += '  Nombre:     ' + (iNombres >= 0   ? '[' + iNombres + '] '   + hCSV[iNombres]   : '❌ NO ENCONTRADA') + '\n';
-    info += '  Servicios:  ' + (iServicios >= 0 ? '[' + iServicios + '] ' + hCSV[iServicios] : '⚠️ NO ENCONTRADA (se importarán todos)') + '\n';
-    info += '  _uuid:      ' + (iUUID >= 0      ? '[' + iUUID + '] '      + hCSV[iUUID]      : '⚠️ NO encontrado') + '\n\n';
-
-    // Contar cuántos pasarían el filtro
-    if (filas.length > 1) {
-      let conTerapia = 0;
-      let sinTerapia = 0;
-      const valoresServicio = new Set();
-      filas.slice(1).forEach(f => {
-        const s = iServicios >= 0 ? (f[iServicios] || '') : '';
-        if (s) valoresServicio.add(s.substring(0, 80));
-        const esTerapia = s.toString().toLowerCase().includes('terapia_individual') ||
-                          s.toString().toLowerCase().includes('terapia individual') ||
-                          s.toString().toLowerCase().includes('terapia');
-        if (iServicios < 0 || esTerapia) conTerapia++; else sinTerapia++;
-      });
-      info += '🔢 Registros que se importarían: ' + conTerapia + '\n';
-      info += '🔢 Registros omitidos (otro servicio): ' + sinTerapia + '\n\n';
-      if (valoresServicio.size > 0) {
-        info += '📌 Valores únicos en columna Servicios:\n';
-        valoresServicio.forEach(v => { info += '  • ' + v + '\n'; });
+        let conTerapia = 0; let sinTerapia = 0;
+        const valoresServicio = new Set();
+        filas.slice(1).forEach(f => {
+          const s = iServicios >= 0 ? (f[iServicios] || '') : '';
+          if (s) valoresServicio.add(s.substring(0, 60));
+          const es = s.toLowerCase().includes('terapia_individual') ||
+                     s.toLowerCase().includes('terapia individual') ||
+                     s.toLowerCase().includes('terapia');
+          if (iServicios < 0 || es) conTerapia++; else sinTerapia++;
+        });
+        info += '  → Importarían: ' + conTerapia + '  |  Omitidos (otro servicio): ' + sinTerapia + '\n';
+        if (valoresServicio.size > 0 && valoresServicio.size <= 10) {
+          info += '  Valores en Servicios: ' + Array.from(valoresServicio).join(' / ') + '\n';
+        }
+        info += '\n';
+      } catch (eFuente) {
+        info += '  ❌ Error: ' + eFuente.message + '\n\n';
       }
-    }
+    });
 
     ui.alert('🔍 Diagnóstico Formulario de Interés', info, ui.ButtonSet.OK);
 
