@@ -28,8 +28,7 @@ function onOpen() {
 
     // Submenú único de Captación (Interés + Referencias + Derivaciones)
     const menuCaptacion = ui.createMenu('📥 Captación')
-      .addItem('⚡ Actualizar Todo Ahora', 'importarHojasCaptacionSilencioso')
-      .addItem('📦 Migrar Datos Históricos de Interés', 'migrarDatosAntiguosInteres')
+      .addItem('⚡ Importar Todo Ahora (histórico + nuevo)', 'importarHojasCaptacionSilencioso')
       .addSeparator()
       .addItem('✅ Activar auto-actualización (10 min)', 'instalarAutoImportCaptacion')
       .addItem('🛑 Desactivar auto-actualización', 'desactivarAutoImportCaptacion');
@@ -59,7 +58,8 @@ function onOpen() {
       .addItem('🔍 Diagnosticar Reporte', 'diagnosticarReporte')
       .addItem('📦 Compactar Lista Espera', 'compactarListaEspera')
       .addSeparator()
-      .addItem('🔍 Diagnóstico CSV Hoja de interés', 'diagnosticarFormularioInteres');
+      .addItem('🔍 Diagnóstico CSV Hoja de interés', 'diagnosticarFormularioInteres')
+      .addItem('📦 Migrar datos de hoja antigua a Hoja de interés', 'migrarDatosAntiguosInteres');
 
     // Menú principal
     ui.createMenu('🏥 Apoyo Emocional')
@@ -5721,7 +5721,8 @@ function crearHojaFormularioInteres() {
  * Filtra solo "Terapia Individual". Actualiza los sets de dedup pasados por referencia.
  * Devuelve array de filas [fecha, creamosID, nombreCompleto, genero, zona, servicios, ''].
  */
-function _extraerFilasInteres(csvTexto, fuente, uuidsSet, creamosSet) {
+function _extraerFilasInteres(csvTexto, fuente, uuidsSet, creamosSet, nombresSet) {
+  if (!nombresSet) nombresSet = new Set();
   const resultado = { filas: [], omitidos: 0 };
 
   const filas = _parsearCSV(csvTexto);
@@ -5759,16 +5760,18 @@ function _extraerFilasInteres(csvTexto, fuente, uuidsSet, creamosSet) {
     const uuid      = iUUID >= 0      ? (f[iUUID]      || '').trim() : '';
     const creamosID = iCreamosID >= 0 ? (f[iCreamosID] || '').trim() : '';
 
-    // Deduplicar por uuid y por CreamosID
-    if (uuid && uuidsSet.has(uuid)) continue;
-    if (creamosID && creamosSet.has(creamosID)) continue;
-
     const nombres        = iNombres >= 0   ? (f[iNombres]   || '').trim() : '';
     const apellidos      = iApellidos >= 0 ? (f[iApellidos] || '').trim() : '';
     const nombreCompleto = [nombres, apellidos].filter(Boolean).join(' ').trim();
-    const genero         = iGenero >= 0    ? (f[iGenero]    || '').trim() : '';
-    const zona           = iZona >= 0      ? (f[iZona]      || '').trim() : '';
-    const servicios      = iServicios >= 0 ? (f[iServicios] || '').trim() : 'Terapia Individual';
+
+    // Deduplicar por uuid, CreamosID o Nombre Completo
+    if (uuid && uuidsSet.has(uuid)) continue;
+    if (creamosID && creamosSet.has(creamosID)) continue;
+    if (nombreCompleto && nombresSet.has(nombreCompleto.toLowerCase())) continue;
+
+    const genero    = iGenero >= 0    ? (f[iGenero]    || '').trim() : '';
+    const zona      = iZona >= 0      ? (f[iZona]      || '').trim() : '';
+    const servicios = iServicios >= 0 ? (f[iServicios] || '').trim() : 'Terapia Individual';
 
     resultado.filas.push([
       new Date(),     // A: Fecha import
@@ -5783,6 +5786,7 @@ function _extraerFilasInteres(csvTexto, fuente, uuidsSet, creamosSet) {
     // Actualizar sets para no duplicar entre sí los dos CSV
     if (uuid) uuidsSet.add(uuid);
     if (creamosID) creamosSet.add(creamosID);
+    if (nombreCompleto) nombresSet.add(nombreCompleto.toLowerCase());
   }
 
   return resultado;
@@ -5805,11 +5809,13 @@ function importarFormularioInteres() {
     if (!sheet) sheet = crearHojaFormularioInteres();
 
     // Construir sets de dedup con datos ya existentes en la hoja
+    // Col B (índice 1) = Creamos ID | Col C (índice 2) = Nombre Completo
     const existentes = sheet.getLastRow() > 1
       ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 7).getValues()
       : [];
-    const uuidsSet   = new Set(existentes.map(r => (r[6] || '').toString().trim()).filter(Boolean));
+    const uuidsSet   = new Set(); // uuid no se guarda en la hoja; se usa solo dentro del run
     const creamosSet = new Set(existentes.map(r => (r[1] || '').toString().trim()).filter(Boolean));
+    const nombresSet = new Set(existentes.map(r => (r[2] || '').toString().trim().toLowerCase()).filter(Boolean));
 
     const todasFilasNuevas = [];
     let totalOmitidos = 0;
@@ -5831,7 +5837,7 @@ function importarFormularioInteres() {
           Logger.log('⚠️ CSV vacío: ' + fuente.nombre);
           continue;
         }
-        const r = _extraerFilasInteres(csvTexto, fuente.nombre, uuidsSet, creamosSet);
+        const r = _extraerFilasInteres(csvTexto, fuente.nombre, uuidsSet, creamosSet, nombresSet);
         todasFilasNuevas.push(...r.filas);
         totalOmitidos += r.omitidos;
         Logger.log('✅ ' + fuente.nombre + ': ' + r.filas.length + ' nuevos, ' + r.omitidos + ' omitidos');
@@ -6309,10 +6315,21 @@ function enviarDerivacionInstitucionalAListaEspera(sheet, fila) {
  * Se ejecuta desde el trigger de tiempo; no muestra diálogos.
  */
 function importarHojasCaptacionSilencioso() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   Logger.log('🔄 Auto-importación hojas captación: ' + new Date().toLocaleString());
-  try { importarFormularioInteres();           } catch(e) { Logger.log('⚠️ Interés: ' + e.message); }
-  try { importarReferencias();                 } catch(e) { Logger.log('⚠️ Referencias: ' + e.message); }
-  try { importarDerivacionesInstitucionales(); } catch(e) { Logger.log('⚠️ Derivaciones: ' + e.message); }
+  try {
+    ss.toast('📥 Importando Hoja de interés...', 'Captación', 10);
+    importarFormularioInteres();
+  } catch(e) { Logger.log('⚠️ Interés: ' + e.message); }
+  try {
+    ss.toast('📥 Importando Referencias de programas...', 'Captación', 10);
+    importarReferencias();
+  } catch(e) { Logger.log('⚠️ Referencias: ' + e.message); }
+  try {
+    ss.toast('📥 Importando Derivaciones Institucionales...', 'Captación', 10);
+    importarDerivacionesInstitucionales();
+  } catch(e) { Logger.log('⚠️ Derivaciones: ' + e.message); }
+  ss.toast('✅ Importación completa — Hoja de interés, Referencias, Derivaciones', 'Captación', 5);
   Logger.log('✅ Auto-importación hojas captación completada');
 }
 
