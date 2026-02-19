@@ -51,6 +51,8 @@ function onOpen() {
 
     // Submenú: Mantenimiento
     const menuMantenimiento = ui.createMenu('🛠️ Mantenimiento')
+      .addItem('🔤 Reparar Nombres de Hojas', 'repararNombresHojasConAviso')
+      .addSeparator()
       .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
       .addItem('⚡ Reparar Terapias Individual (Fecha + Validaciones)', 'repararTerapias')
       .addItem('🔧 Reparar Fórmulas Lista Espera', 'repararFormulasListaEspera')
@@ -102,6 +104,16 @@ function mantenimientoAutomatico() {
 
   try {
     Logger.log('🔧 Iniciando mantenimiento automático...');
+
+    // 0. Renombrar hojas antiguas si aún tienen nombre viejo
+    try {
+      const cambios = repararNombresHojas();
+      if (cambios.length > 0) {
+        Logger.log('🔤 Hojas renombradas automáticamente: ' + cambios.join(', '));
+      }
+    } catch (eRep) {
+      Logger.log('⚠️ repararNombresHojas: ' + eRep.message);
+    }
 
     // 1. Reparar fórmulas de Lista de Espera
     const sheet = ss.getSheetByName('Lista de Espera');
@@ -5255,6 +5267,60 @@ function enviarAlertaSuicidio(registro, headers) {
 }
 
 /**
+ * Renombra las hojas que tienen nombres antiguos al nuevo nombre correcto.
+ * Seguro de ejecutar varias veces (idempotente).
+ * Retorna un array con los cambios realizados.
+ */
+function repararNombresHojas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const renombres = [
+    { viejo: 'Formulario de Interés', nuevo: 'Hoja de interés' },
+    { viejo: 'Formulario de Interes', nuevo: 'Hoja de interés' },
+    { viejo: 'Referencias',           nuevo: 'Referencias de programas' },
+    { viejo: 'Terapias',              nuevo: 'Terapias Individual' },
+    { viejo: 'Deserciones',           nuevo: 'Retiradx' }
+  ];
+
+  const cambios = [];
+  renombres.forEach(r => {
+    const hoja = ss.getSheetByName(r.viejo);
+    if (hoja) {
+      // Solo renombrar si el nuevo nombre NO existe ya
+      if (!ss.getSheetByName(r.nuevo)) {
+        hoja.setName(r.nuevo);
+        cambios.push('✅ "' + r.viejo + '" → "' + r.nuevo + '"');
+        Logger.log('✅ Hoja renombrada: "' + r.viejo + '" → "' + r.nuevo + '"');
+      } else {
+        cambios.push('⚠️ "' + r.nuevo + '" ya existe — "' + r.viejo + '" no se tocó');
+        Logger.log('⚠️ Ambas hojas existen: "' + r.viejo + '" y "' + r.nuevo + '"');
+      }
+    }
+  });
+
+  return cambios;
+}
+
+/**
+ * Ejecuta repararNombresHojas() y muestra resultado al usuario.
+ * También actualiza las fórmulas del reporte después de renombrar.
+ */
+function repararNombresHojasConAviso() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const cambios = repararNombresHojas();
+
+  // Reparar fórmulas del reporte después de renombrar
+  try { actualizarFormulasReporte(); } catch(e) { Logger.log('⚠️ ' + e.message); }
+
+  if (cambios.length === 0) {
+    ui.alert('✅ Nombres de hojas', 'Todas las hojas ya tienen los nombres correctos.\nNo se realizaron cambios.', ui.ButtonSet.OK);
+  } else {
+    ui.alert('✅ Hojas renombradas', cambios.join('\n') + '\n\nLas fórmulas del reporte también fueron actualizadas.', ui.ButtonSet.OK);
+  }
+}
+
+/**
  * INSTALACIÓN COMPLETA DEL SISTEMA
  * Ejecuta todos los pasos necesarios de una sola vez:
  * hojas, validaciones, triggers, fórmulas, reportes y Bienestar.
@@ -5285,6 +5351,19 @@ function instalacionCompleta() {
   const pasos = [];
 
   try {
+    // PASO 0: Renombrar hojas antiguas al nuevo nombre
+    ss.toast('0️⃣ Verificando nombres de hojas...', 'Instalación Completa', -1);
+    try {
+      const cambiosNombres = repararNombresHojas();
+      if (cambiosNombres.length > 0) {
+        pasos.push('✅ Hojas renombradas: ' + cambiosNombres.join(', '));
+      } else {
+        pasos.push('✅ Nombres de hojas correctos (sin cambios)');
+      }
+    } catch (e) {
+      pasos.push('⚠️ Renombrar hojas: ' + e.message);
+    }
+
     // PASO 1: Crear / verificar hojas
     ss.toast('1️⃣ Creando hojas...', 'Instalación Completa', -1);
     try {
