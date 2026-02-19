@@ -44,7 +44,7 @@ function onOpen() {
 
     // Submenú: Auto-actualización de captación
     const menuAutoCapt = ui.createMenu('⏰ Auto-actualización Captación')
-      .addItem('✅ Activar (cada hora)', 'instalarAutoImportCaptacion')
+      .addItem('✅ Activar (cada 10 min)', 'instalarAutoImportCaptacion')
       .addItem('⚡ Actualizar Ahora (las 3 hojas)', 'importarHojasCaptacionSilencioso')
       .addItem('🛑 Desactivar', 'desactivarAutoImportCaptacion');
 
@@ -228,7 +228,7 @@ function instalarSistema() {
 
       ScriptApp.newTrigger('actualizarReportes')
         .timeBased()
-        .everyHours(1)
+        .everyMinutes(10)
         .create();
 
       Logger.log('✅ Trigger de tiempo instalado');
@@ -503,7 +503,7 @@ function crearReporte() {
 
     // SECCIÓN 3: DERIVACIONES
     ['DERIVACIONES INSTITUCIONALES', 'Total', '', ''],
-    ['Total derivaciones institucionales', '=IFERROR(COUNTA(\'Lista de Espera\'!K:K)-1,0)', '', ''],
+    ['Total derivaciones institucionales', '=IFERROR(COUNTA(\'Derivaciones Institucionales\'!E:E)-1,0)', '', ''],
     ['', '', '', ''],
 
     // SECCIÓN 4: BIENESTAR (Formularios de KoboToolbox)
@@ -539,7 +539,14 @@ function crearReporte() {
     ['RESUMEN GENERAL', 'Valor', '', ''],
     ['Total casos procesados', '=IFERROR(B24+B27+B30,0)', '', ''],
     ['Tasa de exito', '=IFERROR(IF(B33>0,ROUND(B24/B33*100,1)&"%","0%"),"0%")', '', ''],
-    ['Casos activos totales', '=IFERROR(B21,0)', '', '']
+    ['Casos activos totales', '=IFERROR(B21,0)', '', ''],
+    ['', '', '', ''],
+
+    // SECCIÓN 10: CAPTACIÓN (formularios de ingreso)
+    ['CAPTACIÓN', 'Total', 'Este mes', ''],
+    ['Formulario de Interés (Terapia Individual)', '=IFERROR(COUNTA(\'Formulario de Interés\'!B:B)-1,0)', '=IFERROR(COUNTIFS(\'Formulario de Interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Formulario de Interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
+    ['Referencias de programas recibidas', '=IFERROR(COUNTA(\'Referencias\'!D:D)-1,0)', '=IFERROR(COUNTIFS(\'Referencias\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
+    ['Derivaciones institucionales recibidas', '=IFERROR(COUNTA(\'Derivaciones Institucionales\'!E:E)-1,0)', '=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '']
   ];
 
   // Escribir datos
@@ -566,7 +573,7 @@ function crearReporte() {
   sheet.setRowHeight(2, 30);
 
   // DISEÑO: Headers de secciones (columnas azul oscuro)
-  const headerRows = [4, 7, 10, 13, 16, 23, 26, 29, 32];
+  const headerRows = [4, 7, 10, 13, 16, 23, 26, 29, 32, 37];
   headerRows.forEach(row => {
     sheet.getRange('A' + row + ':D' + row)
       .setBackground('#1565c0')
@@ -588,7 +595,7 @@ function crearReporte() {
   });
 
   // DISEÑO: Filas de datos normales (fondo blanco alternado)
-  const dataRows = [5, 8, 11, 14, 17, 18, 19, 20, 24, 27, 30];
+  const dataRows = [5, 8, 11, 14, 17, 18, 19, 20, 24, 27, 30, 38, 39, 40];
   dataRows.forEach((row, idx) => {
     const bg = idx % 2 === 0 ? '#ffffff' : '#f5f5f5';
     sheet.getRange('A' + row + ':D' + row)
@@ -2826,14 +2833,14 @@ function instalarTriggerTiempo() {
       }
     });
 
-    // Crear nuevo trigger que se ejecute cada hora
+    // Crear nuevo trigger que se ejecute cada 10 minutos
     ScriptApp.newTrigger('actualizarReportes')
       .timeBased()
-      .everyHours(1)
+      .everyMinutes(10)
       .create();
 
     SpreadsheetApp.getActiveSpreadsheet().toast(
-      '✅ Trigger instalado correctamente\n\nLos reportes se actualizarán automáticamente cada hora',
+      '✅ Trigger instalado correctamente\n\nLos reportes se actualizarán automáticamente cada 10 minutos',
       'Trigger de Tiempo',
       5
     );
@@ -3607,8 +3614,8 @@ function actualizarFormulasReporte() {
     reporte.getRange('B8').setFormula('=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)');
     reporte.getRange('C8').setFormula('=IFERROR(COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
-    // Fila 11: Derivaciones institucionales
-    reporte.getRange('B11').setFormula('=IFERROR(COUNTA(\'Lista de Espera\'!K:K)-1,0)');
+    // Fila 11: Derivaciones institucionales (cuenta desde la hoja propia, columna E = Nombre Completo)
+    reporte.getRange('B11').setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!E:E)-1,0)');
 
     // Fila 14: Formulario de Bienestar
     reporte.getRange('B14').setFormula('=IFERROR(COUNTA(\'C_03_Formulario de Bienestar (2026)\'!A:A)-1,0)');
@@ -3653,6 +3660,39 @@ function actualizarFormulasReporte() {
 
     // Fila 35: Casos activos totales
     reporte.getRange('B35').setFormula('=IFERROR(B21,0)');
+
+    // ── SECCIÓN 10: CAPTACIÓN ──────────────────────────────────────────────────
+    // Fila 36 es separador vacío; Fila 37 = header CAPTACIÓN
+    // Si la fila 37 aún no tiene el header, escribirlo junto con sus datos
+    if (!reporte.getRange('A37').getValue() || reporte.getRange('A37').getValue() === '') {
+      reporte.getRange('A36:D36').setValues([['', '', '', '']]);
+      reporte.getRange('A37:D37').setValues([['CAPTACIÓN', 'Total', 'Este mes', '']]);
+      reporte.getRange('A37:D37')
+        .setBackground('#1565c0').setFontColor('white').setFontWeight('bold')
+        .setHorizontalAlignment('center').setVerticalAlignment('middle').setFontSize(11);
+      reporte.setRowHeight(37, 35);
+      reporte.getRange('A38').setValue('Formulario de Interés (Terapia Individual)');
+      reporte.getRange('A39').setValue('Referencias de programas recibidas');
+      reporte.getRange('A40').setValue('Derivaciones institucionales recibidas');
+      [38, 39, 40].forEach((row, idx) => {
+        reporte.getRange('A' + row + ':D' + row)
+          .setBackground(idx % 2 === 0 ? '#ffffff' : '#f5f5f5')
+          .setFontSize(10).setVerticalAlignment('middle');
+        reporte.setRowHeight(row, 28);
+      });
+    }
+
+    // Fila 38: Formulario de Interés
+    reporte.getRange('B38').setFormula('=IFERROR(COUNTA(\'Formulario de Interés\'!B:B)-1,0)');
+    reporte.getRange('C38').setFormula('=IFERROR(COUNTIFS(\'Formulario de Interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Formulario de Interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+
+    // Fila 39: Referencias
+    reporte.getRange('B39').setFormula('=IFERROR(COUNTA(\'Referencias\'!D:D)-1,0)');
+    reporte.getRange('C39').setFormula('=IFERROR(COUNTIFS(\'Referencias\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+
+    // Fila 40: Derivaciones Institucionales (captación)
+    reporte.getRange('B40').setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!E:E)-1,0)');
+    reporte.getRange('C40').setFormula('=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
     ss.toast(
       '✅ FORMULAS ACTUALIZADAS\n\n' +
@@ -5318,8 +5358,8 @@ function instalacionCompleta() {
       ScriptApp.getProjectTriggers().forEach(t => {
         if (t.getHandlerFunction() === 'actualizarReportes') ScriptApp.deleteTrigger(t);
       });
-      ScriptApp.newTrigger('actualizarReportes').timeBased().everyHours(1).create();
-      pasos.push('✅ Trigger de tiempo instalado (reportes cada hora)');
+      ScriptApp.newTrigger('actualizarReportes').timeBased().everyMinutes(10).create();
+      pasos.push('✅ Trigger de tiempo instalado (reportes cada 10 min)');
     } catch (e) {
       pasos.push('⚠️ Trigger de tiempo: ' + e.message);
     }
@@ -5370,14 +5410,14 @@ function instalacionCompleta() {
       pasos.push('⚠️ Derivaciones Institucionales: ' + e.message);
     }
 
-    // PASO 8: Instalar trigger auto-actualización captación (cada hora)
+    // PASO 8: Instalar trigger auto-actualización captación (cada 10 min)
     ss.toast('8️⃣ Instalando auto-actualización de captación...', 'Instalación Completa', -1);
     try {
       ScriptApp.getProjectTriggers().forEach(t => {
         if (t.getHandlerFunction() === 'importarHojasCaptacionSilencioso') ScriptApp.deleteTrigger(t);
       });
-      ScriptApp.newTrigger('importarHojasCaptacionSilencioso').timeBased().everyHours(1).create();
-      pasos.push('✅ Auto-actualización captación activada (cada hora)');
+      ScriptApp.newTrigger('importarHojasCaptacionSilencioso').timeBased().everyMinutes(10).create();
+      pasos.push('✅ Auto-actualización captación activada (cada 10 min)');
     } catch (e) {
       pasos.push('⚠️ Trigger captación: ' + e.message);
     }
@@ -6295,14 +6335,14 @@ function instalarAutoImportCaptacion() {
   });
 
   ScriptApp.newTrigger('importarHojasCaptacionSilencioso')
-    .timeBased().everyHours(1).create();
+    .timeBased().everyMinutes(10).create();
 
-  ss.toast('⏰ Auto-actualización activada (cada hora)', 'Captación', 4);
-  Logger.log('✅ Trigger importarHojasCaptacionSilencioso instalado (cada hora)');
+  ss.toast('⏰ Auto-actualización activada (cada 10 min)', 'Captación', 4);
+  Logger.log('✅ Trigger importarHojasCaptacionSilencioso instalado (cada 10 min)');
 
   ui.alert(
     '✅ Auto-actualización activada',
-    'Las hojas de captación se actualizarán automáticamente cada hora:\n\n' +
+    'Las hojas de captación se actualizarán automáticamente cada 10 minutos:\n\n' +
     '• 💡 Formulario de Interés\n' +
     '• 🔗 Referencias\n' +
     '• 🏛️ Derivaciones Institucionales\n\n' +
