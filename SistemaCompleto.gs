@@ -6045,9 +6045,11 @@ function importarReferencias() {
     const iNombre   = _buscarCol(hCSV, ['nombre completo', 'nombre_completo', 'nombre']);
     const iTelefono = _buscarCol(hCSV, ['teléfono', 'telefono', 'tel']);
     const iDireccion= _buscarCol(hCSV, ['dirección', 'direccion', 'dirección']);
-    const iServicio = _buscarCol(hCSV, ['servicio']);
+    const iServicio = _buscarCol(hCSV, ['servicio al que deriva', 'servicio_al_que_deriva', 'servicio']);
     const iMotivo   = _buscarCol(hCSV, ['motivo']);
     const iUUID     = _buscarCol(hCSV, ['_uuid', 'uuid']);
+
+    Logger.log('📍 Referencias: iServicio=' + iServicio + ' iNombre=' + iNombre + ' iUUID=' + iUUID);
 
     // IDs ya importados (col I = _uuid, índice 8)
     const existentes = sheet.getLastRow() > 1
@@ -6055,13 +6057,24 @@ function importarReferencias() {
       : [];
     const uuidsSet = new Set(existentes.map(v => (v || '').toString().trim()).filter(Boolean));
 
-    let nuevos = 0;
+    const filasNuevas = [];
+    let omitidos = 0;
     for (let i = 1; i < filas.length; i++) {
       const f = filas[i];
+
+      // Filtrar: solo "Terapia individual"
+      if (iServicio >= 0) {
+        const s = (f[iServicio] || '').toString().toLowerCase();
+        if (!s.includes('terapia_individual') && !s.includes('terapia individual') && !s.includes('terapia')) {
+          omitidos++;
+          continue;
+        }
+      }
+
       const uuid = iUUID >= 0 ? (f[iUUID] || '').trim() : '';
       if (uuid && uuidsSet.has(uuid)) continue;
 
-      const nuevaFila = [
+      filasNuevas.push([
         iFecha >= 0     ? f[iFecha]     : new Date(), // A: Fecha
         iPrograma >= 0  ? f[iPrograma]  : '',          // B: Programa
         iPersona >= 0   ? f[iPersona]   : '',          // C: Persona
@@ -6072,19 +6085,19 @@ function importarReferencias() {
         iMotivo >= 0    ? f[iMotivo]    : '',          // H: Motivo
         uuid,                                           // I: _uuid
         ''                                              // J: Enviar (usuario)
-      ];
-
-      const dest = sheet.getLastRow() + 1;
-      sheet.getRange(dest, 1, 1, 10).setValues([nuevaFila]);
+      ]);
       if (uuid) uuidsSet.add(uuid);
-      nuevos++;
     }
 
-    const msg = nuevos > 0
-      ? '✅ ' + nuevos + ' referencias importadas'
-      : 'ℹ️ Sin registros nuevos';
-    ss.toast(msg, nuevos > 0 ? 'Importación Completa' : 'Importación', 4);
-    Logger.log(msg);
+    if (filasNuevas.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, filasNuevas.length, 10).setValues(filasNuevas);
+    }
+
+    const msg = filasNuevas.length > 0
+      ? '✅ ' + filasNuevas.length + ' referencias importadas'
+      : 'ℹ️ Sin registros nuevos' + (omitidos > 0 ? ' (' + omitidos + ' no son Terapia Individual)' : '');
+    ss.toast(msg, filasNuevas.length > 0 ? 'Importación Completa' : 'Importación', 4);
+    Logger.log('📊 Referencias: ' + filasNuevas.length + ' nuevas, ' + omitidos + ' omitidas (otro servicio)');
 
   } catch (e) {
     Logger.log('❌ Error en importarReferencias: ' + e.message);
