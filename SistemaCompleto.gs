@@ -26,27 +26,13 @@ function onOpen() {
       .addItem('📅 Instalar Recordatorio Mensual', 'instalarTriggerRecordatorioMensual')
       .addItem('✏️ Instalar Trigger onEdit', 'instalarTriggerOnEdit');
 
-    // Submenú: Formulario de Interés (Terapia Individual)
-    const menuInteres = ui.createMenu('💡 Formulario de Interés')
-      .addItem('➕ Crear Hoja (si no existe)', 'crearHojaFormularioInteres')
-      .addItem('⚡ Importar Datos Ahora', 'importarFormularioInteres')
-      .addItem('🔍 Diagnóstico CSV', 'diagnosticarFormularioInteres');
-
-    // Submenú: Referencias de Programas
-    const menuReferencias = ui.createMenu('🔗 Referencias')
-      .addItem('➕ Crear Hoja (si no existe)', 'crearHojaReferencias')
-      .addItem('⚡ Importar Datos Ahora', 'importarReferencias');
-
-    // Submenú: Derivaciones Institucionales
-    const menuDerivaciones = ui.createMenu('🏛️ Derivaciones Institucionales')
-      .addItem('➕ Crear Hoja (si no existe)', 'crearHojaDerivacionesInstitucionales')
-      .addItem('⚡ Importar Datos Ahora', 'importarDerivacionesInstitucionales');
-
-    // Submenú: Auto-actualización de captación
-    const menuAutoCapt = ui.createMenu('⏰ Auto-actualización Captación')
-      .addItem('✅ Activar (cada 10 min)', 'instalarAutoImportCaptacion')
-      .addItem('⚡ Actualizar Ahora (las 3 hojas)', 'importarHojasCaptacionSilencioso')
-      .addItem('🛑 Desactivar', 'desactivarAutoImportCaptacion');
+    // Submenú único de Captación (Interés + Referencias + Derivaciones)
+    const menuCaptacion = ui.createMenu('📥 Captación')
+      .addItem('⚡ Actualizar Todo Ahora', 'importarHojasCaptacionSilencioso')
+      .addItem('📦 Migrar Datos Históricos de Interés', 'migrarDatosAntiguosInteres')
+      .addSeparator()
+      .addItem('✅ Activar auto-actualización (10 min)', 'instalarAutoImportCaptacion')
+      .addItem('🛑 Desactivar auto-actualización', 'desactivarAutoImportCaptacion');
 
     // Submenú: Bienestar (Importación Automática desde KoboToolbox)
     const menuBienestar = ui.createMenu('🏥 Bienestar')
@@ -71,7 +57,9 @@ function onOpen() {
       .addItem('🔧 Reparar Fórmulas Lista Espera', 'repararFormulasListaEspera')
       .addItem('🔧 Actualizar Fórmulas Reporte', 'actualizarFormulasReporte')
       .addItem('🔍 Diagnosticar Reporte', 'diagnosticarReporte')
-      .addItem('📦 Compactar Lista Espera', 'compactarListaEspera');
+      .addItem('📦 Compactar Lista Espera', 'compactarListaEspera')
+      .addSeparator()
+      .addItem('🔍 Diagnóstico CSV Formulario de Interés', 'diagnosticarFormularioInteres');
 
     // Menú principal
     ui.createMenu('🏥 Apoyo Emocional')
@@ -83,10 +71,7 @@ function onOpen() {
       .addItem('📊 Actualizar Reportes', 'actualizarReportes')
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
       .addSeparator()
-      .addSubMenu(menuInteres)
-      .addSubMenu(menuReferencias)
-      .addSubMenu(menuDerivaciones)
-      .addSubMenu(menuAutoCapt)
+      .addSubMenu(menuCaptacion)
       .addSubMenu(menuBienestar)
       .addSubMenu(menuMantenimiento)
       .addSeparator()
@@ -6809,5 +6794,138 @@ function limpiarYRepararHojas() {
     Logger.log('❌ Error en limpiarYRepararHojas: ' + error.message);
     Logger.log('Stack: ' + error.stack);
   }
+}
+
+/**
+ * Migra datos históricos de una hoja antigua al nuevo "Formulario de Interés".
+ * Útil para traer registros previos a 2020 o de cualquier hoja con formato distinto.
+ * Pregunta al usuario el nombre exacto de la hoja origen.
+ */
+function migrarDatosAntiguosInteres() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Pedir nombre de la hoja origen
+  const resp = ui.prompt(
+    '📦 Migrar Datos Históricos de Interés',
+    'Escribe el nombre exacto de la hoja que contiene los datos históricos.\n\n' +
+    'Ejemplo: "Formulario Interés 2019"  o  "Datos Antiguos"',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (resp.getSelectedButton() !== ui.Button.OK) return;
+
+  const nombreHoja = resp.getResponseText().trim();
+  if (!nombreHoja) {
+    ui.alert('⚠️ No ingresaste ningún nombre de hoja.');
+    return;
+  }
+
+  const origen = ss.getSheetByName(nombreHoja);
+  if (!origen) {
+    ui.alert('❌ No se encontró ninguna hoja llamada:\n"' + nombreHoja + '"\n\nVerifica el nombre exacto (mayúsculas y espacios importan).');
+    return;
+  }
+
+  // Obtener o crear hoja destino
+  let destino = ss.getSheetByName('Formulario de Interés');
+  if (!destino) destino = crearHojaFormularioInteres();
+
+  const datosOrigen = origen.getDataRange().getValues();
+  if (datosOrigen.length <= 1) {
+    ui.alert('⚠️ La hoja "' + nombreHoja + '" está vacía o solo tiene encabezados.');
+    return;
+  }
+
+  const headersOrigen = datosOrigen[0];
+
+  // Mapeo flexible de columnas usando búsqueda con fragmentos normalizados
+  const iCreamosID = _buscarCol(headersOrigen, ['creamos']);
+  const iNombres   = _buscarCol(headersOrigen, ['nombre']);
+  const iApellidos = _buscarCol(headersOrigen, ['apellido']);
+  const iGenero    = _buscarCol(headersOrigen, ['genero', 'género', 'sexo']);
+  const iZona      = _buscarCol(headersOrigen, ['zona']);
+  const iServicio  = _buscarCol(headersOrigen, ['servicio', 'grupo', 'interesa', 'inscribir']);
+  const iFecha     = _buscarCol(headersOrigen, ['fecha']);
+
+  Logger.log('📋 Migración desde "' + nombreHoja + '": iCreamosID=' + iCreamosID +
+             ' iNombres=' + iNombres + ' iApellidos=' + iApellidos +
+             ' iFecha=' + iFecha + ' iServicio=' + iServicio);
+
+  if (iNombres < 0 && iCreamosID < 0) {
+    ui.alert('❌ No se encontró columna de Nombre ni de Creamos ID en "' + nombreHoja + '".\n\n' +
+             'Columnas detectadas:\n' + headersOrigen.join(', '));
+    return;
+  }
+
+  // Construir conjuntos de deduplicación con datos ya existentes en el destino
+  const existentes = destino.getLastRow() > 1
+    ? destino.getRange(2, 1, destino.getLastRow() - 1, 7).getValues()
+    : [];
+  const creamosSet = new Set(existentes.map(r => (r[1] || '').toString().trim()).filter(Boolean));
+  const nombresSet  = new Set(existentes.map(r => (r[2] || '').toString().trim().toLowerCase()).filter(Boolean));
+
+  const nuevosDatos = [];
+  let omitidos = 0;
+
+  for (let i = 1; i < datosOrigen.length; i++) {
+    const f = datosOrigen[i];
+
+    const creamosID      = iCreamosID >= 0 ? (f[iCreamosID] || '').toString().trim() : '';
+    const nombres        = iNombres >= 0   ? (f[iNombres]   || '').toString().trim() : '';
+    const apellidos      = iApellidos >= 0 ? (f[iApellidos] || '').toString().trim() : '';
+    const nombreCompleto = [nombres, apellidos].filter(Boolean).join(' ').trim();
+
+    // Saltar filas vacías
+    if (!nombreCompleto && !creamosID) { omitidos++; continue; }
+
+    // Deduplicar por Creamos ID o Nombre Completo
+    if (creamosID && creamosSet.has(creamosID)) { omitidos++; continue; }
+    if (nombreCompleto && nombresSet.has(nombreCompleto.toLowerCase())) { omitidos++; continue; }
+
+    const fechaOrigen = iFecha >= 0 && f[iFecha] ? f[iFecha] : new Date();
+    const genero      = iGenero >= 0   ? (f[iGenero]   || '').toString().trim() : '';
+    const zona        = iZona >= 0     ? (f[iZona]     || '').toString().trim() : '';
+    const servicio    = iServicio >= 0 ? (f[iServicio] || '').toString().trim() : 'Terapia Individual';
+
+    nuevosDatos.push([
+      fechaOrigen,                           // A: Fecha (original si existe)
+      creamosID,                             // B: Creamos ID
+      nombreCompleto,                        // C: Nombre Completo
+      genero,                                // D: Género
+      zona,                                  // E: Zona
+      servicio || 'Terapia Individual',      // F: Servicios de interés
+      ''                                     // G: Enviar (usuario selecciona)
+    ]);
+
+    // Agregar a sets para no duplicar entre sí los nuevos registros
+    if (creamosID) creamosSet.add(creamosID);
+    if (nombreCompleto) nombresSet.add(nombreCompleto.toLowerCase());
+  }
+
+  if (nuevosDatos.length === 0) {
+    ui.alert('ℹ️ No hay registros nuevos para migrar.\n\n' +
+             '• Duplicados / filas vacías omitidas: ' + omitidos + '\n\n' +
+             'Todos los registros de "' + nombreHoja + '" ya existen en Formulario de Interés.');
+    return;
+  }
+
+  // Escribir en la hoja destino a partir de la primera fila vacía
+  const primeraVacia = destino.getLastRow() + 1;
+  destino.getRange(primeraVacia, 1, nuevosDatos.length, 7).setValues(nuevosDatos);
+
+  // Marcar filas migradas con fondo naranja claro para identificarlas
+  destino.getRange(primeraVacia, 1, nuevosDatos.length, 7).setBackground('#fff3e0');
+
+  Logger.log('✅ Migración completada: ' + nuevosDatos.length + ' registros de "' + nombreHoja + '"');
+
+  ui.alert(
+    '✅ Migración completada',
+    '• Registros migrados: ' + nuevosDatos.length + '\n' +
+    '• Duplicados / vacíos omitidos: ' + omitidos + '\n\n' +
+    'Los registros migrados aparecen en color naranja claro en\n' +
+    '"Formulario de Interés". Puedes usar la columna G (Enviar)\n' +
+    'para enviar cada uno a Lista de Espera.',
+    ui.ButtonSet.OK
+  );
 }
 
