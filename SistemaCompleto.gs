@@ -29,7 +29,8 @@ function onOpen() {
     // Submenú: Formulario de Interés (Terapia Individual)
     const menuInteres = ui.createMenu('💡 Formulario de Interés')
       .addItem('➕ Crear Hoja (si no existe)', 'crearHojaFormularioInteres')
-      .addItem('⚡ Importar Datos Ahora', 'importarFormularioInteres');
+      .addItem('⚡ Importar Datos Ahora', 'importarFormularioInteres')
+      .addItem('🔍 Diagnóstico CSV', 'diagnosticarFormularioInteres');
 
     // Submenú: Referencias de Programas
     const menuReferencias = ui.createMenu('🔗 Referencias')
@@ -40,6 +41,12 @@ function onOpen() {
     const menuDerivaciones = ui.createMenu('🏛️ Derivaciones Institucionales')
       .addItem('➕ Crear Hoja (si no existe)', 'crearHojaDerivacionesInstitucionales')
       .addItem('⚡ Importar Datos Ahora', 'importarDerivacionesInstitucionales');
+
+    // Submenú: Auto-actualización de captación
+    const menuAutoCapt = ui.createMenu('⏰ Auto-actualización Captación')
+      .addItem('✅ Activar (cada hora)', 'instalarAutoImportCaptacion')
+      .addItem('⚡ Actualizar Ahora (las 3 hojas)', 'importarHojasCaptacionSilencioso')
+      .addItem('🛑 Desactivar', 'desactivarAutoImportCaptacion');
 
     // Submenú: Bienestar (Importación Automática desde KoboToolbox)
     const menuBienestar = ui.createMenu('🏥 Bienestar')
@@ -79,6 +86,7 @@ function onOpen() {
       .addSubMenu(menuInteres)
       .addSubMenu(menuReferencias)
       .addSubMenu(menuDerivaciones)
+      .addSubMenu(menuAutoCapt)
       .addSubMenu(menuBienestar)
       .addSubMenu(menuMantenimiento)
       .addSeparator()
@@ -5244,7 +5252,8 @@ function instalacionCompleta() {
     '5️⃣ Reinstalar trigger de tiempo (reportes cada hora)\n' +
     '6️⃣ Crear hoja de Bienestar si no existe\n' +
     '7️⃣ Crear hojas Formulario de Interés, Referencias y Derivaciones Institucionales\n' +
-    '8️⃣ Actualizar todos los reportes\n\n' +
+    '8️⃣ Activar auto-actualización de captación (cada hora)\n' +
+    '9️⃣ Actualizar todos los reportes\n\n' +
     '⚠️ No borra datos existentes.\n\n' +
     '¿Continuar con la instalación completa?',
     ui.ButtonSet.YES_NO
@@ -5361,8 +5370,20 @@ function instalacionCompleta() {
       pasos.push('⚠️ Derivaciones Institucionales: ' + e.message);
     }
 
-    // PASO 8: Actualizar reportes
-    ss.toast('8️⃣ Actualizando reportes...', 'Instalación Completa', -1);
+    // PASO 8: Instalar trigger auto-actualización captación (cada hora)
+    ss.toast('8️⃣ Instalando auto-actualización de captación...', 'Instalación Completa', -1);
+    try {
+      ScriptApp.getProjectTriggers().forEach(t => {
+        if (t.getHandlerFunction() === 'importarHojasCaptacionSilencioso') ScriptApp.deleteTrigger(t);
+      });
+      ScriptApp.newTrigger('importarHojasCaptacionSilencioso').timeBased().everyHours(1).create();
+      pasos.push('✅ Auto-actualización captación activada (cada hora)');
+    } catch (e) {
+      pasos.push('⚠️ Trigger captación: ' + e.message);
+    }
+
+    // PASO 9: Actualizar reportes
+    ss.toast('9️⃣ Actualizando reportes...', 'Instalación Completa', -1);
     try {
       actualizarReportes();
       pasos.push('✅ Reportes actualizados');
@@ -5580,7 +5601,19 @@ function _agregarAListaEspera(sheetOrigen, filaOrigen, numColsOrigen, campos) {
     'Pendiente'                                      // N: Asistió a Cita
   ];
 
-  const dest = espera.getLastRow() + 1;
+  // Buscar la primera fila vacía en columna C (Nombre) dentro del rango de fórmulas (2-1000).
+  // Así el registro queda dentro del rango que tiene las fórmulas de Fecha y No. automático.
+  // Si las 999 filas están ocupadas, se extiende después de la fila 1000.
+  const valoresC = espera.getRange('C2:C1000').getValues();
+  let dest = -1;
+  for (let i = 0; i < valoresC.length; i++) {
+    if (!valoresC[i][0] || valoresC[i][0].toString().trim() === '') {
+      dest = i + 2; // 0-based → fila real (header en fila 1, datos desde fila 2)
+      break;
+    }
+  }
+  if (dest === -1) dest = espera.getLastRow() + 1; // rango lleno → extender
+
   espera.getRange(dest, 1, 1, 14).setValues([nuevaFila]);
   espera.getRange(dest, 1, 1, 14)
     .setBackground('#e8f5e9').setFontColor('black').setHorizontalAlignment('left');
@@ -5665,6 +5698,9 @@ function crearHojaFormularioInteres() {
  * Importa desde KoboToolbox los registros con Terapia Individual.
  * Solo agrega filas nuevas (dedup por _uuid, luego por Creamos ID).
  * Preserva todos los registros existentes.
+ *
+ * FILTRO: solo se importan filas que contienen "terapia" en la columna de servicios.
+ * Si esa columna no se encuentra, se importan TODOS los registros (con advertencia).
  */
 function importarFormularioInteres() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -5676,65 +5712,90 @@ function importarFormularioInteres() {
     });
     if (resp.getResponseCode() !== 200) {
       ss.toast('❌ Error HTTP ' + resp.getResponseCode(), 'Error', 5);
+      Logger.log('❌ HTTP ' + resp.getResponseCode() + ' al importar Formulario de Interés');
       return;
     }
-    const filas = _parsearCSV(resp.getContentText());
-    if (filas.length <= 1) { ss.toast('ℹ️ Sin datos', 'Info', 3); return; }
 
-    // Obtener o crear hoja
+    const csvTexto = resp.getContentText();
+    if (!csvTexto || csvTexto.trim().length === 0) {
+      ss.toast('⚠️ El CSV llegó vacío — revisa la URL o el formulario', 'Advertencia', 5);
+      Logger.log('⚠️ CSV vacío para Formulario de Interés');
+      return;
+    }
+
+    const filas = _parsearCSV(csvTexto);
+    if (filas.length <= 1) {
+      ss.toast('ℹ️ CSV sin filas de datos (solo encabezado)', 'Info', 4);
+      Logger.log('ℹ️ CSV solo tiene encabezado, sin respuestas todavía');
+      return;
+    }
+
     let sheet = ss.getSheetByName('Formulario de Interés');
     if (!sheet) sheet = crearHojaFormularioInteres();
 
     const hCSV = filas[0];
+    Logger.log('📋 Columnas CSV Formulario de Interés: ' + hCSV.join(' | '));
 
-    // Detectar columnas del CSV
+    // Detectar columnas — búsqueda amplia para capturar nombres con acentos/variaciones
     const iCreamosID = _buscarCol(hCSV, ['creamos']);
-    const iNombres   = _buscarCol(hCSV, ['nombre(s)', 'nombres', 'nombre']);
-    const iApellidos = _buscarCol(hCSV, ['apellido(s)', 'apellidos', 'apellido']);
+    const iNombres   = _buscarCol(hCSV, ['nombre']);       // captura Nombre(s) y Nombres
+    const iApellidos = _buscarCol(hCSV, ['apellido']);
     const iGenero    = _buscarCol(hCSV, ['género', 'genero', 'sexo']);
-    const iZona      = _buscarCol(hCSV, ['zona', '/zona']);
-    const iServicios = _buscarCol(hCSV, ['servicio', 'grupo', 'apoyo emocional']);
-    const iUUID      = _buscarCol(hCSV, ['_uuid', 'uuid']);
+    const iZona      = _buscarCol(hCSV, ['zona']);
+    // Columna de servicios: KoboToolbox puede llamarla de varias formas
+    const iServicios = _buscarCol(hCSV, [
+      'servicio', 'grupo', 'apoyo emocional', 'interesa', 'inscribir'
+    ]);
+    const iUUID = _buscarCol(hCSV, ['_uuid', 'uuid']);
+
+    Logger.log('📍 iCreamosID=' + iCreamosID + ' iNombres=' + iNombres +
+               ' iApellidos=' + iApellidos + ' iServicios=' + iServicios +
+               ' iUUID=' + iUUID);
 
     if (iCreamosID < 0 && iNombres < 0) {
-      ss.toast('❌ CSV sin columna Creamos ID o Nombre', 'Error', 5);
-      Logger.log('❌ Headers CSV: ' + hCSV.join(' | '));
+      ss.toast('❌ CSV sin columna de Creamos ID o Nombre — usa 🔍 Diagnóstico', 'Error', 6);
+      Logger.log('❌ No se encontró Creamos ID ni Nombre. Headers: ' + hCSV.join(' | '));
       return;
     }
 
-    // IDs ya importados (col B = Creamos ID, índice 1; col G posible _uuid guardado)
     const existentes = sheet.getLastRow() > 1
       ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 7).getValues()
       : [];
-    const uuidsExistentes    = new Set(existentes.map(r => (r[6] || '').toString().trim()).filter(Boolean));
-    const creamosExistentes  = new Set(existentes.map(r => (r[1] || '').toString().trim()).filter(Boolean));
+    const uuidsSet   = new Set(existentes.map(r => (r[6] || '').toString().trim()).filter(Boolean));
+    const creamosSet = new Set(existentes.map(r => (r[1] || '').toString().trim()).filter(Boolean));
 
     let nuevos = 0;
+    let omitidos = 0;
+
     for (let i = 1; i < filas.length; i++) {
       const f = filas[i];
 
-      // Filtrar: solo Terapia Individual
-      const servicios = iServicios >= 0 ? (f[iServicios] || '') : '';
-      if (!servicios.toString().toLowerCase().includes('terapia_individual') &&
-          !servicios.toString().toLowerCase().includes('terapia individual')) continue;
+      // Filtrar por Terapia Individual solo si se encontró la columna de servicios
+      if (iServicios >= 0) {
+        const servicios = (f[iServicios] || '').toString().toLowerCase();
+        const esTerapia = servicios.includes('terapia_individual') ||
+                          servicios.includes('terapia individual') ||
+                          servicios.includes('terapia');
+        if (!esTerapia) { omitidos++; continue; }
+      }
 
-      const uuid      = iUUID >= 0     ? (f[iUUID] || '').trim()     : '';
+      const uuid      = iUUID >= 0      ? (f[iUUID]      || '').trim() : '';
       const creamosID = iCreamosID >= 0 ? (f[iCreamosID] || '').trim() : '';
 
-      // Dedup: por uuid primero, luego por creamosID
-      if (uuid && uuidsExistentes.has(uuid)) continue;
-      if (creamosID && creamosExistentes.has(creamosID)) continue;
+      if (uuid && uuidsSet.has(uuid)) continue;
+      if (creamosID && creamosSet.has(creamosID)) continue;
 
-      const nombres   = iNombres >= 0   ? (f[iNombres]   || '').trim() : '';
-      const apellidos = iApellidos >= 0 ? (f[iApellidos] || '').trim() : '';
+      const nombres        = iNombres >= 0   ? (f[iNombres]   || '').trim() : '';
+      const apellidos      = iApellidos >= 0 ? (f[iApellidos] || '').trim() : '';
       const nombreCompleto = [nombres, apellidos].filter(Boolean).join(' ').trim();
-      const genero    = iGenero >= 0    ? (f[iGenero]    || '').trim() : '';
-      const zona      = iZona >= 0      ? (f[iZona]      || '').trim() : '';
+      const genero         = iGenero >= 0    ? (f[iGenero]    || '').trim() : '';
+      const zona           = iZona >= 0      ? (f[iZona]      || '').trim() : '';
+      const servicios      = iServicios >= 0 ? (f[iServicios] || '').trim() : '';
 
       const nuevaFila = [
         new Date(),     // A: Fecha import
         creamosID,      // B: Creamos ID
-        nombreCompleto, // C: Nombre Completo (Nombre(s) + Apellido(s))
+        nombreCompleto, // C: Nombre Completo
         genero,         // D: Género
         zona,           // E: Zona
         servicios,      // F: Servicios de interés
@@ -5743,20 +5804,108 @@ function importarFormularioInteres() {
 
       const dest = sheet.getLastRow() + 1;
       sheet.getRange(dest, 1, 1, 7).setValues([nuevaFila]);
-      if (uuid) uuidsExistentes.add(uuid);
-      if (creamosID) creamosExistentes.add(creamosID);
+      if (uuid) uuidsSet.add(uuid);
+      if (creamosID) creamosSet.add(creamosID);
       nuevos++;
     }
 
+    Logger.log('✅ Formulario de Interés: ' + nuevos + ' nuevos, ' + omitidos + ' omitidos (otro servicio)');
     const msg = nuevos > 0
-      ? '✅ ' + nuevos + ' registros importados (Terapia Individual)'
-      : 'ℹ️ Sin registros nuevos de Terapia Individual';
-    ss.toast(msg, nuevos > 0 ? 'Importación Completa' : 'Importación', 4);
-    Logger.log(msg);
+      ? '✅ ' + nuevos + ' registros importados'
+      : 'ℹ️ Sin registros nuevos' + (omitidos > 0 ? ' (' + omitidos + ' sin Terapia Individual)' : '');
+    ss.toast(msg, nuevos > 0 ? 'Importación Completa' : 'Importación', 5);
 
   } catch (e) {
-    Logger.log('❌ Error en importarFormularioInteres: ' + e.message);
+    Logger.log('❌ Error en importarFormularioInteres: ' + e.message + '\n' + e.stack);
     ss.toast('❌ Error: ' + e.message, 'Error', 5);
+  }
+}
+
+/**
+ * Diagnóstico del CSV de Formulario de Interés.
+ * Muestra las columnas detectadas y cuántos registros pasarían el filtro.
+ * Útil para depurar cuando no aparecen datos.
+ */
+function diagnosticarFormularioInteres() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  ss.toast('🔍 Descargando CSV...', 'Diagnóstico', 5);
+
+  try {
+    const resp = UrlFetchApp.fetch(URL_FORMULARIO_INTERES, {
+      muteHttpExceptions: true, followRedirects: true
+    });
+
+    let info = '🔍 DIAGNÓSTICO — Formulario de Interés\n';
+    info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+    if (resp.getResponseCode() !== 200) {
+      info += '❌ Error HTTP: ' + resp.getResponseCode() + '\n';
+      info += 'La URL puede estar caducada o ser incorrecta.\n';
+      ui.alert('Diagnóstico', info, ui.ButtonSet.OK);
+      return;
+    }
+
+    const csvTexto = resp.getContentText();
+    if (!csvTexto || csvTexto.trim().length === 0) {
+      info += '❌ CSV vacío — el formulario no tiene respuestas todavía\n';
+      info += '   o la URL de exportación no es correcta.\n';
+      ui.alert('Diagnóstico', info, ui.ButtonSet.OK);
+      return;
+    }
+
+    const filas = _parsearCSV(csvTexto);
+    info += '📊 Total filas (con encabezado): ' + filas.length + '\n';
+    info += '📊 Respuestas: ' + (filas.length - 1) + '\n\n';
+
+    if (filas.length === 0) {
+      info += '❌ CSV no parseó correctamente.\n';
+      ui.alert('Diagnóstico', info, ui.ButtonSet.OK);
+      return;
+    }
+
+    const hCSV = filas[0];
+    info += '📋 Columnas detectadas (' + hCSV.length + '):\n';
+    hCSV.forEach((h, i) => { info += '  [' + i + '] ' + h + '\n'; });
+    info += '\n';
+
+    const iCreamosID = _buscarCol(hCSV, ['creamos']);
+    const iNombres   = _buscarCol(hCSV, ['nombre']);
+    const iServicios = _buscarCol(hCSV, ['servicio', 'grupo', 'apoyo emocional', 'interesa', 'inscribir']);
+    const iUUID      = _buscarCol(hCSV, ['_uuid', 'uuid']);
+
+    info += '🎯 Columnas mapeadas:\n';
+    info += '  Creamos ID: ' + (iCreamosID >= 0 ? '[' + iCreamosID + '] ' + hCSV[iCreamosID] : '❌ NO ENCONTRADA') + '\n';
+    info += '  Nombre:     ' + (iNombres >= 0   ? '[' + iNombres + '] '   + hCSV[iNombres]   : '❌ NO ENCONTRADA') + '\n';
+    info += '  Servicios:  ' + (iServicios >= 0 ? '[' + iServicios + '] ' + hCSV[iServicios] : '⚠️ NO ENCONTRADA (se importarán todos)') + '\n';
+    info += '  _uuid:      ' + (iUUID >= 0      ? '[' + iUUID + '] '      + hCSV[iUUID]      : '⚠️ NO encontrado') + '\n\n';
+
+    // Contar cuántos pasarían el filtro
+    if (filas.length > 1) {
+      let conTerapia = 0;
+      let sinTerapia = 0;
+      const valoresServicio = new Set();
+      filas.slice(1).forEach(f => {
+        const s = iServicios >= 0 ? (f[iServicios] || '') : '';
+        if (s) valoresServicio.add(s.substring(0, 80));
+        const esTerapia = s.toString().toLowerCase().includes('terapia_individual') ||
+                          s.toString().toLowerCase().includes('terapia individual') ||
+                          s.toString().toLowerCase().includes('terapia');
+        if (iServicios < 0 || esTerapia) conTerapia++; else sinTerapia++;
+      });
+      info += '🔢 Registros que se importarían: ' + conTerapia + '\n';
+      info += '🔢 Registros omitidos (otro servicio): ' + sinTerapia + '\n\n';
+      if (valoresServicio.size > 0) {
+        info += '📌 Valores únicos en columna Servicios:\n';
+        valoresServicio.forEach(v => { info += '  • ' + v + '\n'; });
+      }
+    }
+
+    ui.alert('🔍 Diagnóstico Formulario de Interés', info, ui.ButtonSet.OK);
+
+  } catch (e) {
+    ui.alert('❌ Error', 'Error al diagnosticar:\n' + e.message, ui.ButtonSet.OK);
+    Logger.log('❌ Error diagnóstico Interés: ' + e.message);
   }
 }
 
@@ -6110,6 +6259,75 @@ function enviarDerivacionInstitucionalAListaEspera(sheet, fila) {
     servicio:    datos[9]     // J: Servicio al que deriva
   });
 }
+
+
+// =====================================================================
+// AUTO-ACTUALIZACIÓN DE LAS 3 HOJAS DE CAPTACIÓN
+// Se ejecuta periódicamente (trigger de tiempo) para importar
+// registros nuevos desde KoboToolbox sin intervención manual.
+// =====================================================================
+
+/**
+ * Importa silenciosamente las 3 hojas de captación.
+ * Se ejecuta desde el trigger de tiempo; no muestra diálogos.
+ */
+function importarHojasCaptacionSilencioso() {
+  Logger.log('🔄 Auto-importación hojas captación: ' + new Date().toLocaleString());
+  try { importarFormularioInteres();           } catch(e) { Logger.log('⚠️ Interés: ' + e.message); }
+  try { importarReferencias();                 } catch(e) { Logger.log('⚠️ Referencias: ' + e.message); }
+  try { importarDerivacionesInstitucionales(); } catch(e) { Logger.log('⚠️ Derivaciones: ' + e.message); }
+  Logger.log('✅ Auto-importación hojas captación completada');
+}
+
+/**
+ * Instala un trigger de tiempo que actualiza las 3 hojas de captación
+ * cada hora. Se puede llamar manualmente desde el menú.
+ */
+function instalarAutoImportCaptacion() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Eliminar trigger anterior si existe
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'importarHojasCaptacionSilencioso') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  ScriptApp.newTrigger('importarHojasCaptacionSilencioso')
+    .timeBased().everyHours(1).create();
+
+  ss.toast('⏰ Auto-actualización activada (cada hora)', 'Captación', 4);
+  Logger.log('✅ Trigger importarHojasCaptacionSilencioso instalado (cada hora)');
+
+  ui.alert(
+    '✅ Auto-actualización activada',
+    'Las hojas de captación se actualizarán automáticamente cada hora:\n\n' +
+    '• 💡 Formulario de Interés\n' +
+    '• 🔗 Referencias\n' +
+    '• 🏛️ Derivaciones Institucionales\n\n' +
+    'Puedes también usar "⚡ Importar Datos Ahora" en cualquier momento.',
+    ui.ButtonSet.OK
+  );
+}
+
+/**
+ * Desactiva el trigger de auto-actualización de hojas de captación.
+ */
+function desactivarAutoImportCaptacion() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let eliminados = 0;
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'importarHojasCaptacionSilencioso') {
+      ScriptApp.deleteTrigger(t);
+      eliminados++;
+    }
+  });
+  const msg = eliminados > 0 ? '✅ Auto-actualización desactivada' : 'ℹ️ No había trigger activo';
+  ss.toast(msg, 'Captación', 3);
+  Logger.log(msg);
+}
+
 
 /**
  * Versión flexible de enviarAlertaSuicidio que funciona con cualquier estructura de columnas
