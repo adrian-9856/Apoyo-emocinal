@@ -26,6 +26,20 @@ function onOpen() {
       .addItem('📅 Instalar Recordatorio Mensual', 'instalarTriggerRecordatorioMensual')
       .addItem('✏️ Instalar Trigger onEdit', 'instalarTriggerOnEdit');
 
+    // Submenú: Derivaciones y Referencias
+    const menuDerivaciones = ui.createMenu('📋 Derivaciones y Referencias')
+      .addItem('➕ Crear Hoja (si no existe)', 'crearDerivacionesReferencias')
+      .addSeparator()
+      .addItem('🔗 Configurar URL de Exportación', 'configurarUrlDerivaciones')
+      .addItem('⚡ Importar Datos Ahora', 'importarDerivacionesReferencias');
+
+    // Submenú: Formulario de Interés
+    const menuInteres = ui.createMenu('💡 Formulario de Interés')
+      .addItem('➕ Crear Hoja (si no existe)', 'crearFormularioInteres')
+      .addSeparator()
+      .addItem('🔗 Configurar URL de Exportación', 'configurarUrlInteres')
+      .addItem('⚡ Importar Datos Ahora', 'importarFormularioInteres');
+
     // Submenú: Bienestar (Importación Automática desde KoboToolbox)
     const menuBienestar = ui.createMenu('🏥 Bienestar')
       .addItem('🆘 VERIFICAR ALERTAS AHORA', 'verificarAlertasRapido')
@@ -61,6 +75,8 @@ function onOpen() {
       .addItem('📊 Actualizar Reportes', 'actualizarReportes')
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
       .addSeparator()
+      .addSubMenu(menuDerivaciones)
+      .addSubMenu(menuInteres)
       .addSubMenu(menuBienestar)
       .addSubMenu(menuMantenimiento)
       .addSeparator()
@@ -954,6 +970,40 @@ function alEditar(e) {
     }
   }
   */
+
+  // CASO 6: Derivaciones y Referencias - columna M (13) = "Sí"
+  if (hoja === 'Derivaciones y Referencias' && columna === 13) {
+    Logger.log('✅ Detectada edición en Derivaciones y Referencias, columna M (13)');
+    Logger.log('   Valor ingresado: "' + val + '"');
+
+    if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
+      Logger.log('▶️ EJECUTANDO enviarDerivacionAListaEspera...');
+      try {
+        enviarDerivacionAListaEspera(sheet, fila);
+        Logger.log('✅ enviarDerivacionAListaEspera completado');
+        actualizarReportes();
+      } catch (error) {
+        Logger.log('❌ ERROR en enviarDerivacionAListaEspera: ' + error.toString());
+      }
+    }
+  }
+
+  // CASO 7: Formulario de Interés - columna D (4) = "Sí"
+  if (hoja === 'Formulario de Interés' && columna === 4) {
+    Logger.log('✅ Detectada edición en Formulario de Interés, columna D (4)');
+    Logger.log('   Valor ingresado: "' + val + '"');
+
+    if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
+      Logger.log('▶️ EJECUTANDO enviarInteresAListaEspera...');
+      try {
+        enviarInteresAListaEspera(sheet, fila);
+        Logger.log('✅ enviarInteresAListaEspera completado');
+        actualizarReportes();
+      } catch (error) {
+        Logger.log('❌ ERROR en enviarInteresAListaEspera: ' + error.toString());
+      }
+    }
+  }
 }
 
 /**
@@ -5330,17 +5380,31 @@ function instalarActualizaciones() {
       Utilities.sleep(1000);
     }
 
-    // 2. Reparar validaciones
+    // 2. Crear hoja de Derivaciones y Referencias si no existe
+    if (!ss.getSheetByName('Derivaciones y Referencias')) {
+      crearDerivacionesReferencias();
+      ss.toast('✅ Hoja Derivaciones y Referencias creada', 'Instalando', 2);
+      Utilities.sleep(1000);
+    }
+
+    // 3. Crear hoja de Formulario de Interés si no existe
+    if (!ss.getSheetByName('Formulario de Interés')) {
+      crearFormularioInteres();
+      ss.toast('✅ Hoja Formulario de Interés creada', 'Instalando', 2);
+      Utilities.sleep(1000);
+    }
+
+    // 4. Reparar validaciones
     ss.toast('Reparando validaciones...', 'Instalando', 2);
     configurarValidaciones();
     Utilities.sleep(1000);
 
-    // 3. Reparar fórmulas
+    // 5. Reparar fórmulas
     ss.toast('Reparando fórmulas...', 'Instalando', 2);
     repararFormulasListaEspera();
     Utilities.sleep(1000);
 
-    // 4. Actualizar reportes
+    // 6. Actualizar reportes
     ss.toast('Actualizando reportes...', 'Instalando', 2);
     actualizarReportes();
     Utilities.sleep(1000);
@@ -5350,6 +5414,8 @@ function instalarActualizaciones() {
       'El sistema se ha actualizado correctamente.\n\n' +
       'Nuevas funciones disponibles:\n' +
       '• Formulario de Bienestar (2026)\n' +
+      '• Derivaciones y Referencias\n' +
+      '• Formulario de Interés (terapia individual)\n' +
       '• Importar datos desde KoboToolbox\n' +
       '• Alertas automáticas de protocolo de suicidio\n\n' +
       'Usa el menú "🏥 Apoyo Emocional" para acceder\n' +
@@ -5370,6 +5436,644 @@ function instalarActualizaciones() {
 }
 
 
+// =====================================================================
+// HOJA: DERIVACIONES Y REFERENCIAS
+// =====================================================================
+
+/**
+ * Crea la hoja "Derivaciones y Referencias" si no existe.
+ * Solo acción disponible: Enviar a Lista de Espera.
+ */
+function crearDerivacionesReferencias() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  let sheet = ss.getSheetByName('Derivaciones y Referencias');
+  if (sheet) {
+    Logger.log('⚠️ La hoja Derivaciones y Referencias ya existe');
+    return sheet;
+  }
+
+  sheet = ss.insertSheet('Derivaciones y Referencias');
+
+  const headers = [
+    'Fecha', 'Nombre Completo', 'Creamos ID', 'Género', 'Edad',
+    'Malestar Principal', 'Teléfono', 'Organización / Programa',
+    'Nombre de quien deriva', 'Tipo', 'Servicio que solicita',
+    'Nota', 'Enviar a Lista de Espera'
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#6a1b9a')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center')
+    .setWrap(true);
+
+  [110, 200, 120, 80, 60, 200, 120, 180, 180, 120, 180, 200, 160].forEach((w, i) => {
+    sheet.setColumnWidth(i + 1, w);
+  });
+
+  sheet.setFrozenRows(1);
+
+  const validacionTipo = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Derivación', 'Referencia'], true)
+    .setAllowInvalid(true)
+    .build();
+  sheet.getRange('J2:J1000').setDataValidation(validacionTipo);
+
+  const validacionGenero = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Hombre', 'Mujer', 'Trans hombre', 'No binario', 'Otro'], true)
+    .setAllowInvalid(true)
+    .build();
+  sheet.getRange('D2:D1000').setDataValidation(validacionGenero);
+
+  const validacionEnvio = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Sí', 'No'], true)
+    .setAllowInvalid(false)
+    .build();
+  sheet.getRange('M2:M1000').setDataValidation(validacionEnvio);
+
+  Logger.log('✅ Hoja Derivaciones y Referencias creada');
+  return sheet;
+}
+
+/**
+ * Envía un registro de Derivaciones y Referencias a Lista de Espera.
+ * Se activa cuando columna M = "Sí".
+ */
+function enviarDerivacionAListaEspera(sheetOrigen, fila) {
+  Logger.log('🔄 enviarDerivacionAListaEspera iniciado para fila ' + fila);
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const espera = ss.getSheetByName('Lista de Espera');
+
+    if (!espera) {
+      Logger.log('❌ No se encontró Lista de Espera');
+      ss.toast('❌ No se encontró Lista de Espera', 'Error', 3);
+      return false;
+    }
+
+    const numColumnas = sheetOrigen.getLastColumn();
+    const datos = sheetOrigen.getRange(fila, 1, 1, numColumnas).getValues()[0];
+    const headers = sheetOrigen.getRange(1, 1, 1, numColumnas).getValues()[0];
+
+    // Detección dinámica de columnas
+    const colNombre    = headers.findIndex(h => h && h.toString().toLowerCase().includes('nombre completo'));
+    const colCreamosID = headers.findIndex(h => h && h.toString().toLowerCase().includes('creamos'));
+    const colGenero    = headers.findIndex(h => h && (h.toString().toLowerCase().includes('género') || h.toString().toLowerCase().includes('genero')));
+    const colEdad      = headers.findIndex(h => h && h.toString().toLowerCase().includes('edad'));
+    const colMalestar  = headers.findIndex(h => h && h.toString().toLowerCase().includes('malestar'));
+    const colTelefono  = headers.findIndex(h => h && (h.toString().toLowerCase().includes('teléfono') || h.toString().toLowerCase().includes('telefono')));
+    const colOrg       = headers.findIndex(h => h && (h.toString().toLowerCase().includes('organización') || h.toString().toLowerCase().includes('organizacion') || h.toString().toLowerCase().includes('programa')));
+    const colQuien     = headers.findIndex(h => h && h.toString().toLowerCase().includes('quien deriva'));
+    const colTipo      = headers.findIndex(h => h && h.toString().toLowerCase() === 'tipo');
+    const colServicio  = headers.findIndex(h => h && h.toString().toLowerCase().includes('servicio'));
+    const colNota      = headers.findIndex(h => h && h.toString().toLowerCase() === 'nota');
+
+    const nombre     = colNombre >= 0    ? datos[colNombre]    : '';
+    const creamosID  = colCreamosID >= 0 ? datos[colCreamosID] : '';
+    const genero     = colGenero >= 0    ? datos[colGenero]    : '';
+    const edad       = colEdad >= 0      ? datos[colEdad]      : '';
+    const malestar   = colMalestar >= 0  ? datos[colMalestar]  : '';
+    const telefono   = colTelefono >= 0  ? datos[colTelefono]  : '';
+    const org        = colOrg >= 0       ? datos[colOrg]       : '';
+    const quien      = colQuien >= 0     ? datos[colQuien]     : '';
+    const tipo       = colTipo >= 0      ? datos[colTipo]      : 'Derivación';
+    const servicio   = colServicio >= 0  ? datos[colServicio]  : 'Apoyo Psicológico';
+    const nota       = colNota >= 0      ? datos[colNota]      : '';
+
+    if (!nombre || nombre.toString().trim() === '') {
+      Logger.log('⚠️ Falta Nombre Completo');
+      ss.toast('⚠️ Falta Nombre Completo para enviar', 'Error', 3);
+      return false;
+    }
+
+    // Verificar duplicados
+    const datosEspera = espera.getDataRange().getValues();
+    for (let i = 1; i < datosEspera.length; i++) {
+      const creamosIDExistente = datosEspera[i][3];
+      const nombreExistente    = datosEspera[i][2];
+      if (creamosID && creamosIDExistente &&
+          creamosIDExistente.toString().trim() === creamosID.toString().trim()) {
+        ss.toast('⚠️ Ya existe en Lista de Espera: ' + nombre, 'Duplicado', 3);
+        return false;
+      }
+      if (!creamosID && nombreExistente &&
+          nombreExistente.toString().trim().toLowerCase() === nombre.toString().trim().toLowerCase()) {
+        ss.toast('⚠️ Ya existe en Lista de Espera: ' + nombre, 'Duplicado', 3);
+        return false;
+      }
+    }
+
+    // Malestar final (prioridad: Nota > Malestar > default)
+    let malestarFinal = malestar && malestar.toString().trim()
+      ? malestar.toString().trim()
+      : 'Desde Derivaciones y Referencias';
+    if (nota && nota.toString().trim()) {
+      malestarFinal = nota.toString().trim();
+    }
+
+    const primeraFilaVacia = espera.getLastRow() + 1;
+    const nuevaFila = [
+      '',                                          // A: Fecha (auto)
+      '',                                          // B: No. (auto)
+      nombre,                                      // C: Nombre
+      creamosID || '',                             // D: Creamos ID
+      genero || '',                                // E: Género
+      edad || '',                                  // F: Edad
+      malestarFinal,                               // G: Malestar
+      telefono || '',                              // H: Teléfono
+      tipo || 'Derivación',                        // I: Derivación o Referencia
+      quien || '',                                 // J: Nombre de quien deriva
+      org || '',                                   // K: Programa / Organización
+      servicio || 'Apoyo Psicológico',             // L: Servicio
+      '',                                          // M: Terapeuta
+      'Pendiente'                                  // N: Asistió
+    ];
+
+    espera.getRange(primeraFilaVacia, 1, 1, 14).setValues([nuevaFila]);
+    espera.getRange(primeraFilaVacia, 1, 1, 14)
+      .setBackground('#e8f5e9')
+      .setFontColor('black')
+      .setHorizontalAlignment('left');
+
+    // Marcar fila origen como enviada
+    sheetOrigen.getRange(fila, 1, 1, numColumnas).setBackground('#d4edda');
+
+    Logger.log('✅ Derivación enviada a Lista de Espera: ' + nombre);
+    ss.toast('✅ Enviado a Lista de Espera: ' + nombre, 'Éxito', 3);
+    return true;
+
+  } catch (error) {
+    Logger.log('❌ Error en enviarDerivacionAListaEspera: ' + error.message);
+    SpreadsheetApp.getActiveSpreadsheet().toast('❌ Error: ' + error.message, 'Error', 5);
+    return false;
+  }
+}
+
+/**
+ * Importa datos desde KoboToolbox a la hoja Derivaciones y Referencias.
+ * Requiere URL configurada con configurarUrlDerivaciones().
+ */
+function importarDerivacionesReferencias() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const props = PropertiesService.getDocumentProperties();
+  const url = props.getProperty('URL_DERIVACIONES');
+
+  if (!url) {
+    ui.alert(
+      '⚠️ URL no configurada',
+      'Necesitas configurar la URL de exportación primero.\n\n' +
+      'Usa el menú:\nDerivaciones y Referencias → 🔗 Configurar URL de Exportación',
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  ss.toast('📥 Importando Derivaciones y Referencias...', 'Importando', 5);
+
+  try {
+    const response = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+
+    if (response.getResponseCode() !== 200) {
+      ss.toast('❌ Error HTTP: ' + response.getResponseCode(), 'Error', 5);
+      return;
+    }
+
+    const csvData = response.getContentText();
+    if (!csvData || csvData.trim().length === 0) {
+      ss.toast('⚠️ CSV vacío o sin datos', 'Advertencia', 3);
+      return;
+    }
+
+    _procesarCSVDerivaciones(csvData);
+
+  } catch (error) {
+    Logger.log('❌ Error importando derivaciones: ' + error.message);
+    ss.toast('❌ Error: ' + error.message, 'Error', 5);
+  }
+}
+
+function _procesarCSVDerivaciones(csvData) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const primeraLinea = csvData.split('\n')[0] || '';
+  const delimitador = (primeraLinea.match(/;/g) || []).length > (primeraLinea.match(/,/g) || []).length ? ';' : ',';
+
+  const lineas = csvData.split('\n');
+  const filas = [];
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i].trim();
+    if (!linea) continue;
+    const columnas = linea.split(delimitador).map(c => c.trim().replace(/^"|"$/g, ''));
+    if (columnas.length > 0 && columnas.join('').trim()) {
+      filas.push(columnas);
+    }
+  }
+
+  if (filas.length <= 1) {
+    ss.toast('ℹ️ Sin datos nuevos en el CSV', 'Info', 3);
+    return;
+  }
+
+  let sheet = ss.getSheetByName('Derivaciones y Referencias');
+  if (!sheet) {
+    sheet = crearDerivacionesReferencias();
+  }
+
+  const headersCSV = filas[0];
+
+  const colNombreCSV   = headersCSV.findIndex(h => h && h.toString().toLowerCase().includes('nombre'));
+  const colCreamosCSV  = headersCSV.findIndex(h => h && h.toString().toLowerCase().includes('creamos'));
+  const colGeneroCSV   = headersCSV.findIndex(h => h && (h.toString().toLowerCase().includes('género') || h.toString().toLowerCase().includes('genero')));
+  const colEdadCSV     = headersCSV.findIndex(h => h && h.toString().toLowerCase().includes('edad'));
+  const colMalestarCSV = headersCSV.findIndex(h => h && h.toString().toLowerCase().includes('malestar'));
+  const colTelefonoCSV = headersCSV.findIndex(h => h && (h.toString().toLowerCase().includes('teléfono') || h.toString().toLowerCase().includes('telefono')));
+  const colOrgCSV      = headersCSV.findIndex(h => h && (h.toString().toLowerCase().includes('organización') || h.toString().toLowerCase().includes('organizacion') || h.toString().toLowerCase().includes('programa')));
+  const colQuienCSV    = headersCSV.findIndex(h => h && h.toString().toLowerCase().includes('quien'));
+  const colTipoCSV     = headersCSV.findIndex(h => h && h.toString().toLowerCase() === 'tipo');
+  const colServicioCSV = headersCSV.findIndex(h => h && h.toString().toLowerCase().includes('servicio'));
+  const colNotaCSV     = headersCSV.findIndex(h => h && h.toString().toLowerCase() === 'nota');
+
+  if (colNombreCSV < 0 && colCreamosCSV < 0) {
+    ss.toast('❌ CSV sin columna de Nombre o Creamos ID', 'Error', 5);
+    Logger.log('❌ Columnas CSV disponibles: ' + headersCSV.join(', '));
+    return;
+  }
+
+  const datosExistentes = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues()
+    : [];
+
+  let nuevos = 0;
+
+  for (let i = 1; i < filas.length; i++) {
+    const fila = filas[i];
+    const nombre    = colNombreCSV >= 0  ? fila[colNombreCSV]  : '';
+    const creamosID = colCreamosCSV >= 0 ? fila[colCreamosCSV] : '';
+
+    if (!nombre && !creamosID) continue;
+
+    const yaExiste = datosExistentes.some(existente => {
+      if (creamosID && existente[2] &&
+          existente[2].toString().trim() === creamosID.toString().trim()) return true;
+      if (nombre && existente[1] &&
+          existente[1].toString().trim().toLowerCase() === nombre.toString().trim().toLowerCase()) return true;
+      return false;
+    });
+
+    if (yaExiste) continue;
+
+    const nuevaFila = [
+      new Date(),
+      nombre || creamosID,
+      creamosID || '',
+      colGeneroCSV >= 0   ? fila[colGeneroCSV]   : '',
+      colEdadCSV >= 0     ? fila[colEdadCSV]     : '',
+      colMalestarCSV >= 0 ? fila[colMalestarCSV] : '',
+      colTelefonoCSV >= 0 ? fila[colTelefonoCSV] : '',
+      colOrgCSV >= 0      ? fila[colOrgCSV]      : '',
+      colQuienCSV >= 0    ? fila[colQuienCSV]    : '',
+      colTipoCSV >= 0     ? fila[colTipoCSV]     : 'Derivación',
+      colServicioCSV >= 0 ? fila[colServicioCSV] : '',
+      colNotaCSV >= 0     ? fila[colNotaCSV]     : '',
+      ''  // M: Enviar a Lista de Espera (usuario selecciona)
+    ];
+
+    const filaDestino = sheet.getLastRow() + 1;
+    sheet.getRange(filaDestino, 1, 1, nuevaFila.length).setValues([nuevaFila]);
+    datosExistentes.push(nuevaFila);
+    nuevos++;
+  }
+
+  if (nuevos > 0) {
+    ss.toast('✅ ' + nuevos + ' registros importados', 'Importación Completa', 4);
+  } else {
+    ss.toast('ℹ️ Sin registros nuevos que importar', 'Importación', 3);
+  }
+
+  Logger.log('✅ Importación Derivaciones: ' + nuevos + ' nuevos registros');
+}
+
+/**
+ * Configura la URL de exportación de KoboToolbox para Derivaciones y Referencias.
+ */
+function configurarUrlDerivaciones() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+  const urlActual = props.getProperty('URL_DERIVACIONES') || '';
+
+  const resultado = ui.prompt(
+    '🔗 Configurar URL — Derivaciones y Referencias',
+    'Ingresa la URL de exportación CSV de KoboToolbox:\n\n' +
+    (urlActual ? 'URL actual: ' + urlActual.substring(0, 70) + '...\n\n' : '') +
+    'Ejemplo:\nhttps://kf.kobotoolbox.org/api/v2/assets/ASSET_ID/export-settings/EXPORT_ID/data.csv',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (resultado.getSelectedButton() !== ui.Button.OK) return;
+
+  const nuevaUrl = resultado.getResponseText().trim();
+  if (!nuevaUrl) {
+    ui.alert('⚠️ URL vacía. No se guardaron cambios.', ui.ButtonSet.OK);
+    return;
+  }
+
+  props.setProperty('URL_DERIVACIONES', nuevaUrl);
+  ui.alert('✅ URL guardada correctamente.\n\nYa puedes usar "⚡ Importar Datos Ahora".', ui.ButtonSet.OK);
+  Logger.log('✅ URL Derivaciones configurada');
+}
+
+
+// =====================================================================
+// HOJA: FORMULARIO DE INTERÉS
+// =====================================================================
+
+/**
+ * Crea la hoja "Formulario de Interés" si no existe.
+ * Personas interesadas en terapia individual.
+ * Columnas: Fecha | Creamos ID | Teléfono | Enviar a Lista de Espera
+ */
+function crearFormularioInteres() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  let sheet = ss.getSheetByName('Formulario de Interés');
+  if (sheet) {
+    Logger.log('⚠️ La hoja Formulario de Interés ya existe');
+    return sheet;
+  }
+
+  sheet = ss.insertSheet('Formulario de Interés');
+
+  const headers = [
+    'Fecha', 'Creamos ID', 'Teléfono', 'Enviar a Lista de Espera'
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#1565c0')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center')
+    .setWrap(true);
+
+  [110, 150, 150, 180].forEach((w, i) => {
+    sheet.setColumnWidth(i + 1, w);
+  });
+
+  sheet.setFrozenRows(1);
+
+  // Validación dropdown para columna D: Enviar a Lista de Espera
+  const validacionEnvio = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Sí', 'No'], true)
+    .setAllowInvalid(false)
+    .build();
+  sheet.getRange('D2:D1000').setDataValidation(validacionEnvio);
+
+  Logger.log('✅ Hoja Formulario de Interés creada');
+  return sheet;
+}
+
+/**
+ * Envía un registro de Formulario de Interés a Lista de Espera.
+ * Estructura: A=Fecha | B=Creamos ID | C=Teléfono | D=Enviar a Lista de Espera
+ * Se activa cuando columna D (4) = "Sí".
+ */
+function enviarInteresAListaEspera(sheetOrigen, fila) {
+  Logger.log('🔄 enviarInteresAListaEspera iniciado para fila ' + fila);
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const espera = ss.getSheetByName('Lista de Espera');
+
+    if (!espera) {
+      Logger.log('❌ No se encontró Lista de Espera');
+      ss.toast('❌ No se encontró Lista de Espera', 'Error', 3);
+      return false;
+    }
+
+    // Columnas fijas: A=Fecha(0), B=Creamos ID(1), C=Teléfono(2), D=Enviar(3)
+    const datos = sheetOrigen.getRange(fila, 1, 1, 4).getValues()[0];
+    const creamosID = datos[1] ? datos[1].toString().trim() : '';
+    const telefono  = datos[2] ? datos[2].toString().trim() : '';
+
+    if (!creamosID) {
+      Logger.log('⚠️ Falta Creamos ID');
+      ss.toast('⚠️ Falta Creamos ID para enviar a Lista de Espera', 'Error', 3);
+      return false;
+    }
+
+    // Verificar duplicados en Lista de Espera por Creamos ID (columna D)
+    const datosEspera = espera.getDataRange().getValues();
+    for (let i = 1; i < datosEspera.length; i++) {
+      const creamosIDExistente = datosEspera[i][3];
+      if (creamosIDExistente &&
+          creamosIDExistente.toString().trim() === creamosID) {
+        ss.toast('⚠️ Ya existe en Lista de Espera: ' + creamosID, 'Duplicado', 3);
+        Logger.log('⚠️ Duplicado en Lista de Espera: ' + creamosID);
+        return false;
+      }
+    }
+
+    const primeraFilaVacia = espera.getLastRow() + 1;
+    const nuevaFila = [
+      '',                            // A: Fecha (auto-fórmula)
+      '',                            // B: No. (auto-fórmula)
+      creamosID,                     // C: Nombre Completo (usamos Creamos ID)
+      creamosID,                     // D: Creamos ID
+      '',                            // E: Género
+      '',                            // F: Edad
+      'Interesado en terapia individual', // G: Malestar Principal
+      telefono,                      // H: Teléfono
+      'Formulario de Interés',       // I: Derivación o Referencia
+      '',                            // J: Nombre de quien deriva
+      '',                            // K: Programa
+      'Terapia Individual',          // L: Servicio que solicita
+      '',                            // M: Terapeuta
+      'Pendiente'                    // N: Asistió a Cita
+    ];
+
+    espera.getRange(primeraFilaVacia, 1, 1, 14).setValues([nuevaFila]);
+    espera.getRange(primeraFilaVacia, 1, 1, 14)
+      .setBackground('#e8f5e9')
+      .setFontColor('black')
+      .setHorizontalAlignment('left');
+
+    // Marcar fila origen como enviada (verde)
+    sheetOrigen.getRange(fila, 1, 1, 4).setBackground('#d4edda');
+
+    Logger.log('✅ Interés enviado a Lista de Espera: ' + creamosID);
+    ss.toast('✅ Enviado a Lista de Espera: ' + creamosID, 'Éxito', 3);
+    return true;
+
+  } catch (error) {
+    Logger.log('❌ Error en enviarInteresAListaEspera: ' + error.message);
+    SpreadsheetApp.getActiveSpreadsheet().toast('❌ Error: ' + error.message, 'Error', 5);
+    return false;
+  }
+}
+
+/**
+ * Importa datos desde KoboToolbox a la hoja Formulario de Interés.
+ * Requiere URL configurada con configurarUrlInteres().
+ */
+function importarFormularioInteres() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const props = PropertiesService.getDocumentProperties();
+  const url = props.getProperty('URL_INTERES');
+
+  if (!url) {
+    ui.alert(
+      '⚠️ URL no configurada',
+      'Necesitas configurar la URL de exportación primero.\n\n' +
+      'Usa el menú:\nFormulario de Interés → 🔗 Configurar URL de Exportación',
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  ss.toast('📥 Importando Formulario de Interés...', 'Importando', 5);
+
+  try {
+    const response = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+
+    if (response.getResponseCode() !== 200) {
+      ss.toast('❌ Error HTTP: ' + response.getResponseCode(), 'Error', 5);
+      return;
+    }
+
+    const csvData = response.getContentText();
+    if (!csvData || csvData.trim().length === 0) {
+      ss.toast('⚠️ CSV vacío o sin datos', 'Advertencia', 3);
+      return;
+    }
+
+    _procesarCSVInteres(csvData);
+
+  } catch (error) {
+    Logger.log('❌ Error importando formulario de interés: ' + error.message);
+    ss.toast('❌ Error: ' + error.message, 'Error', 5);
+  }
+}
+
+/**
+ * Procesa el CSV del Formulario de Interés.
+ * Solo importa Creamos ID y Teléfono.
+ * Detecta dinámicamente esas dos columnas en el CSV.
+ */
+function _procesarCSVInteres(csvData) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const primeraLinea = csvData.split('\n')[0] || '';
+  const delimitador = (primeraLinea.match(/;/g) || []).length > (primeraLinea.match(/,/g) || []).length ? ';' : ',';
+
+  const lineas = csvData.split('\n');
+  const filas = [];
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i].trim();
+    if (!linea) continue;
+    const columnas = linea.split(delimitador).map(c => c.trim().replace(/^"|"$/g, ''));
+    if (columnas.length > 0 && columnas.join('').trim()) {
+      filas.push(columnas);
+    }
+  }
+
+  if (filas.length <= 1) {
+    ss.toast('ℹ️ Sin datos nuevos en el CSV', 'Info', 3);
+    return;
+  }
+
+  let sheet = ss.getSheetByName('Formulario de Interés');
+  if (!sheet) {
+    sheet = crearFormularioInteres();
+  }
+
+  const headersCSV    = filas[0];
+  const colCreamosCSV = headersCSV.findIndex(h => h && h.toString().toLowerCase().includes('creamos'));
+  const colTelCSV     = headersCSV.findIndex(h => h && (h.toString().toLowerCase().includes('teléfono') || h.toString().toLowerCase().includes('telefono')));
+
+  if (colCreamosCSV < 0) {
+    ss.toast('❌ CSV sin columna de Creamos ID', 'Error', 5);
+    Logger.log('❌ Columnas CSV disponibles: ' + headersCSV.join(', '));
+    return;
+  }
+
+  // Registros existentes para evitar duplicados (columna B = Creamos ID, índice 1)
+  const datosExistentes = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues()
+    : [];
+
+  let nuevos = 0;
+
+  for (let i = 1; i < filas.length; i++) {
+    const fila      = filas[i];
+    const creamosID = colCreamosCSV >= 0 ? fila[colCreamosCSV].trim() : '';
+    const telefono  = colTelCSV >= 0     ? fila[colTelCSV].trim()     : '';
+
+    if (!creamosID) continue;
+
+    // Verificar duplicado por Creamos ID (columna B, índice 1)
+    const yaExiste = datosExistentes.some(existente =>
+      existente[1] && existente[1].toString().trim() === creamosID
+    );
+    if (yaExiste) continue;
+
+    // Columnas: A=Fecha | B=Creamos ID | C=Teléfono | D=Enviar (vacío)
+    const nuevaFila = [new Date(), creamosID, telefono, ''];
+
+    const filaDestino = sheet.getLastRow() + 1;
+    sheet.getRange(filaDestino, 1, 1, 4).setValues([nuevaFila]);
+    datosExistentes.push(nuevaFila);
+    nuevos++;
+  }
+
+  if (nuevos > 0) {
+    ss.toast('✅ ' + nuevos + ' registros importados', 'Importación Completa', 4);
+  } else {
+    ss.toast('ℹ️ Sin registros nuevos que importar', 'Importación', 3);
+  }
+
+  Logger.log('✅ Importación Interés: ' + nuevos + ' nuevos registros');
+}
+
+/**
+ * Configura la URL de exportación de KoboToolbox para Formulario de Interés.
+ */
+function configurarUrlInteres() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+  const urlActual = props.getProperty('URL_INTERES') || '';
+
+  const resultado = ui.prompt(
+    '🔗 Configurar URL — Formulario de Interés',
+    'Ingresa la URL de exportación CSV de KoboToolbox:\n\n' +
+    (urlActual ? 'URL actual: ' + urlActual.substring(0, 70) + '...\n\n' : '') +
+    'Ejemplo:\nhttps://kf.kobotoolbox.org/api/v2/assets/ASSET_ID/export-settings/EXPORT_ID/data.csv',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (resultado.getSelectedButton() !== ui.Button.OK) return;
+
+  const nuevaUrl = resultado.getResponseText().trim();
+  if (!nuevaUrl) {
+    ui.alert('⚠️ URL vacía. No se guardaron cambios.', ui.ButtonSet.OK);
+    return;
+  }
+
+  props.setProperty('URL_INTERES', nuevaUrl);
+  ui.alert('✅ URL guardada correctamente.\n\nYa puedes usar "⚡ Importar Datos Ahora".', ui.ButtonSet.OK);
+  Logger.log('✅ URL Interés configurada');
+}
 /**
  * Versión flexible de enviarAlertaSuicidio que funciona con cualquier estructura de columnas
  * @param {Array} registro - Array con todos los datos de la fila
