@@ -541,7 +541,7 @@ function crearReporte() {
 
     // SECCIÓN 10: CAPTACIÓN (formularios de ingreso)
     ['CAPTACIÓN', 'Total', 'Este mes', ''],
-    ['Hoja de interés (Terapia Individual)', '=IFERROR(COUNTA(\'Hoja de interés\'!B:B)-1,0)', '=IFERROR(COUNTIFS(\'Hoja de interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Hoja de interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
+    ['Hoja de interés (Terapia Individual)', '=IFERROR(COUNTA(\'Hoja de interés\'!C:C)-1,0)', '=IFERROR(COUNTIFS(\'Hoja de interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Hoja de interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
     ['Referencias de programas recibidas', '=IFERROR(COUNTA(\'Referencias de programas\'!D:D)-1,0)', '=IFERROR(COUNTIFS(\'Referencias de programas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias de programas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
     ['Derivaciones institucionales recibidas', '=IFERROR(COUNTA(\'Derivaciones Institucionales\'!E:E)-1,0)', '=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '']
   ];
@@ -2790,13 +2790,14 @@ function actualizarReportes() {
       return;
     }
 
-    // Auto-reparar fórmulas si están desactualizadas (p.ej. B11 apunta a Lista de Espera)
-    // o si la sección Captación (fila 37) aún no existe en el reporte
+    // Auto-reparar fórmulas si están desactualizadas
     const fB11 = reporte.getRange('B11').getFormula();
     const fB5  = reporte.getRange('B5').getFormula();
+    const fB38 = reporte.getRange('B38').getFormula();
     const necesitaReparacion = !fB5 || !fB5.startsWith('=') ||
                                (fB11 && fB11.includes('Lista de Espera')) ||
-                               !reporte.getRange('A37').getValue();
+                               !reporte.getRange('A37').getValue() ||
+                               (fB38 && fB38.includes('!B:B'));  // fórmula vieja cuenta col B en vez de C
     if (necesitaReparacion) {
       Logger.log('🔧 actualizarReportes: reparando fórmulas desactualizadas...');
       actualizarFormulasReporte();
@@ -3682,8 +3683,8 @@ function actualizarFormulasReporte() {
       });
     }
 
-    // Fila 38: Hoja de interés
-    reporte.getRange('B38').setFormula('=IFERROR(COUNTA(\'Hoja de interés\'!B:B)-1,0)');
+    // Fila 38: Hoja de interés — contar por columna C (Nombre Completo, siempre lleno)
+    reporte.getRange('B38').setFormula('=IFERROR(COUNTA(\'Hoja de interés\'!C:C)-1,0)');
     reporte.getRange('C38').setFormula('=IFERROR(COUNTIFS(\'Hoja de interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Hoja de interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
     // Fila 39: Referencias
@@ -5757,7 +5758,7 @@ function _buscarCol(headers, fragmentos) {
 // Solo se envían a Lista de Espera: Nombre, Creamos ID, Género, Servicio.
 // =====================================================================
 
-var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esLPozzAX85W2xSv98r2AVM/data.csv';  // histórico 2024-2026
+var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/est9tdYNZsCo5SLiwqKeUfe/data.csv';  // histórico 2024-2026
 var URL_FORMULARIO_INTERES_2026 = 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/eseYzEgWw6Tui9y2eppZy3L/data.csv';  // formulario 2026
 
 /** Columna de "Enviar" en Hoja de interés (1-based) */
@@ -5811,30 +5812,42 @@ function _extraerFilasInteres(csvTexto, fuente, uuidsSet, creamosSet, nombresSet
   }
 
   const hCSV = filas[0];
-  Logger.log('📋 ' + fuente + ' columnas: ' + hCSV.join(' | '));
+  Logger.log('📋 ' + fuente + ' - ' + (filas.length - 1) + ' filas, ' + hCSV.length + ' columnas');
 
-  const iCreamosID = _buscarCol(hCSV, ['creamos']);
-  const iNombres   = _buscarCol(hCSV, ['nombre']);
-  const iApellidos = _buscarCol(hCSV, ['apellido']);
-  const iGenero    = _buscarCol(hCSV, ['género', 'genero', 'sexo']);
-  const iZona      = _buscarCol(hCSV, ['zona']);
-  const iServicios = _buscarCol(hCSV, ['servicio', 'grupo', 'apoyo emocional', 'interesa', 'inscribir']);
+  // --- Mapeo de columnas ---
+  // Fecha: columna start o _submission_time
+  const iFecha     = _buscarCol(hCSV, ['_submission_time', 'start']);
+  const iCreamosID = _buscarCol(hCSV, ['creamos id', 'creamos_id', 'creamos']);
+  // Nombres: preferir "Inicio/Nombre(s)" o "Nombre(s)" exacto, luego cualquier "nombre"
+  const iNombres   = _buscarCol(hCSV, ['inicio/nombre', 'nombre(s)', 'nombres']);
+  const iApellidos = _buscarCol(hCSV, ['inicio/apellido', 'apellido(s)', 'apellidos']);
+  const iGenero    = _buscarCol(hCSV, ['inicio/género', 'inicio/genero', 'género', 'genero', 'sexo']);
+  const iZona      = _buscarCol(hCSV, ['inicio/zona', 'zona']);
   const iUUID      = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
-  Logger.log('📍 ' + fuente + ': iCreamosID=' + iCreamosID + ' iNombres=' + iNombres +
-             ' iApellidos=' + iApellidos + ' iServicios=' + iServicios + ' iUUID=' + iUUID);
+  // Columna específica del checkbox "Terapia Individual" en KoboToolbox
+  // KoboToolbox exporta cada opción de select_multiple como columna separada con valor 1/0
+  // Nombres posibles: ".../Terapia Individual" o ".../Terapia_Individual"
+  const iTerapiaInd = _buscarCol(hCSV, ['terapia individual', 'terapia_individual']);
+
+  Logger.log('📍 ' + fuente + ': iFecha=' + iFecha + ' iCreamosID=' + iCreamosID +
+             ' iNombres=' + iNombres + ' iApellidos=' + iApellidos +
+             ' iTerapiaInd=' + iTerapiaInd + ' iUUID=' + iUUID);
 
   for (let i = 1; i < filas.length; i++) {
     const f = filas[i];
 
-    // Filtrar por Terapia Individual (si no se encuentra la columna, incluir todo)
-    if (iServicios >= 0) {
-      const s = (f[iServicios] || '').toString().toLowerCase();
-      if (!s.includes('terapia_individual') && !s.includes('terapia individual') && !s.includes('terapia')) {
+    // Filtrar: solo filas con Terapia Individual marcada
+    // KoboToolbox checkbox: valor "1" = seleccionado, "0" o vacío = no seleccionado
+    if (iTerapiaInd >= 0) {
+      const v = (f[iTerapiaInd] || '').toString().trim().toLowerCase();
+      const seleccionado = v === '1' || v === 'true' || v === 'yes' || v === 'terapia individual' || v === 'terapia_individual';
+      if (!seleccionado) {
         resultado.omitidos++;
         continue;
       }
     }
+    // Si no se encontró columna Terapia Individual, incluir todos los registros del formulario
 
     const uuid      = iUUID >= 0      ? (f[iUUID]      || '').trim() : '';
     const creamosID = iCreamosID >= 0 ? (f[iCreamosID] || '').trim() : '';
@@ -5848,18 +5861,21 @@ function _extraerFilasInteres(csvTexto, fuente, uuidsSet, creamosSet, nombresSet
     if (creamosID && creamosSet.has(creamosID)) continue;
     if (nombreCompleto && nombresSet.has(nombreCompleto.toLowerCase())) continue;
 
-    const genero    = iGenero >= 0    ? (f[iGenero]    || '').trim() : '';
-    const zona      = iZona >= 0      ? (f[iZona]      || '').trim() : '';
-    const servicios = iServicios >= 0 ? (f[iServicios] || '').trim() : 'Terapia Individual';
+    // Fecha: usar fecha de envío del formulario, no fecha de importación
+    const fechaRaw = iFecha >= 0 ? (f[iFecha] || '').trim() : '';
+    const fecha    = fechaRaw ? new Date(fechaRaw) : new Date();
+
+    const genero = iGenero >= 0 ? (f[iGenero] || '').trim() : '';
+    const zona   = iZona >= 0   ? (f[iZona]   || '').trim() : '';
 
     resultado.filas.push([
-      new Date(),     // A: Fecha import
-      creamosID,      // B: Creamos ID
-      nombreCompleto, // C: Nombre Completo
-      genero,         // D: Género
-      zona,           // E: Zona
-      servicios,      // F: Servicios de interés
-      ''              // G: Enviar a Lista de Espera (usuario selecciona)
+      fecha,              // A: Fecha envío formulario
+      creamosID,          // B: Creamos ID
+      nombreCompleto,     // C: Nombre Completo
+      genero,             // D: Género
+      zona,               // E: Zona
+      'Terapia Individual', // F: Servicio (siempre Terapia Individual por filtro)
+      ''                  // G: Enviar a Lista de Espera (usuario selecciona)
     ]);
 
     // Actualizar sets para no duplicar entre sí los dos CSV
@@ -5980,30 +5996,24 @@ function diagnosticarFormularioInteres() {
         if (filas.length <= 1) { info += '  (sin datos)\n\n'; return; }
 
         const hCSV = filas[0];
-        const iCreamosID = _buscarCol(hCSV, ['creamos']);
-        const iNombres   = _buscarCol(hCSV, ['nombre']);
-        const iServicios = _buscarCol(hCSV, ['servicio', 'grupo', 'apoyo emocional', 'interesa', 'inscribir']);
-        const iUUID      = _buscarCol(hCSV, ['_uuid', 'uuid']);
+        const iCreamosID  = _buscarCol(hCSV, ['creamos id', 'creamos_id', 'creamos']);
+        const iNombres    = _buscarCol(hCSV, ['inicio/nombre', 'nombre(s)', 'nombres']);
+        const iTerapiaInd = _buscarCol(hCSV, ['terapia individual', 'terapia_individual']);
+        const iUUID       = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
-        info += '  Creamos ID: ' + (iCreamosID >= 0 ? hCSV[iCreamosID] : '❌ no encontrada') + '\n';
-        info += '  Nombre:     ' + (iNombres >= 0   ? hCSV[iNombres]   : '❌ no encontrada') + '\n';
-        info += '  Servicios:  ' + (iServicios >= 0 ? hCSV[iServicios] : '⚠️ no encontrada') + '\n';
-        info += '  _uuid:      ' + (iUUID >= 0      ? hCSV[iUUID]      : '⚠️ no encontrado') + '\n';
+        info += '  Creamos ID:       ' + (iCreamosID  >= 0 ? '"' + hCSV[iCreamosID]  + '"' : '❌ no encontrada') + '\n';
+        info += '  Nombre:           ' + (iNombres    >= 0 ? '"' + hCSV[iNombres]    + '"' : '❌ no encontrada') + '\n';
+        info += '  Terapia Indiv.:   ' + (iTerapiaInd >= 0 ? '"' + hCSV[iTerapiaInd] + '"' : '⚠️ col no encontrada → importa todos') + '\n';
+        info += '  _uuid:            ' + (iUUID       >= 0 ? '"' + hCSV[iUUID]       + '"' : '⚠️ no encontrado') + '\n';
 
         let conTerapia = 0; let sinTerapia = 0;
-        const valoresServicio = new Set();
         filas.slice(1).forEach(f => {
-          const s = iServicios >= 0 ? (f[iServicios] || '') : '';
-          if (s) valoresServicio.add(s.substring(0, 60));
-          const es = s.toLowerCase().includes('terapia_individual') ||
-                     s.toLowerCase().includes('terapia individual') ||
-                     s.toLowerCase().includes('terapia');
-          if (iServicios < 0 || es) conTerapia++; else sinTerapia++;
+          if (iTerapiaInd < 0) { conTerapia++; return; }
+          const v = (f[iTerapiaInd] || '').toString().trim().toLowerCase();
+          const sel = v === '1' || v === 'true' || v === 'yes' || v.includes('terapia');
+          if (sel) conTerapia++; else sinTerapia++;
         });
-        info += '  → Importarían: ' + conTerapia + '  |  Omitidos (otro servicio): ' + sinTerapia + '\n';
-        if (valoresServicio.size > 0 && valoresServicio.size <= 10) {
-          info += '  Valores en Servicios: ' + Array.from(valoresServicio).join(' / ') + '\n';
-        }
+        info += '  → Importarían: ' + conTerapia + '  |  Omitidos (sin Terapia Ind.): ' + sinTerapia + '\n';
         info += '\n';
       } catch (eFuente) {
         info += '  ❌ Error: ' + eFuente.message + '\n\n';
