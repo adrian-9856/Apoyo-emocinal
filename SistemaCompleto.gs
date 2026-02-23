@@ -3,83 +3,45 @@ function onOpen() {
   try {
     const ui = SpreadsheetApp.getUi();
 
-    // Submenú: Instalación
-    const menuInstalacion = ui.createMenu('⚙️ Instalación')
-      .addItem('🚀 Instalar Sistema', 'instalarSistema')
+    // ── Submenú Avanzado: todo lo técnico / configuración ──
+    const menuAvanzado = ui.createMenu('⚙️ Avanzado')
+      // Instalación
+      .addItem('🔴 Instalación Completa', 'instalacionCompleta')
       .addItem('✅ Verificar Instalación', 'verificarInstalacion')
-      .addItem('🔄 Instalar Actualizaciones', 'instalarActualizaciones')
       .addSeparator()
-      .addItem('🧹 LIMPIAR Y REPARAR Hojas', 'limpiarYRepararHojas');
-
-    // Submenú: Configuración
-    const menuConfiguracion = ui.createMenu('🔧 Configuración')
+      // Captación
+      .addItem('📥 Importar Captación Ahora', 'importarHojasCaptacionSilencioso')
+      .addItem('✅ Activar auto-captación (10 min)', 'instalarAutoImportCaptacion')
+      .addItem('🛑 Desactivar auto-captación', 'desactivarAutoImportCaptacion')
+      .addSeparator()
+      // Bienestar
+      .addItem('🆘 Verificar Alertas Bienestar', 'verificarAlertasRapido')
+      .addItem('⚡ Importar Bienestar Ahora', 'importarDatosAutomatico')
+      .addSeparator()
+      // Configuración emails
       .addItem('📧 Configurar Email Director', 'configurarEmail')
       .addItem('👥 Configurar Emails Terapeutas', 'configurarEmailsTerapeutas')
-      .addItem('✉️ Probar Envío de Email', 'probarEmail')
-      .addItem('👨‍⚕️ 🔍 PROBAR EMAILS TERAPEUTAS', 'probarEmailsTerapeutas')
       .addSeparator()
-      .addItem('➕ Agregar Grupo de Asistencia', 'configurarAsistencia')
-      .addItem('📋 Ver/Gestionar Grupos', 'verGruposAsistencia')
-      .addItem('🔄 Probar Conexión Asistencia', 'probarAsistencia')
+      // Triggers
+      .addItem('⏰ Instalar Triggers de Tiempo', 'instalarTriggerTiempo')
+      .addItem('✏️ Instalar Trigger onEdit', 'instalarTriggerOnEdit')
       .addSeparator()
-      .addItem('⏰ Instalar Trigger de Tiempo', 'instalarTriggerTiempo')
-      .addItem('📅 Instalar Recordatorio Mensual', 'instalarTriggerRecordatorioMensual')
-      .addItem('✏️ Instalar Trigger onEdit', 'instalarTriggerOnEdit');
-
-    // Submenú único de Captación (Interés + Referencias + Derivaciones)
-    const menuCaptacion = ui.createMenu('📥 Captación')
-      .addItem('⚡ Importar Todo Ahora (histórico + nuevo)', 'importarHojasCaptacionSilencioso')
-      .addSeparator()
-      .addItem('✅ Activar auto-actualización (10 min)', 'instalarAutoImportCaptacion')
-      .addItem('🛑 Desactivar auto-actualización', 'desactivarAutoImportCaptacion');
-
-    // Submenú: Bienestar (Importación Automática desde KoboToolbox)
-    const menuBienestar = ui.createMenu('🏥 Bienestar')
-      .addItem('🆘 VERIFICAR ALERTAS AHORA', 'verificarAlertasRapido')
-      .addSeparator()
-      .addItem('📧 Configurar Correo de Prueba', 'configurarCorreoPruebaBienestar')
-      .addItem('🚀 Activar Modo Producción', 'activarModoProduccionBienestar')
-      .addItem('ℹ️ Ver Estado Actual', 'verEstadoCorreosBienestar')
-      .addSeparator()
-      .addItem('🔍 Probar Importación (Diagnóstico)', 'probarImportacionBienestar')
-      .addItem('⚡ Importar Datos Ahora', 'importarDatosAutomatico')
-      .addItem('⏰ Activar Importación Rápida (cada 1 min)', 'instalarImportacionAutomatica')
-      .addItem('🔍 Ver Triggers Activos', 'verTriggersActivos')
-      .addItem('🩺 Diagnóstico Completo del Sistema', 'diagnosticoCompletoSistema')
-      .addSeparator()
-      .addItem('🗑️ Limpiar Hoja de Bienestar', 'limpiarHojaBienestar');
-
-    // Submenú: Mantenimiento
-    const menuMantenimiento = ui.createMenu('🛠️ Mantenimiento')
+      // Mantenimiento / diagnóstico
       .addItem('🔤 Reparar Nombres de Hojas', 'repararNombresHojasConAviso')
-      .addSeparator()
       .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
-      .addItem('⚡ Reparar Terapias Individual (Fecha + Validaciones)', 'repararTerapias')
-      .addItem('🔧 Reparar Fórmulas Lista Espera', 'repararFormulasListaEspera')
-      .addItem('🔧 Actualizar Fórmulas Reporte', 'actualizarFormulasReporte')
-      .addItem('🔍 Diagnosticar Reporte', 'diagnosticarReporte')
-      .addItem('📦 Compactar Lista Espera', 'compactarListaEspera')
-      .addSeparator()
+      .addItem('🔧 Reparar Fórmulas Reporte', 'actualizarFormulasReporte')
       .addItem('🔍 Diagnóstico CSV Hoja de interés', 'diagnosticarFormularioInteres')
       .addItem('🔍 Diagnóstico CSV Referencias y Derivaciones', 'diagnosticarReferenciasYDerivaciones')
-      .addItem('📦 Migrar datos de hoja antigua a Hoja de interés', 'migrarDatosAntiguosInteres');
-
-    // Menú principal
-    ui.createMenu('🏥 Apoyo Emocional')
-      .addItem('🔴 INSTALACIÓN COMPLETA', 'instalacionCompleta')
-      .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodo')
+      .addItem('📦 Migrar datos antiguos a Hoja de interés', 'migrarDatosAntiguosInteres')
       .addSeparator()
-      .addItem('📊 Actualizar Reportes', 'actualizarReportes')
+      .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos');
+
+    // ── Menú principal simplificado ──
+    ui.createMenu('🏥 Apoyo Emocional')
+      .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodo')
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
       .addSeparator()
-      .addSubMenu(menuCaptacion)
-      .addSubMenu(menuBienestar)
-      .addSeparator()
-      .addSubMenu(menuInstalacion)
-      .addSubMenu(menuConfiguracion)
-      .addSubMenu(menuMantenimiento)
-      .addSeparator()
-      .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos')
+      .addSubMenu(menuAvanzado)
       .addToUi();
 
     // Ejecutar mantenimiento automático al abrir
@@ -92,6 +54,19 @@ function onOpen() {
     // Si getUi() no está disponible (ejecutándose desde trigger instalable o editor)
     // solo registrar el error y continuar
     Logger.log('onOpen ejecutado desde contexto sin UI disponible: ' + error.message);
+  }
+}
+
+/**
+ * Oculta la hoja maestra "Copy of CREAMOS ID nuevo" para que no sea visible
+ * a los usuarios. Se llama automáticamente al abrir el documento.
+ */
+function _ocultarHojaMaestra() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hoja = ss.getSheetByName('Copy of CREAMOS ID nuevo');
+  if (hoja && !hoja.isSheetHidden()) {
+    hoja.hideSheet();
+    Logger.log('👁️ Hoja maestra ocultada');
   }
 }
 
@@ -168,6 +143,9 @@ function mantenimientoAutomatico() {
     } catch (eRep) {
       Logger.log('⚠️ repararNombresHojas: ' + eRep.message);
     }
+
+    // Ocultar hoja maestra si está visible
+    try { _ocultarHojaMaestra(); } catch(e) {}
 
     // 1. Reparar fórmulas de Lista de Espera
     const sheet = ss.getSheetByName('Lista de Espera');
@@ -5578,6 +5556,9 @@ function instalacionCompleta() {
       pasos.push('⚠️ Reportes: ' + e.message);
     }
 
+    // Ocultar hoja maestra al finalizar instalación
+    try { _ocultarHojaMaestra(); } catch(e) {}
+
     ss.toast('', '', 1);
 
     ui.alert(
@@ -5586,8 +5567,8 @@ function instalacionCompleta() {
       pasos.join('\n') + '\n\n' +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
       '📋 PRÓXIMOS PASOS:\n' +
-      '1. Configurar emails: Menú → 🔧 Configuración → 📧 Configurar Emails Terapeutas\n' +
-      '2. Probar emails: Menú → 🔧 Configuración → 👨‍⚕️ PROBAR EMAILS TERAPEUTAS\n' +
+      '1. Usa 🔄 ACTUALIZAR TODO para importar datos diariamente.\n' +
+      '2. Configurar emails: Menú → ⚙️ Avanzado → 📧 Configurar Emails Terapeutas\n' +
       '3. Probar flujo: Asignar terapeuta en Lista de Espera → confirmar "Vino"',
       ui.ButtonSet.OK
     );
@@ -7363,5 +7344,8 @@ function rellenarDatosFaltantes() {
   });
 
   Logger.log('🎉 rellenarDatosFaltantes completado: ' + totalRellenos + ' campo(s) en total');
+
+  // Volver a ocultar la hoja maestra por si el usuario la abrió accidentalmente
+  try { _ocultarHojaMaestra(); } catch(e) {}
 }
 
