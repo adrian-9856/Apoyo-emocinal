@@ -90,7 +90,7 @@ function _ocultarHojaMaestra() {
 /**
  * UN SOLO BOTÓN que hace todo:
  *   1. Renombra hojas con nombres viejos
- *   2. Importa Hoja de interés, Referencias y Derivaciones desde KoboToolbox
+ *   2. Importa Hoja de interés, Referencias, Derivaciones e Intervención de casos desde KoboToolbox
  *   3. Actualiza fórmulas del Reporte
  *   4. Recalcula el Reporte
  * Diseñado para usuarios no técnicos: presionar este botón es suficiente.
@@ -5423,7 +5423,7 @@ function instalacionCompleta() {
     '4️⃣ Reinstalar trigger onEdit (asignación + asistencia)\n' +
     '5️⃣ Reinstalar trigger de tiempo (reportes cada hora)\n' +
     '6️⃣ Crear hoja de Bienestar si no existe\n' +
-    '7️⃣ Crear hojas Hoja de interés, Referencias y Derivaciones Institucionales\n' +
+    '7️⃣ Crear hojas Hoja de interés, Referencias, Derivaciones e Intervención de casos\n' +
     '8️⃣ Activar auto-actualización de captación (cada hora)\n' +
     '9️⃣ Actualizar todos los reportes\n\n' +
     '⚠️ No borra datos existentes.\n\n' +
@@ -6775,7 +6775,8 @@ function instalarAutoImportCaptacion() {
     'Las hojas de captación se actualizarán automáticamente cada 10 minutos:\n\n' +
     '• 💡 Hoja de interés\n' +
     '• 🔗 Referencias\n' +
-    '• 🏛️ Derivaciones Institucionales\n\n' +
+    '• 🏛️ Derivaciones Institucionales\n' +
+    '• 📋 Intervención de casos\n\n' +
     'Puedes también usar "⚡ Importar Datos Ahora" en cualquier momento.',
     ui.ButtonSet.OK
   );
