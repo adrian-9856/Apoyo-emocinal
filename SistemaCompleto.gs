@@ -115,6 +115,9 @@ function actualizarTodo() {
   try {
     importarDerivacionesInstitucionales();
   } catch(e) { pasos.push('⚠️ Derivaciones: ' + e.message); }
+  try {
+    importarIntervencionesCasos();
+  } catch(e) { pasos.push('⚠️ Intervención de casos: ' + e.message); }
   pasos.push('✅ Importación captación completada');
 
   ss.toast('🔄 Paso 2.5/4 — Completando datos faltantes desde hoja maestra...', 'Actualizando Todo', -1);
@@ -5551,6 +5554,13 @@ function instalacionCompleta() {
     } catch (e) {
       pasos.push('⚠️ Derivaciones Institucionales: ' + e.message);
     }
+    // Importar datos iniciales de Intervención de casos
+    try {
+      importarIntervencionesCasos();
+      pasos.push('✅ Intervención de casos importada');
+    } catch (e) {
+      pasos.push('⚠️ Intervención de casos: ' + e.message);
+    }
 
     // PASO 8: Instalar trigger auto-actualización captación (cada 10 min)
     ss.toast('8️⃣ Instalando auto-actualización de captación...', 'Instalación Completa', -1);
@@ -5828,6 +5838,22 @@ function _buscarCol(headers, fragmentos) {
   });
 }
 
+/**
+ * Normaliza el valor de género a los valores canónicos del sistema.
+ * KoboToolbox puede devolver "Mujer / Femenino", "Hombre / Masculino", etc.
+ */
+function _normalizarGenero(valor) {
+  if (!valor) return '';
+  const v = (valor || '').toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (v.includes('trans hombre') || v.includes('trans_hombre')) return 'Trans hombre';
+  if (v.includes('no binario') || v.includes('no_binario'))     return 'No binario';
+  if (v.includes('mujer') || v.includes('femenino'))            return 'Mujer';
+  if (v.includes('hombre') || v.includes('masculino'))          return 'Hombre';
+  if (v.includes('otro'))                                        return 'Otro';
+  return valor.toString().trim();
+}
+
 
 // =====================================================================
 // HOJA: FORMULARIO DE INTERÉS  (Terapia Individual)
@@ -5958,7 +5984,7 @@ function _extraerFilasInteres(csvTexto, fuente, uuidsSet, creamosSet, nombresSet
     const fechaRaw = iFecha >= 0 ? (f[iFecha] || '').trim() : '';
     const fecha    = fechaRaw ? new Date(fechaRaw) : new Date();
 
-    const genero = iGenero >= 0 ? (f[iGenero] || '').trim() : '';
+    const genero = iGenero >= 0 ? _normalizarGenero(f[iGenero]) : '';
     const zona   = iZona >= 0   ? (f[iZona]   || '').trim() : '';
 
     resultado.filas.push([
@@ -6578,6 +6604,119 @@ function enviarDerivacionInstitucionalAListaEspera(sheet, fila) {
 
 
 // =====================================================================
+// HOJA: INTERVENCIÓN DE CASOS  (KoboToolbox)
+// URL: https://kf.kobotoolbox.org/api/v2/assets/avnPVj8iEwvfwUkySWcMAJ/
+//      export-settings/esiNV5nenKxfDh9wNmZD6kC/data.csv
+//
+// Columnas usadas de la hoja "Intervención de casos":
+//   A: Fecha | B: Participante | C: Terapeuta (manual) | D: Creamos ID
+//   E: Tipo  | F: Motivo       | G: _uuid (oculto, dedup)
+// =====================================================================
+
+var URL_INTERVENCION_CASOS = 'https://kf.kobotoolbox.org/api/v2/assets/avnPVj8iEwvfwUkySWcMAJ/export-settings/esiNV5nenKxfDh9wNmZD6kC/data.csv';
+
+/**
+ * Importa desde KoboToolbox los registros de intervención de casos.
+ * Dedup por _uuid — no elimina ni sobreescribe registros existentes.
+ * La columna C (Terapeuta) se deja en blanco para que el usuario la llene.
+ */
+function importarIntervencionesCasos() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.toast('📥 Importando Intervención de casos...', 'Importando', 8);
+
+  try {
+    const resp = UrlFetchApp.fetch(URL_INTERVENCION_CASOS, {
+      muteHttpExceptions: true, followRedirects: true
+    });
+    if (resp.getResponseCode() !== 200) {
+      Logger.log('❌ IntervenciónCasos HTTP ' + resp.getResponseCode());
+      ss.toast('❌ Error HTTP ' + resp.getResponseCode() + ' al importar Intervención de casos', 'Error', 5);
+      return;
+    }
+
+    const filas = _parsearCSV(resp.getContentText());
+    if (filas.length <= 1) {
+      ss.toast('ℹ️ Sin datos en Intervención de casos', 'Info', 3);
+      return;
+    }
+
+    // Obtener o crear la hoja
+    let sheet = ss.getSheetByName('Intervención de casos');
+    if (!sheet) {
+      crearGestionCasos();
+      sheet = ss.getSheetByName('Intervención de casos');
+    }
+
+    // Asegurar que la columna G existe como _uuid (oculta) para el dedup
+    const headerG = sheet.getRange(1, 7).getValue();
+    if (!headerG || headerG.toString().trim() === '') {
+      sheet.getRange(1, 7).setValue('_uuid');
+      try { sheet.hideColumns(7); } catch(e) {}
+    }
+
+    // Mapear columnas del CSV
+    const hCSV = filas[0];
+    const iFecha     = _buscarCol(hCSV, ['fecha de intervencion', 'fecha intervencion', '_submission_time', 'start', 'fecha']);
+    const iNombres   = _buscarCol(hCSV, ['nombre (s)', 'nombre(s)', 'nombres']);
+    const iApellidos = _buscarCol(hCSV, ['apellido (s)', 'apellido(s)', 'apellidos']);
+    const iCreamosID = _buscarCol(hCSV, ['creamos id', 'creamos_id']);
+    const iTipo      = _buscarCol(hCSV, ['tipo intervencion de caso', 'tipo_intervencion', 'tipo']);
+    const iMotivo    = _buscarCol(hCSV, ['motivo intervencion de caso', 'motivo_intervencion', 'motivo']);
+    const iUUID      = _buscarCol(hCSV, ['_uuid', 'uuid']);
+
+    Logger.log('📍 IntervenciónCasos: iFecha=' + iFecha + ' iNombres=' + iNombres +
+               ' iCreamosID=' + iCreamosID + ' iTipo=' + iTipo + ' iUUID=' + iUUID);
+
+    // UUIDs ya importados (col G = 7)
+    const lastRow = sheet.getLastRow();
+    const existentes = lastRow > 1
+      ? sheet.getRange(2, 7, lastRow - 1, 1).getValues().flat()
+      : [];
+    const uuidsSet = new Set(existentes.map(v => (v || '').toString().trim()).filter(Boolean));
+
+    const filasNuevas = [];
+    for (let i = 1; i < filas.length; i++) {
+      const f = filas[i];
+
+      const uuid = iUUID >= 0 ? (f[iUUID] || '').trim() : '';
+      if (uuid && uuidsSet.has(uuid)) continue;
+
+      const nombres   = iNombres   >= 0 ? (f[iNombres]   || '').trim() : '';
+      const apellidos = iApellidos >= 0 ? (f[iApellidos] || '').trim() : '';
+      const nombreCompleto = [nombres, apellidos].filter(Boolean).join(' ');
+
+      const fechaRaw = iFecha >= 0 ? (f[iFecha] || '').trim() : '';
+      const fecha    = fechaRaw ? new Date(fechaRaw) : new Date();
+
+      filasNuevas.push([
+        fecha,                                                        // A: Fecha
+        nombreCompleto,                                               // B: Participante
+        '',                                                           // C: Terapeuta (manual)
+        iCreamosID >= 0 ? (f[iCreamosID] || '').trim() : '',         // D: Creamos ID
+        iTipo      >= 0 ? (f[iTipo]      || '').trim() : '',         // E: Tipo
+        iMotivo    >= 0 ? (f[iMotivo]    || '').trim() : '',         // F: Motivo
+        uuid                                                          // G: _uuid (oculto)
+      ]);
+      if (uuid) uuidsSet.add(uuid);
+    }
+
+    if (filasNuevas.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, filasNuevas.length, 7).setValues(filasNuevas);
+    }
+
+    const msg = filasNuevas.length > 0
+      ? '✅ ' + filasNuevas.length + ' intervenciones importadas'
+      : 'ℹ️ Intervención de casos: sin registros nuevos';
+    ss.toast(msg, filasNuevas.length > 0 ? 'Importación Completa' : 'Importación', 4);
+    Logger.log('📊 IntervenciónCasos: ' + filasNuevas.length + ' nuevas');
+
+  } catch (e) {
+    Logger.log('❌ Error en importarIntervencionesCasos: ' + e.message);
+    ss.toast('❌ Error importando intervenciones: ' + e.message, 'Error', 5);
+  }
+}
+
+// =====================================================================
 // AUTO-ACTUALIZACIÓN DE LAS 3 HOJAS DE CAPTACIÓN
 // Se ejecuta periódicamente (trigger de tiempo) para importar
 // registros nuevos desde KoboToolbox sin intervención manual.
@@ -6602,7 +6741,11 @@ function importarHojasCaptacionSilencioso() {
     ss.toast('📥 Importando Derivaciones Institucionales...', 'Captación', 10);
     importarDerivacionesInstitucionales();
   } catch(e) { Logger.log('⚠️ Derivaciones: ' + e.message); }
-  ss.toast('✅ Importación completa — Hoja de interés, Referencias, Derivaciones', 'Captación', 5);
+  try {
+    ss.toast('📥 Importando Intervención de casos...', 'Captación', 10);
+    importarIntervencionesCasos();
+  } catch(e) { Logger.log('⚠️ IntervenciónCasos: ' + e.message); }
+  ss.toast('✅ Importación completa', 'Captación', 5);
   Logger.log('✅ Auto-importación hojas captación completada');
 }
 
