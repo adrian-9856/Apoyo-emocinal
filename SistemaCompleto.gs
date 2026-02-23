@@ -5869,7 +5869,7 @@ function _normalizarGenero(valor) {
 // =====================================================================
 
 var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esuV4RKqQhYUUaUizfWBP8S/data.csv';  // histórico 2024-2026
-var URL_FORMULARIO_INTERES_2026 = '';  // dejar vacío si no hay URL activa (la anterior caducó)
+var URL_FORMULARIO_INTERES_2026 = 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/eseYzEgWw6Tui9y2eppZy3L/data.csv';  // formulario activo 2026
 
 /** Columna de "Enviar" en Hoja de interés (1-based) */
 var COL_ENVIAR_INTERES = 7;
