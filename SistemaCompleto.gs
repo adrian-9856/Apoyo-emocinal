@@ -63,11 +63,28 @@ function onOpen() {
  */
 function _ocultarHojaMaestra() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const hoja = ss.getSheetByName('Copy of CREAMOS ID nuevo');
-  if (hoja && !hoja.isSheetHidden()) {
-    hoja.hideSheet();
+
+  // 1. Ocultar hoja maestra de datos (nadie debe editarla directamente)
+  const hojaMaestra = ss.getSheetByName('Copy of CREAMOS ID nuevo');
+  if (hojaMaestra && !hojaMaestra.isSheetHidden()) {
+    hojaMaestra.hideSheet();
     Logger.log('👁️ Hoja maestra ocultada');
   }
+
+  // 2. Eliminar hoja de log del complemento "Auto Refresh" si existe
+  //    (ese complemento ya no es necesario — el sistema importa datos solo)
+  const HOJAS_BASURA = [
+    'Auto Refresh Execution Log',
+    'Auto-Refresh Log',
+    'AutoRefresh Log'
+  ];
+  HOJAS_BASURA.forEach(function(nombre) {
+    const h = ss.getSheetByName(nombre);
+    if (h) {
+      ss.deleteSheet(h);
+      Logger.log('🗑️ Hoja de log eliminada: ' + nombre);
+    }
+  });
 }
 
 /**
