@@ -5672,6 +5672,58 @@ function instalacionCompleta() {
 
   if (respuesta !== ui.Button.YES) return;
 
+  // PASO: Preguntar si desea hacer copia de respaldo
+  const respaldoPrompt = ui.alert(
+    '💾 COPIA DE RESPALDO',
+    '¿Desea crear una copia de respaldo del archivo antes de continuar?\n\n' +
+    'Se recomienda crear una copia de seguridad para proteger sus datos.\n\n' +
+    '✅ SI = Crear copia y continuar con instalación\n' +
+    '❌ NO = Continuar sin crear copia\n' +
+    '🚫 CANCELAR = Cancelar instalación',
+    ui.ButtonSet.YES_NO_CANCEL
+  );
+
+  if (respaldoPrompt === ui.Button.CANCEL) {
+    ss.toast('❌ Instalación cancelada', 'Cancelado', 2);
+    return;
+  }
+
+  // Si el usuario quiere hacer respaldo, crear copia
+  if (respaldoPrompt === ui.Button.YES) {
+    try {
+      ss.toast('📋 Creando copia de respaldo...', 'Copiando', 3);
+
+      const nombreActual = ss.getName();
+      const fechaHora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd_HHmm');
+      const nombreRespaldo = nombreActual + ' - RESPALDO ' + fechaHora;
+
+      const archivoOriginal = DriveApp.getFileById(ss.getId());
+      const copiaNueva = archivoOriginal.makeCopy(nombreRespaldo);
+
+      ss.toast(
+        '✅ COPIA CREADA\n\n' +
+        'Nombre: ' + nombreRespaldo + '\n\n' +
+        'La copia está en la misma carpeta que el archivo original.',
+        'Respaldo Completo',
+        5
+      );
+
+      Logger.log('✅ Copia de respaldo creada: ' + nombreRespaldo + ' (ID: ' + copiaNueva.getId() + ')');
+    } catch (error) {
+      Logger.log('❌ Error creando copia de respaldo: ' + error.toString());
+      const continuar = ui.alert(
+        '❌ Error al crear copia',
+        'No se pudo crear la copia de respaldo:\n\n' + error.message + '\n\n' +
+        '¿Desea continuar con la instalación de todos modos?',
+        ui.ButtonSet.YES_NO
+      );
+      if (continuar !== ui.Button.YES) {
+        ss.toast('❌ Instalación cancelada', 'Cancelado', 2);
+        return;
+      }
+    }
+  }
+
   const pasos = [];
 
   try {
