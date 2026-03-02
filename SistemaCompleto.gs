@@ -397,10 +397,10 @@ function crearListaEspera() {
     'Fecha Solicitud', 'No.', 'Nombre Completo', 'Creamos ID', 'Género',
     'Edad', 'Malestar Principal', 'Teléfono', 'Derivación o Referencia',
     'Nombre de quien deriva o refiere', 'Programa de Creamos / Organización',
-    'Servicio que solicita', 'Terapeuta Asignado', 'Asistió a Cita'
+    'Servicio que solicita', 'Terapeuta Asignado', 'Asistió a Cita', 'Número de llamadas realizadas'
   ];
 
-  sheet.getRange(1, 1, 1, 14).setValues([headers])
+  sheet.getRange(1, 1, 1, 15).setValues([headers])
     .setBackground('#e91e63')
     .setFontColor('white')
     .setFontWeight('bold')
@@ -418,13 +418,21 @@ function crearListaEspera() {
   // Aplicar todas las fórmulas de una vez (más eficiente)
   sheet.getRange('A2:B1000').setFormulas(formulas);
 
-  [110, 60, 200, 120, 100, 100, 250, 200, 180, 220, 220, 180, 150, 120].forEach((w, i) => {
+  [110, 60, 200, 120, 100, 100, 250, 200, 180, 220, 220, 180, 150, 120, 150].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
   // Proteger columnas de fecha y número para que no se editen manualmente
   sheet.getRange('A2:A1000').protect().setWarningOnly(true);
   sheet.getRange('B2:B1000').protect().setWarningOnly(true);
+
+  // Agregar columna P (16) oculta para notas temporales de llamadas
+  sheet.getRange(1, 16).setValue('_notas_llamadas');
+  try {
+    sheet.hideColumns(16);
+  } catch(e) {
+    Logger.log('⚠️ No se pudo ocultar columna P: ' + e.message);
+  }
 }
 
 function crearNuevosIngresos() {
@@ -515,32 +523,39 @@ function crearGestionCasos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Intervención de casos');
 
-  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creamos ID', 'Tipo', 'Motivo'];
+  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creamos ID', 'Tipo', 'Motivo', '_uuid', 'Enviar a Lista de Espera'];
 
-  sheet.getRange(1, 1, 1, 6).setValues([headers])
+  sheet.getRange(1, 1, 1, 8).setValues([headers])
     .setBackground('#f57c00')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 200, 120, 120, 120, 300].forEach((w, i) => {
+  [120, 200, 120, 120, 120, 300, 100, 180].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
+
+  // Ocultar columna G (_uuid)
+  try {
+    sheet.hideColumns(7);
+  } catch(e) {
+    Logger.log('⚠️ No se pudo ocultar columna G: ' + e.message);
+  }
 }
 
 function crearPersonasNoAsistidas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Personas no asistidas');
 
-  const headers = ['Fecha', 'Nombre Completo', 'Creamos ID', 'Género', 'Edad', 'Malestar Principal', 'Terapeuta Asignado', 'Teléfono'];
+  const headers = ['Fecha', 'Nombre Completo', 'Creamos ID', 'Género', 'Edad', 'Malestar Principal', 'Terapeuta Asignado', 'Teléfono', 'Notas de llamadas'];
 
-  sheet.getRange(1, 1, 1, 8).setValues([headers])
+  sheet.getRange(1, 1, 1, 9).setValues([headers])
     .setBackground('#ff6f00')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 200, 120, 100, 100, 250, 150, 200].forEach((w, i) => {
+  [120, 200, 120, 100, 100, 250, 150, 200, 300].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -811,6 +826,13 @@ function configurarValidaciones() {
     intervencion.getRange('E2:E200').setDataValidation(tipoIntervencionRule);
 
     // NO validación en columna F (Motivo) - debe ser texto libre
+
+    // Validación para columna H (8) - Enviar a Lista de Espera
+    const enviarListaRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Sí', 'No'])
+      .setAllowInvalid(false)
+      .build();
+    intervencion.getRange('H2:H200').setDataValidation(enviarListaRule);
   }
 
   // Validaciones de Motivos de Retiro - en Retiradx columna F
@@ -1105,6 +1127,21 @@ function alEditar(e) {
       }
     }
   }
+
+  // CASO 9: Intervención de casos — columna H (8) = "Sí"
+  if (hoja === 'Intervención de casos' && columna === 8) {
+    Logger.log('✅ Detectada edición en Intervención de casos, columna H (8)');
+    if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
+      Logger.log('▶️ EJECUTANDO enviarIntervencionCasosAListaEspera...');
+      try {
+        enviarIntervencionCasosAListaEspera(sheet, fila);
+        Logger.log('✅ enviarIntervencionCasosAListaEspera completado');
+        actualizarReportes();
+      } catch (error) {
+        Logger.log('❌ ERROR en enviarIntervencionCasosAListaEspera: ' + error.toString());
+      }
+    }
+  }
 }
 
 /**
@@ -1156,7 +1193,7 @@ function asignarTerapeuta(sheetOrigen, fila, terapeuta) {
     }
 
     // 3. Marcar fila en amarillo (pendiente)
-    sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#fff3cd');
+    sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#fff3cd');
 
   } catch (error) {
     Logger.log('❌ ERROR en asignarTerapeuta: ' + error.toString());
@@ -1223,13 +1260,153 @@ function procesarConfirmacionAsistencia(sheetOrigen, fila, confirmacion) {
       Logger.log('Enviando a Nuevos Ingresos y Terapias Individual: ' + nombreLimpio);
       enviarANuevosIngresosYTerapias(nombreLimpio, creemosId, genero, edad, malestar, terapeutaNombre, sheetOrigen, fila);
     } else if (confirmacion === 'No vino') {
-      // NO VINO: enviar a Personas no asistidas
-      Logger.log('Enviando a Personas no asistidas: ' + nombreLimpio);
-      enviarAPersonasNoAsistidas(nombreLimpio, creemosId, genero, edad, malestar, terapeutaNombre, telefono, sheetOrigen, fila);
+      // NO VINO: Sistema de 5 llamadas antes de enviar a Personas no asistidas
+      Logger.log('Procesando "No vino" - Sistema de 5 llamadas');
+      procesarNoVinoConLlamadas(nombreLimpio, creemosId, genero, edad, malestar, terapeutaNombre, telefono, sheetOrigen, fila);
     }
   } catch (error) {
     Logger.log('❌ ERROR en procesarConfirmacionAsistencia: ' + error.toString());
     ss.toast('❌ Error: ' + error.message, 'Error', 5);
+  }
+}
+
+/**
+ * Procesa el caso de "No vino" con sistema de 5 llamadas
+ * Si no vino y es la 5ª llamada → envía a Personas no asistidas con todas las notas
+ * Si no es la 5ª llamada → incrementa contador y mantiene en Lista de Espera
+ */
+function procesarNoVinoConLlamadas(nombre, creemosId, genero, edad, malestar, terapeuta, telefono, sheetOrigen, fila) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    // Obtener número de llamadas actual (columna O = 15)
+    const llamadasActuales = sheetOrigen.getRange(fila, 15).getValue() || 0;
+    const nuevasLlamadas = Number(llamadasActuales) + 1;
+
+    Logger.log('Llamadas actuales: ' + llamadasActuales + ', nuevas llamadas: ' + nuevasLlamadas);
+
+    // Solicitar nota de esta llamada
+    const respuesta = ui.prompt(
+      '📞 Llamada ' + nuevasLlamadas + ' de 5',
+      'Ingrese una nota sobre esta llamada:\n\n' +
+      '(Por ejemplo: "No contestó", "Canceló cita", "Número equivocado", etc.)',
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    if (respuesta.getSelectedButton() !== ui.Button.OK) {
+      // Si cancela, limpiar la selección de "No vino" y no hacer nada
+      sheetOrigen.getRange(fila, 14).clearContent();
+      ss.toast('❌ Registro de llamada cancelado', 'Cancelado', 3);
+      return;
+    }
+
+    const notaLlamada = respuesta.getResponseText().trim();
+    if (!notaLlamada) {
+      sheetOrigen.getRange(fila, 14).clearContent();
+      ss.toast('⚠️ Debe ingresar una nota para registrar la llamada', 'Nota requerida', 3);
+      return;
+    }
+
+    // Obtener notas anteriores (columna P = 16, temporal)
+    const notasAnteriores = sheetOrigen.getRange(fila, 16).getValue() || '';
+    const todasLasNotas = notasAnteriores
+      ? notasAnteriores + '\n' + 'Llamada ' + nuevasLlamadas + ': ' + notaLlamada
+      : 'Llamada ' + nuevasLlamadas + ': ' + notaLlamada;
+
+    // Actualizar contador de llamadas (columna O = 15)
+    sheetOrigen.getRange(fila, 15).setValue(nuevasLlamadas);
+
+    // Guardar todas las notas en columna P = 16 (temporal)
+    sheetOrigen.getRange(fila, 16).setValue(todasLasNotas);
+
+    if (nuevasLlamadas >= 5) {
+      // QUINTA LLAMADA: Enviar a Personas no asistidas con todas las notas
+      Logger.log('5ª llamada alcanzada - Enviando a Personas no asistidas: ' + nombre);
+      enviarAPersonasNoAsitidasConNotas(nombre, creemosId, genero, edad, malestar, terapeuta, telefono, todasLasNotas, sheetOrigen, fila);
+    } else {
+      // AÚN NO ES LA 5ª LLAMADA: Mantener en Lista de Espera
+      Logger.log('Llamada ' + nuevasLlamadas + ' registrada - Manteniendo en Lista de Espera');
+
+      // Limpiar la selección de "No vino" para permitir nueva verificación
+      sheetOrigen.getRange(fila, 14).clearContent();
+
+      // Marcar fila en amarillo (pendiente de seguimiento)
+      sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#fff3cd');
+
+      ss.toast(
+        '📞 Llamada ' + nuevasLlamadas + ' de 5 registrada\n\n' +
+        '👤 ' + nombre + '\n' +
+        '📝 Nota: ' + notaLlamada + '\n\n' +
+        'Quedó en Lista de Espera.\n' +
+        'Asignar nuevamente cuando conteste.',
+        'Llamada Registrada',
+        8
+      );
+    }
+
+  } catch (error) {
+    Logger.log('❌ ERROR en procesarNoVinoConLlamadas: ' + error.toString());
+    ss.toast('❌ Error: ' + error.message, 'Error', 5);
+  }
+}
+
+/**
+ * Envía a Personas no asistidas incluyendo todas las notas de las 5 llamadas
+ */
+function enviarAPersonasNoAsitidasConNotas(nombre, creemosId, genero, edad, malestar, terapeuta, telefono, notas, sheetOrigen, fila) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const noAsistidas = ss.getSheetByName('Personas no asistidas');
+
+    Logger.log('Enviando a Personas no asistidas con notas de 5 llamadas...');
+
+    // Verificar duplicados en Personas no asistidas
+    const datosNoAsistidas = noAsistidas.getDataRange().getValues();
+    for (let i = 1; i < datosNoAsistidas.length; i++) {
+      if (datosNoAsistidas[i][1] && datosNoAsistidas[i][1].toString().trim() === nombre.toString().trim()) {
+        Logger.log('⚠️ Duplicado detectado en Personas no asistidas: ' + nombre);
+        sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#f8d7da');
+        ss.toast('✅ ' + nombre + ' ya está en Personas no asistidas.', 'Ya Registrado', 4);
+        return;
+      }
+    }
+
+    // Agregar a Personas no asistidas con las notas
+    const nuevaFila = noAsistidas.getLastRow() + 1;
+
+    const registro = [
+      new Date(),
+      nombre,
+      creemosId || '',
+      genero || '',
+      edad || '',
+      malestar || '',
+      terapeuta,
+      telefono || '',
+      notas  // Columna I: Notas de las 5 llamadas
+    ];
+
+    noAsistidas.getRange(nuevaFila, 1, 1, 9).setValues([registro]);
+    Logger.log('✅ Agregado a Personas no asistidas en fila: ' + nuevaFila);
+
+    // Marcar fila en rojo en Lista de Espera (5 llamadas completadas - No vino)
+    sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#f8d7da');
+    Logger.log('✅ Fila ' + fila + ' marcada en rojo en Lista de Espera (5 llamadas - No vino)');
+
+    SpreadsheetApp.flush();
+    ss.toast(
+      '🔴 5 LLAMADAS COMPLETADAS\n\n' +
+      '👤 ' + nombre + '\n' +
+      '→ Enviado a Personas no asistidas\n\n' +
+      '📝 Con notas de todas las llamadas',
+      'No Asistió - 5 Llamadas',
+      8
+    );
+    Logger.log('✅ Proceso de 5 llamadas completado');
+  } catch (error) {
+    Logger.log('❌ ERROR en enviarAPersonasNoAsitidasConNotas: ' + error.toString());
+    SpreadsheetApp.getActiveSpreadsheet().toast('❌ Error: ' + error.message, 'Error', 5);
   }
 }
 
@@ -1262,7 +1439,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
           estadoTerapia && estadoTerapia.toString().trim() === 'En proceso') {
         Logger.log('Duplicado activo encontrado en Terapias Individual: ' + nombre);
         // No borrar — la fila se conserva en Lista de Espera con color verde
-        sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#d4edda');
+        sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#d4edda');
         ss.toast('✅ ' + nombre + ' ya está en Terapias Individual (En proceso).', 'Ya en Terapias', 4);
         return;
       }
@@ -1274,7 +1451,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
       if (datosNuevos[i][2] && datosNuevos[i][2].toString().trim() === nombre) { // Columna C (índice 2)
         Logger.log('⚠️ Duplicado encontrado en Nuevos Ingresos: ' + nombre);
         // No borrar — la fila se conserva en Lista de Espera con color verde
-        sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#d4edda');
+        sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#d4edda');
         ss.toast('✅ ' + nombre + ' ya está en Nuevos Ingresos.', 'Ya en Nuevos Ingresos', 4);
         return;
       }
@@ -1309,7 +1486,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
       if (datosFrescos[i][1] && datosFrescos[i][1].toString().trim() === nombre &&
           datosFrescos[i][5] && datosFrescos[i][5].toString().trim() === 'En proceso') {
         Logger.log('⚠️ Duplicado detectado en verificación final (race condition evitada): ' + nombre);
-        sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#d4edda');
+        sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#d4edda');
         ss.toast('✅ ' + nombre + ' ya está en Terapias Individual (duplicado prevenido).', 'Ya en Terapias', 4);
         return;
       }
@@ -1330,7 +1507,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     Logger.log('✅ Agregado a Terapias en fila: ' + nuevaFilaTerapias);
 
     // Marcar fila en verde en Lista de Espera (procesada — Vino)
-    sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#d4edda');
+    sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#d4edda');
     Logger.log('✅ Fila ' + fila + ' marcada en verde en Lista de Espera (Vino - procesada)');
 
     SpreadsheetApp.flush();
@@ -1357,7 +1534,7 @@ function enviarAPersonasNoAsistidas(nombre, creemosId, genero, edad, malestar, t
       if (datosNoAsistidas[i][1] && datosNoAsistidas[i][1].toString().trim() === nombre.toString().trim()) { // Columna B (índice 1): Nombre
         Logger.log('⚠️ Duplicado detectado en Personas no asistidas: ' + nombre);
         // No borrar — marcar rojo en Lista de Espera
-        sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#f8d7da');
+        sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#f8d7da');
         ss.toast('✅ ' + nombre + ' ya está en Personas no asistidas.', 'Ya Registrado', 4);
         return;
       }
@@ -1374,14 +1551,15 @@ function enviarAPersonasNoAsistidas(nombre, creemosId, genero, edad, malestar, t
       edad || '',
       malestar || '',
       terapeuta,
-      telefono || ''
+      telefono || '',
+      ''  // Columna I: Notas de llamadas (vacío si no hay sistema de 5 llamadas)
     ];
 
-    noAsistidas.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
+    noAsistidas.getRange(nuevaFila, 1, 1, 9).setValues([registro]);
     Logger.log('✅ Agregado a Personas no asistidas en fila: ' + nuevaFila);
 
     // Marcar fila en rojo en Lista de Espera (procesada — No vino)
-    sheetOrigen.getRange(fila, 1, 1, 14).setBackground('#f8d7da');
+    sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#f8d7da');
     Logger.log('✅ Fila ' + fila + ' marcada en rojo en Lista de Espera (No vino - procesada)');
 
     SpreadsheetApp.flush();
@@ -3355,6 +3533,67 @@ function limpiarTodosLosDatos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
+  // PASO 1: Preguntar si desea hacer copia de respaldo
+  const respaldoPrompt = ui.alert(
+    '💾 COPIA DE RESPALDO',
+    '¿Desea crear una copia de respaldo del archivo antes de limpiar?\n\n' +
+    'Se recomienda crear una copia de seguridad para proteger sus datos.\n\n' +
+    '✅ SI = Crear copia y continuar con limpieza\n' +
+    '❌ NO = Continuar sin crear copia\n' +
+    '🚫 CANCELAR = Cancelar limpieza',
+    ui.ButtonSet.YES_NO_CANCEL
+  );
+
+  if (respaldoPrompt === ui.Button.CANCEL) {
+    ss.toast('❌ Limpieza cancelada', 'Cancelado', 2);
+    return;
+  }
+
+  // Si el usuario quiere hacer respaldo, crear copia
+  if (respaldoPrompt === ui.Button.YES) {
+    try {
+      ss.toast('📋 Creando copia de respaldo...', 'Copiando', 3);
+
+      const nombreActual = ss.getName();
+      const fechaHora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd_HHmm');
+      const nombreRespaldo = nombreActual + ' - RESPALDO ' + fechaHora;
+
+      const archivoOriginal = DriveApp.getFileById(ss.getId());
+      const copiaNueva = archivoOriginal.makeCopy(nombreRespaldo);
+
+      ss.toast(
+        '✅ COPIA CREADA\n\n' +
+        'Nombre: ' + nombreRespaldo + '\n\n' +
+        'La copia está en la misma carpeta que el archivo original.',
+        'Respaldo Completo',
+        5
+      );
+
+      Logger.log('✅ Copia de respaldo creada: ' + nombreRespaldo + ' (ID: ' + copiaNueva.getId() + ')');
+    } catch (error) {
+      Logger.log('❌ Error creando copia de respaldo: ' + error.toString());
+      ss.toast(
+        '❌ ERROR al crear copia de respaldo:\n\n' + error.message + '\n\n' +
+        '¿Desea continuar con la limpieza de todos modos?\n\n' +
+        'Presione ESC para cancelar.',
+        'Error',
+        10
+      );
+
+      const continuarSinRespaldo = ui.alert(
+        '⚠️ ¿Continuar sin respaldo?',
+        'No se pudo crear la copia de respaldo.\n\n¿Desea continuar con la limpieza de todos modos?',
+        ui.ButtonSet.YES_NO
+      );
+
+      if (continuarSinRespaldo !== ui.Button.YES) {
+        ss.toast('❌ Limpieza cancelada', 'Cancelado', 2);
+        return;
+      }
+    }
+  }
+
+  // PASO 2: Confirmar limpieza de datos
   const respuesta = ui.alert(
     '⚠️ CONFIRMAR LIMPIEZA',
     '¿Está SEGURO de eliminar TODOS los datos?\n\n' +
@@ -3378,11 +3617,11 @@ function limpiarTodosLosDatos() {
   }
 
   try {
-    // Limpiar Lista de Espera (desde fila 2)
+    // Limpiar Lista de Espera (desde fila 2) - ahora incluye columnas O y P
     const espera = ss.getSheetByName('Lista de Espera');
     if (espera.getLastRow() > 1) {
-      espera.getRange(2, 1, espera.getLastRow() - 1, 14).clearContent();
-      espera.getRange(2, 1, espera.getLastRow() - 1, 14).setBackground(null);
+      espera.getRange(2, 1, espera.getLastRow() - 1, 16).clearContent();
+      espera.getRange(2, 1, espera.getLastRow() - 1, 16).setBackground(null);
       // Restaurar fórmulas
       for (let i = 2; i <= 100; i++) {
         espera.getRange('A' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
@@ -3417,16 +3656,16 @@ function limpiarTodosLosDatos() {
       retirxs.getRange(2, 1, retirxs.getLastRow() - 1, 6).clearContent();
     }
 
-    // Limpiar Intervención de Casos (desde fila 2)
+    // Limpiar Intervención de Casos (desde fila 2) - ahora incluye columnas G y H
     const gestion = ss.getSheetByName('Intervención de casos');
     if (gestion.getLastRow() > 1) {
-      gestion.getRange(2, 1, gestion.getLastRow() - 1, 6).clearContent();
+      gestion.getRange(2, 1, gestion.getLastRow() - 1, 8).clearContent();
     }
 
-    // Limpiar Personas no asistidas (desde fila 2)
+    // Limpiar Personas no asistidas (desde fila 2) - ahora incluye columna I (Notas)
     const noAsistidas = ss.getSheetByName('Personas no asistidas');
     if (noAsistidas.getLastRow() > 1) {
-      noAsistidas.getRange(2, 1, noAsistidas.getLastRow() - 1, 8).clearContent();
+      noAsistidas.getRange(2, 1, noAsistidas.getLastRow() - 1, 9).clearContent();
     }
 
     // Limpiar Reportes Mensuales (desde fila 2)
@@ -5793,7 +6032,9 @@ function _agregarAListaEspera(sheetOrigen, filaOrigen, numColsOrigen, campos) {
     (campos.programa     || '').toString().trim(),   // K: Programa / Organización
     (campos.servicio     || '').toString().trim(),   // L: Servicio que solicita
     '',                                              // M: Terapeuta Asignado
-    'Pendiente'                                      // N: Asistió a Cita
+    'Pendiente',                                     // N: Asistió a Cita
+    0,                                               // O: Número de llamadas realizadas
+    ''                                               // P: _notas_llamadas (oculto)
   ];
 
   // Buscar la primera fila vacía en columna C (Nombre) dentro del rango de fórmulas (2-1000).
@@ -5809,8 +6050,8 @@ function _agregarAListaEspera(sheetOrigen, filaOrigen, numColsOrigen, campos) {
   }
   if (dest === -1) dest = espera.getLastRow() + 1; // rango lleno → extender
 
-  espera.getRange(dest, 1, 1, 14).setValues([nuevaFila]);
-  espera.getRange(dest, 1, 1, 14)
+  espera.getRange(dest, 1, 1, 16).setValues([nuevaFila]);
+  espera.getRange(dest, 1, 1, 16)
     .setBackground('#e8f5e9').setFontColor('black').setHorizontalAlignment('left');
 
   // Marcar fila de origen en verde (registro queda, no se borra)
@@ -6602,6 +6843,31 @@ function enviarDerivacionInstitucionalAListaEspera(sheet, fila) {
   });
 }
 
+/**
+ * Envía un registro de Intervención de casos a Lista de Espera.
+ * Columnas de Intervención de casos:
+ *   A: Fecha | B: Participante | C: Terapeuta | D: Creamos ID
+ *   E: Tipo  | F: Motivo       | G: _uuid (oculto) | H: Enviar a Lista de Espera
+ */
+function enviarIntervencionCasosAListaEspera(sheet, fila) {
+  Logger.log('🔄 enviarIntervencionCasosAListaEspera — fila ' + fila);
+  const datos = sheet.getRange(fila, 1, 1, 7).getValues()[0];
+  // [0]=Fecha [1]=Participante [2]=Terapeuta [3]=CreamosID [4]=Tipo [5]=Motivo [6]=UUID
+
+  return _agregarAListaEspera(sheet, fila, 8, {
+    nombre:      datos[1],    // B: Participante
+    creamosID:   datos[3],    // D: Creamos ID
+    genero:      '',          // no disponible
+    edad:        '',          // no disponible
+    malestar:    datos[5],    // F: Motivo (se usa como Malestar Principal)
+    telefono:    '',          // no disponible
+    derivacion:  'Intervención de Caso (' + (datos[4] || '') + ')',  // E: Tipo
+    quienDeriva: datos[2] || '',  // C: Terapeuta que hizo la intervención
+    programa:    'Intervención de casos',
+    servicio:    'Apoyo Emocional'
+  });
+}
+
 
 // =====================================================================
 // HOJA: INTERVENCIÓN DE CASOS  (KoboToolbox)
@@ -6917,14 +7183,16 @@ function enviarBienestarAListaEsperaFlexible(sheetOrigen, fila, headers) {
       '', // K: Programa
       'Apoyo Psicológico', // L: Servicio
       '', // M: Terapeuta
-      'Pendiente' // N: Asistió
+      'Pendiente', // N: Asistió
+      0, // O: Número de llamadas realizadas
+      '' // P: _notas_llamadas (oculto)
     ];
 
     // Insertar
-    espera.getRange(primeraFilaVacia, 1, 1, 14).setValues([nuevaFila]);
+    espera.getRange(primeraFilaVacia, 1, 1, 16).setValues([nuevaFila]);
 
     // Formatear
-    espera.getRange(primeraFilaVacia, 1, 1, 14)
+    espera.getRange(primeraFilaVacia, 1, 1, 16)
       .setBackground('#e8f5e9')
       .setFontColor('black')
       .setHorizontalAlignment('left');
