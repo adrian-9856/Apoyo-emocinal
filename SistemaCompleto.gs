@@ -21,6 +21,8 @@ function onOpen() {
       // Configuración emails
       .addItem('📧 Configurar Email Director', 'configurarEmail')
       .addItem('👥 Configurar Emails Terapeutas', 'configurarEmailsTerapeutas')
+      .addItem('🧪 Probar Emails Terapeutas', 'probarEmailsTerapeutas')
+      .addItem('✉️ Probar Email Director', 'probarEmail')
       .addSeparator()
       // Triggers
       .addItem('⏰ Instalar Triggers de Tiempo', 'instalarTriggerTiempo')
@@ -1023,10 +1025,12 @@ function alEditar(e) {
   if (hoja === 'Terapias Individual' && columna === 5) {
     Logger.log('✅ Detectado cambio en No. Sesión en Terapias');
     Logger.log('   Fila: ' + fila + ', Nuevo valor: ' + val);
+    Logger.log('   Valor anterior: ' + (e.oldValue || 'no disponible'));
 
     try {
       // Preguntar si vino o no vino a la sesión
-      registrarAsistenciaSesion(sheet, fila, val);
+      // Pasar el valor anterior para poder revertir si no vino
+      registrarAsistenciaSesion(sheet, fila, val, e.oldValue);
       Logger.log('✅ Asistencia registrada');
 
       actualizarReportes();
@@ -1634,9 +1638,10 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
 /**
  * Registra la asistencia a una sesión de terapia
  * Pregunta si el participante vino o no vino a la sesión
- * Si no vino, incrementa el contador de inasistencias
+ * Si vino: mantiene el nuevo número de sesión
+ * Si no vino: revierte el número de sesión al anterior e incrementa inasistencias
  */
-function registrarAsistenciaSesion(sheet, fila, numSesion) {
+function registrarAsistenciaSesion(sheet, fila, numSesion, valorAnterior) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
@@ -1666,31 +1671,41 @@ function registrarAsistenciaSesion(sheet, fila, numSesion) {
   );
 
   if (respuesta === ui.Button.YES) {
-    // Vino a la sesión - no hacer nada con el contador
+    // Vino a la sesión - mantener el nuevo número de sesión
     Logger.log('✅ Participante asistió a la sesión ' + numSesion);
+    Logger.log('✅ Número de sesión se mantiene en: ' + numSesion);
     ss.toast('✅ Asistencia registrada\n\n' + nombre + ' asistio a la sesion ' + numSesion, 'Vino', 3);
 
   } else if (respuesta === ui.Button.NO) {
-    // No vino - incrementar contador de inasistencias
-    Logger.log('⚠️ Participante NO asistió a la sesión ' + numSesion);
+    // No vino - REVERTIR número de sesión al anterior e incrementar inasistencias
+    Logger.log('⚠️ Participante NO asistió a la sesión');
 
+    // Revertir el número de sesión al valor anterior
+    const sesionAnterior = valorAnterior || (parseInt(numSesion) - 1);
+    sheet.getRange(fila, 5).setValue(sesionAnterior); // Columna E: No. Sesión
+    Logger.log('📊 Número de sesión revertido: ' + numSesion + ' → ' + sesionAnterior);
+
+    // Incrementar contador de inasistencias
     const inasistenciasActuales = sheet.getRange(fila, 9).getValue() || 0; // Columna I: Inasistencias
     const nuevasInasistencias = parseInt(inasistenciasActuales) + 1;
-
     sheet.getRange(fila, 9).setValue(nuevasInasistencias); // Columna I
 
     Logger.log('📊 Inasistencias actualizadas: ' + inasistenciasActuales + ' → ' + nuevasInasistencias);
 
     ss.toast(
       'INASISTENCIA REGISTRADA\n\n' +
-      nombre + ' NO asistio a la sesion ' + numSesion + '\n\n' +
+      nombre + ' NO asistio\n\n' +
+      'Numero de sesion revertido: ' + numSesion + ' → ' + sesionAnterior + '\n' +
       'Total inasistencias: ' + nuevasInasistencias,
       'No vino',
-      4
+      5
     );
   } else {
-    // Usuario canceló
+    // Usuario canceló - revertir el cambio
     Logger.log('⚠️ Usuario canceló el registro de asistencia');
+    const sesionAnterior = valorAnterior || (parseInt(numSesion) - 1);
+    sheet.getRange(fila, 5).setValue(sesionAnterior); // Revertir cambio
+    Logger.log('📊 Número de sesión revertido por cancelación: ' + numSesion + ' → ' + sesionAnterior);
   }
 }
 
