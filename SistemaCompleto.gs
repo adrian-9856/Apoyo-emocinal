@@ -1087,9 +1087,9 @@ function alEditar(e) {
   }
   */
 
-  // CASO 6: Hoja de interés — columna AA (27) = "Sí"
+  // CASO 6: Hoja de interés — columna O (15) = "Sí"
   if (hoja === 'Hoja de interés' && columna === COL_ENVIAR_INTERES) {
-    Logger.log('✅ Detectada edición en Hoja de interés, columna AA (' + COL_ENVIAR_INTERES + ')');
+    Logger.log('✅ Detectada edición en Hoja de interés, columna O (' + COL_ENVIAR_INTERES + ')');
     if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
       Logger.log('▶️ EJECUTANDO enviarInteresAListaEspera...');
       try {
@@ -6170,25 +6170,21 @@ function _normalizarGenero(valor) {
 // URL Formulario Activo 2026: https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/
 //      export-settings/esd2gxqN87HPuQDypxFqUNi/data.csv
 //
-// Estructura expandida de la hoja (27 columnas):
+// Estructura simplificada de la hoja (15 columnas):
 //   A: Fecha | B: Creamos ID | C: Ya Participante | D: Nombre(s) | E: Apellido(s)
 //   F: Género | G: Autodescripción | H: Edad | I: Teléfono | J: Zona | K: Otra Zona
-//   L: Nivel Estudios | M: Programas Interés
-//   N-P: Inclusión Laboral (Inscripción, Servicios, Comentarios)
-//   Q-S: Educación (Inscripción, Grado, Comentarios)
-//   T-V: Apoyo Emocional (Inscripción, Servicios, Comentarios)
-//   W-Y: mi eelo (Inscripción, Proyectos, Comentarios)
-//   Z: _uuid (oculto, deduplicación) | AA: Enviar a Lista de Espera
+//   L: Nivel Estudios | M: Programas Interés (consolidados)
+//   N: _uuid (oculto, deduplicación) | O: Enviar a Lista de Espera
 //
-// El formulario histórico solo llena las primeras columnas básicas.
-// El formulario 2026 llena todas las columnas de programas.
+// El formulario histórico y el 2026 se consolidan en la misma estructura básica.
+// Los programas seleccionados se listan en la columna M separados por comas.
 // =====================================================================
 
 var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esuV4RKqQhYUUaUizfWBP8S/data.csv';  // histórico 2024-2026
 var URL_FORMULARIO_INTERES_2026 = 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/esd2gxqN87HPuQDypxFqUNi/data.csv';  // formulario activo 2026
 
-/** Columna de "Enviar" en Hoja de interés (1-based) - ahora columna 27 (AA) */
-var COL_ENVIAR_INTERES = 27;
+/** Columna de "Enviar" en Hoja de interés (1-based) - columna 15 (O) */
+var COL_ENVIAR_INTERES = 15;
 
 /**
  * Crea la hoja "Hoja de interés" con estructura expandida (27 columnas).
@@ -6203,20 +6199,10 @@ function crearHojaFormularioInteres() {
 
   const sheet = ss.insertSheet('Hoja de interés');
   const headers = [
-    // Columnas básicas (A-M)
+    // Columnas básicas (A-N)
     'Fecha', 'Creamos ID', 'Ya Participante', 'Nombre(s)', 'Apellido(s)',
     'Género', 'Autodescripción', 'Edad', 'Teléfono', 'Zona', 'Otra Zona',
-    'Nivel Estudios', 'Programas Interés',
-    // Inclusión Laboral (N-P)
-    'IL - Inscripción', 'IL - Servicios', 'IL - Comentarios',
-    // Educación (Q-S)
-    'Edu - Inscripción', 'Edu - Grado', 'Edu - Comentarios',
-    // Apoyo Emocional (T-V)
-    'AE - Inscripción', 'AE - Servicios', 'AE - Comentarios',
-    // mi eelo (W-Y)
-    'mi eelo - Inscripción', 'mi eelo - Proyectos', 'mi eelo - Comentarios',
-    // Metadata y control (Z-AA)
-    '_uuid', 'Enviar a Lista de Espera'
+    'Nivel Estudios', 'Programas Interés', '_uuid', 'Enviar a Lista de Espera'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -6227,12 +6213,8 @@ function crearHojaFormularioInteres() {
   const anchos = [
     110, 100, 80, 120, 120,  // A-E: Fecha, Creamos ID, Ya Participante, Nombre, Apellido
     80, 120, 50, 110, 100, 100,  // F-K: Género, Autodesc, Edad, Tel, Zona, Otra Zona
-    150, 200,  // L-M: Nivel Estudios, Programas Interés
-    80, 150, 200,  // N-P: Inclusión Laboral
-    80, 150, 200,  // Q-S: Educación
-    80, 150, 200,  // T-V: Apoyo Emocional
-    80, 150, 200,  // W-Y: mi eelo
-    0, 150  // Z-AA: _uuid (oculto), Enviar
+    150, 250,  // L-M: Nivel Estudios, Programas Interés
+    0, 150  // N-O: _uuid (oculto), Enviar
   ];
   anchos.forEach((w, i) => {
     if (w > 0) sheet.setColumnWidth(i + 1, w);
@@ -6240,11 +6222,11 @@ function crearHojaFormularioInteres() {
 
   sheet.setFrozenRows(1);
 
-  // Ocultar columna _uuid (Z, columna 26)
-  sheet.hideColumns(26);
+  // Ocultar columna _uuid (N, columna 14)
+  sheet.hideColumns(14);
 
-  // Dropdown "Enviar a Lista de Espera" (columna AA = 27)
-  sheet.getRange('AA2:AA1000').setDataValidation(
+  // Dropdown "Enviar a Lista de Espera" (columna O = 15)
+  sheet.getRange('O2:O1000').setDataValidation(
     SpreadsheetApp.newDataValidation()
       .requireValueInList(['Sí', 'No'], true).setAllowInvalid(false).build()
   );
@@ -6256,15 +6238,15 @@ function crearHojaFormularioInteres() {
       .setAllowInvalid(true).build()
   );
 
-  Logger.log('✅ Hoja Hoja de interés creada (27 columnas)');
+  Logger.log('✅ Hoja Hoja de interés creada (15 columnas - estructura simplificada)');
   return sheet;
 }
 
 /**
- * Extrae filas del formulario HISTÓRICO (7 columnas básicas).
+ * Extrae filas del formulario HISTÓRICO (columnas básicas).
  * Filtra solo "Terapia Individual".
- * Devuelve array de filas: [fecha, creamosID, '', nombres, apellidos, genero, '', '', '', zona, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', uuid, '']
- * (Las columnas vacías se rellenan para mantener compatibilidad con la estructura de 27 columnas)
+ * Devuelve array de filas: [fecha, creamosID, '', nombres, apellidos, genero, '', '', '', zona, '', '', 'Terapia Individual', uuid, '']
+ * (15 columnas - estructura simplificada)
  */
 function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, nombresSet) {
   if (!nombresSet) nombresSet = new Set();
@@ -6320,10 +6302,10 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
     const genero   = iGenero >= 0 ? _normalizarGenero(f[iGenero]) : '';
     const zona     = iZona >= 0   ? (f[iZona] || '').trim() : '';
 
-    // Crear fila con 27 columnas (solo llenar las básicas, resto vacío)
+    // Crear fila con 15 columnas (estructura simplificada)
     resultado.filas.push([
       fecha, creamosID, '', nombres, apellidos, genero, '', '', '', zona, '', '', 'Terapia Individual',
-      '', '', '', '', '', '', '', '', '', '', '', '', uuid, ''
+      uuid, ''
     ]);
 
     // Actualizar sets
@@ -6336,9 +6318,9 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
 }
 
 /**
- * Extrae filas del formulario 2026 COMPLETO (27 columnas).
- * Incluye todas las columnas de programas.
- * Devuelve array de filas con estructura completa.
+ * Extrae filas del formulario 2026 (15 columnas - estructura simplificada).
+ * Solo incluye columnas básicas y consolida programas en una columna.
+ * Devuelve array de filas con estructura simplificada.
  */
 function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombresSet) {
   if (!nombresSet) nombresSet = new Set();
@@ -6367,35 +6349,16 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
   const iZona           = _buscarCol(hCSV, ['inicio/zona', 'zona']);
   const iOtraZona       = _buscarCol(hCSV, ['inicio/otra zona', 'otra zona']);
   const iNivelEstudios  = _buscarCol(hCSV, ['nivel de estudios', 'inicio/¿cuál es tu último nivel']);
-  const iProgramas      = _buscarCol(hCSV, ['programas te interesan', 'inicio/¿qué programas']);
-
-  // Inclusión Laboral
-  const iIL_Insc = _buscarCol(hCSV, ['inclusión laboral/¿deseas inscribirte', 'inclusión laboral']);
-  const iIL_Serv = _buscarCol(hCSV, ['inclusión laboral/¿tienes interés', 'il servicio']);
-  const iIL_Com  = _buscarCol(hCSV, ['inclusión laboral/comentarios']);
-
-  // Educación
-  const iEdu_Insc = _buscarCol(hCSV, ['educación extraescolar/¿deseas inscribirte', 'educación/¿deseas']);
-  const iEdu_Grad = _buscarCol(hCSV, ['educación extraescolar/¿qué grado', 'educación/grado']);
-  const iEdu_Com  = _buscarCol(hCSV, ['educación extraescolar/comentarios', 'educación/comentarios']);
-
-  // Apoyo Emocional
-  const iAE_Insc = _buscarCol(hCSV, ['apoyo emocional/¿deseas inscribirte', 'apoyo emocional/inscrib']);
-  const iAE_Serv = _buscarCol(hCSV, ['apoyo emocional/¿qué servicio', 'apoyo emocional/servicio']);
-  const iAE_Com  = _buscarCol(hCSV, ['apoyo emocional/comentarios']);
-
-  // mi eelo
-  const iME_Insc = _buscarCol(hCSV, ['mi eelo/¿deseas inscribirte', 'mi eelo/inscrib']);
-  const iME_Proy = _buscarCol(hCSV, ['mi eelo/¿qué proyecto', 'mi eelo/proyecto']);
-  const iME_Com  = _buscarCol(hCSV, ['mi eelo/comentarios']);
+  // Programas de interés (checkboxes) - consolidar en una columna
+  const iProg_IL  = _buscarCol(hCSV, ['programas te interesan/inclusión laboral', 'programas te interesan/inclusion laboral']);
+  const iProg_Edu = _buscarCol(hCSV, ['programas te interesan/educación', 'programas te interesan/educacion']);
+  const iProg_AE  = _buscarCol(hCSV, ['programas te interesan/apoyo emocional']);
+  const iProg_ME  = _buscarCol(hCSV, ['programas te interesan/mi eelo']);
 
   const iUUID = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
   Logger.log('📍 ' + fuente + ' (2026): Mapeadas ' + hCSV.length + ' columnas');
-  Logger.log('📍 ' + fuente + ' - IL: iIL_Insc=' + iIL_Insc + ' iIL_Serv=' + iIL_Serv + ' iIL_Com=' + iIL_Com);
-  Logger.log('📍 ' + fuente + ' - Edu: iEdu_Insc=' + iEdu_Insc + ' iEdu_Grad=' + iEdu_Grad + ' iEdu_Com=' + iEdu_Com);
-  Logger.log('📍 ' + fuente + ' - AE: iAE_Insc=' + iAE_Insc + ' iAE_Serv=' + iAE_Serv + ' iAE_Com=' + iAE_Com);
-  Logger.log('📍 ' + fuente + ' - ME: iME_Insc=' + iME_Insc + ' iME_Proy=' + iME_Proy + ' iME_Com=' + iME_Com);
+  Logger.log('📍 ' + fuente + ' - Programas: IL=' + iProg_IL + ' Edu=' + iProg_Edu + ' AE=' + iProg_AE + ' ME=' + iProg_ME);
 
   for (let i = 1; i < filas.length; i++) {
     const f = filas[i];
@@ -6423,35 +6386,21 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
     const zona           = iZona >= 0       ? (f[iZona]       || '').trim() : '';
     const otraZona       = iOtraZona >= 0   ? (f[iOtraZona]   || '').trim() : '';
     const nivelEstudios  = iNivelEstudios >= 0 ? (f[iNivelEstudios] || '').trim() : '';
-    const programas      = iProgramas >= 0  ? (f[iProgramas]  || '').trim() : '';
 
-    // Programas específicos
-    const il_insc = iIL_Insc >= 0 ? (f[iIL_Insc] || '').trim() : '';
-    const il_serv = iIL_Serv >= 0 ? (f[iIL_Serv] || '').trim() : '';
-    const il_com  = iIL_Com >= 0  ? (f[iIL_Com]  || '').trim() : '';
+    // Consolidar programas seleccionados (checkboxes) en una sola columna
+    const programasSeleccionados = [];
+    if (iProg_IL >= 0 && f[iProg_IL]) programasSeleccionados.push('Inclusión Laboral');
+    if (iProg_Edu >= 0 && f[iProg_Edu]) programasSeleccionados.push('Educación');
+    if (iProg_AE >= 0 && f[iProg_AE]) programasSeleccionados.push('Apoyo Emocional');
+    if (iProg_ME >= 0 && f[iProg_ME]) programasSeleccionados.push('mi-eelo');
+    const programas = programasSeleccionados.join(', ') || '';
 
-    const edu_insc = iEdu_Insc >= 0 ? (f[iEdu_Insc] || '').trim() : '';
-    const edu_grad = iEdu_Grad >= 0 ? (f[iEdu_Grad] || '').trim() : '';
-    const edu_com  = iEdu_Com >= 0  ? (f[iEdu_Com]  || '').trim() : '';
-
-    const ae_insc = iAE_Insc >= 0 ? (f[iAE_Insc] || '').trim() : '';
-    const ae_serv = iAE_Serv >= 0 ? (f[iAE_Serv] || '').trim() : '';
-    const ae_com  = iAE_Com >= 0  ? (f[iAE_Com]  || '').trim() : '';
-
-    const me_insc = iME_Insc >= 0 ? (f[iME_Insc] || '').trim() : '';
-    const me_proy = iME_Proy >= 0 ? (f[iME_Proy] || '').trim() : '';
-    const me_com  = iME_Com >= 0  ? (f[iME_Com]  || '').trim() : '';
-
-    // Crear fila con 27 columnas
+    // Crear fila con 15 columnas (estructura simplificada)
     resultado.filas.push([
       fecha, creamosID, yaParticipante, nombres, apellidos,          // A-E
       genero, autodesc, edad, telefono, zona, otraZona,              // F-K
       nivelEstudios, programas,                                      // L-M
-      il_insc, il_serv, il_com,                                      // N-P: Inclusión Laboral
-      edu_insc, edu_grad, edu_com,                                   // Q-S: Educación
-      ae_insc, ae_serv, ae_com,                                      // T-V: Apoyo Emocional
-      me_insc, me_proy, me_com,                                      // W-Y: mi eelo
-      uuid, ''                                                       // Z-AA: _uuid, Enviar
+      uuid, ''                                                       // N-O: _uuid, Enviar
     ]);
 
     // Actualizar sets
@@ -6529,10 +6478,10 @@ function importarFormularioInteres() {
       }
     }
 
-    // Escribir en lote (ahora con 27 columnas)
+    // Escribir en lote (estructura simplificada: 15 columnas)
     if (todasFilasNuevas.length > 0) {
       const dest = sheet.getLastRow() + 1;
-      sheet.getRange(dest, 1, todasFilasNuevas.length, 27).setValues(todasFilasNuevas);
+      sheet.getRange(dest, 1, todasFilasNuevas.length, 15).setValues(todasFilasNuevas);
     }
 
     const msg = todasFilasNuevas.length > 0
@@ -6704,11 +6653,11 @@ function diagnosticarReferenciasYDerivaciones() {
 
 /**
  * Envía un registro de Hoja de interés a Lista de Espera.
- * Nueva estructura (27 columnas):
+ * Estructura simplificada (15 columnas):
  *   A=Fecha B=CreamosID C=YaParticipante D=Nombre(s) E=Apellido(s) F=Género
  *   G=Autodesc H=Edad I=Teléfono J=Zona K=OtraZona L=NivelEstudios M=ProgramasInterés
- *   ... [columnas de programas] ... Z=_uuid AA=Enviar(27)
- * Se llama desde alEditar cuando columna AA (27) = "Sí".
+ *   N=_uuid O=Enviar(15)
+ * Se llama desde alEditar cuando columna O (15) = "Sí".
  */
 function enviarInteresAListaEspera(sheet, fila) {
   Logger.log('🔄 enviarInteresAListaEspera — fila ' + fila);
@@ -7880,7 +7829,7 @@ function migrarDatosAntiguosInteres() {
     const zona        = iZona >= 0     ? (f[iZona]     || '').toString().trim() : '';
     const servicio    = iServicio >= 0 ? (f[iServicio] || '').toString().trim() : 'Terapia Individual';
 
-    // Crear fila con 27 columnas (nueva estructura)
+    // Crear fila con 15 columnas (estructura simplificada)
     nuevosDatos.push([
       fechaOrigen,   // A: Fecha
       creamosID,     // B: Creamos ID
@@ -7891,12 +7840,8 @@ function migrarDatosAntiguosInteres() {
       '', '', '', zona, '',  // G-K: Autodesc, Edad, Tel, Zona, OtraZona (vacíos)
       '',            // L: Nivel Estudios
       servicio || 'Terapia Individual',  // M: Programas Interés
-      '', '', '',    // N-P: Inclusión Laboral (vacío)
-      '', '', '',    // Q-S: Educación (vacío)
-      '', '', '',    // T-V: Apoyo Emocional (vacío)
-      '', '', '',    // W-Y: mi eelo (vacío)
-      '',            // Z: _uuid (vacío para históricos)
-      ''             // AA: Enviar (usuario selecciona)
+      '',            // N: _uuid (vacío para históricos)
+      ''             // O: Enviar (usuario selecciona)
     ]);
 
     // Agregar a sets para no duplicar entre sí los nuevos registros
@@ -7911,12 +7856,12 @@ function migrarDatosAntiguosInteres() {
     return;
   }
 
-  // Escribir en la hoja destino a partir de la primera fila vacía (27 columnas)
+  // Escribir en la hoja destino a partir de la primera fila vacía (15 columnas)
   const primeraVacia = destino.getLastRow() + 1;
-  destino.getRange(primeraVacia, 1, nuevosDatos.length, 27).setValues(nuevosDatos);
+  destino.getRange(primeraVacia, 1, nuevosDatos.length, 15).setValues(nuevosDatos);
 
   // Marcar filas migradas con fondo naranja claro para identificarlas
-  destino.getRange(primeraVacia, 1, nuevosDatos.length, 27).setBackground('#fff3e0');
+  destino.getRange(primeraVacia, 1, nuevosDatos.length, 15).setBackground('#fff3e0');
 
   Logger.log('✅ Migración completada: ' + nuevosDatos.length + ' registros de "' + nombreHoja + '"');
 
@@ -7925,7 +7870,7 @@ function migrarDatosAntiguosInteres() {
     '• Registros migrados: ' + nuevosDatos.length + '\n' +
     '• Duplicados / vacíos omitidos: ' + omitidos + '\n\n' +
     'Los registros migrados aparecen en color naranja claro en\n' +
-    '"Hoja de interés". Puedes usar la columna AA (Enviar)\n' +
+    '"Hoja de interés". Puedes usar la columna O (Enviar)\n' +
     'para enviar cada uno a Lista de Espera.',
     ui.ButtonSet.OK
   );
