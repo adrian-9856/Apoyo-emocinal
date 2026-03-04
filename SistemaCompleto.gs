@@ -6842,11 +6842,18 @@ function importarReferencias() {
     const iNombre   = _buscarCol(hCSV, [
       '2. información del referido (participante) / nombre completo',
       '2. información del referido (participante) / nombre preferido',
+      'información del referido (participante) / nombre completo',
+      'información del referido (participante) / nombre preferido',
+      'información del referido / nombre completo',
+      'información del referido / nombre preferido',
       'nombre completo (según dpi)',
-      'nombre completo',
+      'nombre completo (segun dpi)',
+      'nombre completo según dpi',
+      'nombre completo segun dpi',
       'nombre preferido',
+      'nombre completo',
       'nombre_completo',
-      'nombre'
+      'nombre_preferido'
     ]);
     const iTelefono = _buscarCol(hCSV, ['2. información del referido (participante) / teléfono', 'teléfono', 'telefono', 'tel']);
     const iDireccion= _buscarCol(hCSV, ['2. información del referido (participante) / zona / colonia', '2. información del referido (participante) / especifique zona o colonia', 'dirección', 'direccion', 'zona']);
