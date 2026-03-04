@@ -6809,9 +6809,29 @@ function importarReferencias() {
     if (!sheet) sheet = crearHojaReferencias();
 
     const hCSV = filas[0];
+
+    // Log de diagnóstico: mostrar todos los encabezados del CSV
+    Logger.log('📋 Encabezados CSV Referencias: ' + JSON.stringify(hCSV));
+
     const iFecha    = _buscarCol(hCSV, ['fecha de referencia', '_submission_time', 'fecha', 'date', '_submission']);
-    const iPrograma = _buscarCol(hCSV, ['1. información del programa (origen) / programa que refiere', 'programa que refiere', 'programa_que_refiere', 'programa']);
-    const iPersona  = _buscarCol(hCSV, ['1. información del programa (origen) / persona que refiere', 'persona que refiere', 'persona_que_refiere', 'persona']);
+    const iPrograma = _buscarCol(hCSV, [
+      '1. información del programa (origen) / programa que refiere',
+      'información del programa (origen) / programa que refiere',
+      'información del programa / programa que refiere',
+      'programa que refiere',
+      'programa_que_refiere',
+      'programa refiere',
+      'programa'
+    ]);
+    const iPersona  = _buscarCol(hCSV, [
+      '1. información del programa (origen) / persona que refiere',
+      'información del programa (origen) / persona que refiere',
+      'información del programa / persona que refiere',
+      'persona que refiere',
+      'persona_que_refiere',
+      'persona refiere',
+      'persona'
+    ]);
     const iNombre   = _buscarCol(hCSV, ['2. información del referido (participante) / nombre completo', '2. información del referido (participante) / nombre preferido', 'nombre completo', 'nombre_completo', 'nombre']);
     const iTelefono = _buscarCol(hCSV, ['2. información del referido (participante) / teléfono', 'teléfono', 'telefono', 'tel']);
     const iDireccion= _buscarCol(hCSV, ['2. información del referido (participante) / zona / colonia', '2. información del referido (participante) / especifique zona o colonia', 'dirección', 'direccion', 'zona']);
@@ -6819,7 +6839,7 @@ function importarReferencias() {
     const iMotivo   = _buscarCol(hCSV, ['detalles apoyo emocional / breve motivo de la referencia', 'motivo']);
     const iUUID     = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
-    Logger.log('📍 Referencias: iTipoApoyo=' + iTipoApoyo + ' iNombre=' + iNombre + ' iUUID=' + iUUID);
+    Logger.log('📍 Referencias: iPrograma=' + iPrograma + ' iPersona=' + iPersona + ' iTipoApoyo=' + iTipoApoyo + ' iNombre=' + iNombre + ' iUUID=' + iUUID);
 
     // IDs ya importados (col I = _uuid, índice 8)
     const existentes = sheet.getLastRow() > 1
