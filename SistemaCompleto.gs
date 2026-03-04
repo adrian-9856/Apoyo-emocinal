@@ -6177,7 +6177,7 @@ function _normalizarGenero(valor) {
 // =====================================================================
 
 var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esuV4RKqQhYUUaUizfWBP8S/data.csv';  // histórico 2024-2026
-var URL_FORMULARIO_INTERES_2026 = 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/eseYzEgWw6Tui9y2eppZy3L/data.csv';  // formulario activo 2026
+var URL_FORMULARIO_INTERES_2026 = 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/esd2gxqN87HPuQDypxFqUNi/data.csv';  // formulario activo 2026
 
 /** Columna de "Enviar" en Hoja de interés (1-based) */
 var COL_ENVIAR_INTERES = 7;
@@ -6583,7 +6583,7 @@ function enviarInteresAListaEspera(sheet, fila) {
 //   Programa (quién refiere / organización).
 // =====================================================================
 
-var URL_REFERENCIAS = 'https://kf.kobotoolbox.org/api/v2/assets/an6ckBVY2QRQPhTdKiEfcF/export-settings/esr6NXWYUDifrWNeZVUVgoC/data.csv';
+var URL_REFERENCIAS = 'https://kf.kobotoolbox.org/api/v2/assets/afuD8C8AzoLfd4o5ksTWUw/export-settings/es52swrnjWcz8NnhY5Wyng3/data.csv';
 
 /** Columna de "Enviar" en Referencias (1-based) */
 var COL_ENVIAR_REFERENCIAS = 10;
@@ -6647,17 +6647,17 @@ function importarReferencias() {
     if (!sheet) sheet = crearHojaReferencias();
 
     const hCSV = filas[0];
-    const iFecha    = _buscarCol(hCSV, ['fecha', 'date', '_submission']);
-    const iPrograma = _buscarCol(hCSV, ['programa que refiere', 'programa_que_refiere', 'programa']);
-    const iPersona  = _buscarCol(hCSV, ['persona que refiere', 'persona_que_refiere', 'persona']);
-    const iNombre   = _buscarCol(hCSV, ['nombre completo', 'nombre_completo', 'nombre']);
-    const iTelefono = _buscarCol(hCSV, ['teléfono', 'telefono', 'tel']);
-    const iDireccion= _buscarCol(hCSV, ['dirección', 'direccion', 'dirección']);
-    const iServicio = _buscarCol(hCSV, ['servicio al que deriva', 'servicio_al_que_deriva', 'servicio']);
-    const iMotivo   = _buscarCol(hCSV, ['motivo']);
+    const iFecha    = _buscarCol(hCSV, ['fecha de referencia', '_submission_time', 'fecha', 'date', '_submission']);
+    const iPrograma = _buscarCol(hCSV, ['1. información del programa (origen) / programa que refiere', 'programa que refiere', 'programa_que_refiere', 'programa']);
+    const iPersona  = _buscarCol(hCSV, ['1. información del programa (origen) / nombre del responsable', 'persona que refiere', 'persona_que_refiere', 'persona']);
+    const iNombre   = _buscarCol(hCSV, ['2. información del referido (participante) / nombre completo (según dpi)', '2. información del referido (participante) / nombre preferido', 'nombre completo', 'nombre_completo', 'nombre']);
+    const iTelefono = _buscarCol(hCSV, ['2. información del referido (participante) / teléfono', 'teléfono', 'telefono', 'tel']);
+    const iDireccion= _buscarCol(hCSV, ['2. información del referido (participante) / zona / colonia', '2. información del referido (participante) / especifique zona o colonia', 'dirección', 'direccion', 'zona']);
+    const iTipoApoyo= _buscarCol(hCSV, ['detalles apoyo emocional / tipo de apoyo solicitado', 'tipo de apoyo solicitado', 'servicio al que deriva', 'servicio_al_que_deriva', 'servicio']);
+    const iMotivo   = _buscarCol(hCSV, ['detalles apoyo emocional / breve motivo de la referencia', 'motivo']);
     const iUUID     = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
-    Logger.log('📍 Referencias: iServicio=' + iServicio + ' iNombre=' + iNombre + ' iUUID=' + iUUID);
+    Logger.log('📍 Referencias: iTipoApoyo=' + iTipoApoyo + ' iNombre=' + iNombre + ' iUUID=' + iUUID);
 
     // IDs ya importados (col I = _uuid, índice 8)
     const existentes = sheet.getLastRow() > 1
@@ -6671,9 +6671,10 @@ function importarReferencias() {
       const f = filas[i];
 
       // Filtrar: solo "Terapia individual"
-      if (iServicio >= 0) {
-        const s = (f[iServicio] || '').toString().toLowerCase();
-        if (!s.includes('terapia_individual') && !s.includes('terapia individual') && !s.includes('terapia')) {
+      if (iTipoApoyo >= 0) {
+        const s = (f[iTipoApoyo] || '').toString().toLowerCase().trim();
+        // Solo aceptar exactamente "Terapia individual", no grupos ni otros
+        if (s !== 'terapia individual' && s !== 'terapia_individual') {
           omitidos++;
           continue;
         }
@@ -6689,7 +6690,7 @@ function importarReferencias() {
         iNombre >= 0    ? f[iNombre]    : '',          // D: Nombre Completo
         iTelefono >= 0  ? f[iTelefono]  : '',          // E: Teléfono
         iDireccion >= 0 ? f[iDireccion] : '',          // F: Dirección
-        iServicio >= 0  ? f[iServicio]  : '',          // G: Servicio
+        'Terapia Individual',                          // G: Servicio (siempre Terapia Individual por filtro)
         iMotivo >= 0    ? f[iMotivo]    : '',          // H: Motivo
         uuid,                                           // I: _uuid
         ''                                              // J: Enviar (usuario)
