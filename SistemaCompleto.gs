@@ -6352,6 +6352,7 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
 
   const hCSV = filas[0];
   Logger.log('📋 ' + fuente + ' (2026) - ' + (filas.length - 1) + ' filas, ' + hCSV.length + ' columnas CSV');
+  Logger.log('📋 Encabezados CSV ' + fuente + ': ' + JSON.stringify(hCSV));
 
   // --- Mapeo completo de columnas ---
   const iFecha          = _buscarCol(hCSV, ['_submission_time', 'start']);
@@ -6391,6 +6392,10 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
   const iUUID = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
   Logger.log('📍 ' + fuente + ' (2026): Mapeadas ' + hCSV.length + ' columnas');
+  Logger.log('📍 ' + fuente + ' - IL: iIL_Insc=' + iIL_Insc + ' iIL_Serv=' + iIL_Serv + ' iIL_Com=' + iIL_Com);
+  Logger.log('📍 ' + fuente + ' - Edu: iEdu_Insc=' + iEdu_Insc + ' iEdu_Grad=' + iEdu_Grad + ' iEdu_Com=' + iEdu_Com);
+  Logger.log('📍 ' + fuente + ' - AE: iAE_Insc=' + iAE_Insc + ' iAE_Serv=' + iAE_Serv + ' iAE_Com=' + iAE_Com);
+  Logger.log('📍 ' + fuente + ' - ME: iME_Insc=' + iME_Insc + ' iME_Proy=' + iME_Proy + ' iME_Com=' + iME_Com);
 
   for (let i = 1; i < filas.length; i++) {
     const f = filas[i];
