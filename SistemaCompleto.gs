@@ -6827,12 +6827,22 @@ function importarReferencias() {
       '1. información del programa (origen) / persona que refiere',
       'información del programa (origen) / persona que refiere',
       'información del programa / persona que refiere',
+      'nombre del responsable',
       'persona que refiere',
       'persona_que_refiere',
       'persona refiere',
+      'responsable',
       'persona'
     ]);
-    const iNombre   = _buscarCol(hCSV, ['2. información del referido (participante) / nombre completo', '2. información del referido (participante) / nombre preferido', 'nombre completo', 'nombre_completo', 'nombre']);
+    const iNombre   = _buscarCol(hCSV, [
+      '2. información del referido (participante) / nombre completo',
+      '2. información del referido (participante) / nombre preferido',
+      'nombre completo (según dpi)',
+      'nombre completo',
+      'nombre preferido',
+      'nombre_completo',
+      'nombre'
+    ]);
     const iTelefono = _buscarCol(hCSV, ['2. información del referido (participante) / teléfono', 'teléfono', 'telefono', 'tel']);
     const iDireccion= _buscarCol(hCSV, ['2. información del referido (participante) / zona / colonia', '2. información del referido (participante) / especifique zona o colonia', 'dirección', 'direccion', 'zona']);
     const iTipoApoyo= _buscarCol(hCSV, ['detalles apoyo emocional / tipo de apoyo solicitado', 'tipo de apoyo solicitado', 'servicio al que deriva', 'servicio_al_que_deriva', 'servicio']);
