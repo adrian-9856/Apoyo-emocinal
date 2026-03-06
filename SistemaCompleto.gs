@@ -35,6 +35,7 @@ function onOpen() {
       .addItem('🔧 Reparar Fórmulas Reporte', 'actualizarFormulasReporte')
       .addItem('🔍 Diagnóstico CSV Hoja de interés', 'diagnosticarFormularioInteres')
       .addItem('📋 Mostrar todas las columnas CSV', 'mostrarColumnasCSVInteres')
+      .addItem('🔬 Ver valores Terapia Individual', 'mostrarValoresTerapiaIndividual')
       .addItem('🔍 Diagnóstico CSV Referencias y Derivaciones', 'diagnosticarReferenciasYDerivaciones')
       .addItem('📦 Migrar datos antiguos a Hoja de interés', 'migrarDatosAntiguosInteres')
       .addSeparator()
@@ -6901,7 +6902,7 @@ function diagnosticarFormularioInteres() {
         const hCSV = filas[0];
         const iCreamosID  = _buscarCol(hCSV, ['creamos id', 'creamos_id', 'creamos']);
         const iNombres    = _buscarCol(hCSV, ['inicio/nombre', 'nombre(s)', 'nombres']);
-        const iTerapiaInd = _buscarCol(hCSV, ['terapia individual', 'terapia_individual']);
+        const iTerapiaInd = _buscarCol(hCSV, ['/terapia individual', 'terapia_individual', 'interesa(n)?/terapia']);
         const iUUID       = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
         info += '  Creamos ID:       ' + (iCreamosID  >= 0 ? '"' + hCSV[iCreamosID]  + '"' : '❌ no encontrada') + '\n';
@@ -6984,6 +6985,82 @@ function mostrarColumnasCSVInteres() {
   } catch (e) {
     ui.alert('❌ Error', 'Error: ' + e.message, ui.ButtonSet.OK);
     Logger.log('❌ Error: ' + e.message);
+  }
+}
+
+/**
+ * Muestra valores REALES de la columna Terapia Individual en el CSV
+ * para diagnosticar por qué solo 3 registros se importan.
+ */
+function mostrarValoresTerapiaIndividual() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    ss.toast('📥 Descargando CSV...', 'Diagnóstico', 5);
+
+    const resp = UrlFetchApp.fetch(URL_FORMULARIO_INTERES_2026, {
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+
+    if (resp.getResponseCode() !== 200) {
+      ui.alert('❌ Error', 'HTTP ' + resp.getResponseCode(), ui.ButtonSet.OK);
+      return;
+    }
+
+    const filas = _parsearCSV(resp.getContentText());
+    if (filas.length <= 1) {
+      ui.alert('ℹ️ Sin datos', 'El CSV está vacío', ui.ButtonSet.OK);
+      return;
+    }
+
+    const hCSV = filas[0];
+    const iTerapiaInd = _buscarCol(hCSV, [
+      '/terapia individual',
+      'terapia_individual',
+      'interesa(n)?/terapia'
+    ]);
+
+    let info = '🔍 VALORES REALES - Columna Terapia Individual\n';
+    info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    info += 'Total registros: ' + (filas.length - 1) + '\n\n';
+
+    if (iTerapiaInd < 0) {
+      info += '❌ Columna NO encontrada\n';
+      ui.alert('🔍 Diagnóstico', info, ui.ButtonSet.OK);
+      return;
+    }
+
+    info += '✅ Columna encontrada: "' + hCSV[iTerapiaInd] + '"\n';
+    info += '📍 Posición: columna ' + iTerapiaInd + '\n\n';
+    info += 'Valores únicos encontrados:\n';
+    info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+
+    // Contar valores únicos
+    const valoresMap = {};
+    for (let i = 1; i < filas.length; i++) {
+      const valor = (filas[i][iTerapiaInd] || '').toString().trim();
+      const key = valor || '(vacío)';
+      valoresMap[key] = (valoresMap[key] || 0) + 1;
+    }
+
+    // Mostrar valores ordenados por frecuencia
+    Object.entries(valoresMap)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([valor, count]) => {
+        const marca = (valor === '1' || valor.toLowerCase() === 'true' || valor.toLowerCase().includes('terapia')) ? '✅' : '❌';
+        info += marca + ' "' + valor + '" → ' + count + ' registros\n';
+      });
+
+    info += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    info += 'Leyenda:\n✅ = Se importaría\n❌ = Se omitiría';
+
+    ui.alert('🔍 Valores Reales', info, ui.ButtonSet.OK);
+
+  } catch (e) {
+    ui.alert('❌ Error', 'Error: ' + e.message, ui.ButtonSet.OK);
+    Logger.log('❌ Error mostrarValoresTerapiaIndividual: ' + e.message);
   }
 }
 
