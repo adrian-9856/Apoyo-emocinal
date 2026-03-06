@@ -476,16 +476,16 @@ function crearTerapias() {
 
   const headers = [
     'Terapeuta', 'Participante', 'Creamos ID', 'Género',
-    'No. Sesión', 'Estado', 'Motivo Finalización', 'Sesiones Mes Anterior', 'Inasistencias'
+    'No. Sesión', 'Estado', 'Motivo Finalización', 'Sesiones Mes Anterior', 'Inasistencias', 'Asistencias'
   ];
 
-  sheet.getRange(1, 1, 1, 9).setValues([headers])
+  sheet.getRange(1, 1, 1, 10).setValues([headers])
     .setBackground('#2e7d32')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 200, 120, 80, 80, 120, 300, 120, 100].forEach((w, i) => {
+  [120, 200, 120, 80, 80, 120, 300, 120, 100, 100].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -528,15 +528,15 @@ function crearGestionCasos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Intervención de casos');
 
-  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creamos ID', 'Tipo', 'Motivo', '_uuid', 'Enviar a Lista de Espera'];
+  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creamos ID', 'Tipo', 'Motivo', '_uuid'];
 
-  sheet.getRange(1, 1, 1, 8).setValues([headers])
+  sheet.getRange(1, 1, 1, 7).setValues([headers])
     .setBackground('#f57c00')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 200, 120, 120, 120, 300, 100, 180].forEach((w, i) => {
+  [120, 200, 120, 120, 120, 300, 100].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -1105,20 +1105,8 @@ function alEditar(e) {
     }
   }
 
-  // CASO 7: Referencias — columna J (10) = "Sí"
-  if (hoja === 'Referencias de programas' && columna === 10) {
-    Logger.log('✅ Detectada edición en Referencias, columna J (10)');
-    if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
-      Logger.log('▶️ EJECUTANDO enviarReferenciaAListaEspera...');
-      try {
-        enviarReferenciaAListaEspera(sheet, fila);
-        Logger.log('✅ enviarReferenciaAListaEspera completado');
-        actualizarReportes();
-      } catch (error) {
-        Logger.log('❌ ERROR en enviarReferenciaAListaEspera: ' + error.toString());
-      }
-    }
-  }
+  // CASO 7: Referencias — Ya no tiene columna "Enviar a Lista de Espera"
+  // Removido según solicitud del usuario
 
   // CASO 8: Derivaciones Institucionales — columna L (12) = "Sí"
   if (hoja === 'Derivaciones Institucionales' && columna === 12) {
@@ -1135,20 +1123,8 @@ function alEditar(e) {
     }
   }
 
-  // CASO 9: Intervención de casos — columna H (8) = "Sí"
-  if (hoja === 'Intervención de casos' && columna === 8) {
-    Logger.log('✅ Detectada edición en Intervención de casos, columna H (8)');
-    if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
-      Logger.log('▶️ EJECUTANDO enviarIntervencionCasosAListaEspera...');
-      try {
-        enviarIntervencionCasosAListaEspera(sheet, fila);
-        Logger.log('✅ enviarIntervencionCasosAListaEspera completado');
-        actualizarReportes();
-      } catch (error) {
-        Logger.log('❌ ERROR en enviarIntervencionCasosAListaEspera: ' + error.toString());
-      }
-    }
-  }
+  // CASO 9: Intervención de casos — Ya no tiene columna "Enviar a Lista de Espera"
+  // Removido según solicitud del usuario
 }
 
 /**
@@ -1674,10 +1650,18 @@ function registrarAsistenciaSesion(sheet, fila, numSesion, valorAnterior) {
   );
 
   if (respuesta === ui.Button.YES) {
-    // Vino a la sesión - mantener el nuevo número de sesión
+    // Vino a la sesión - mantener el nuevo número de sesión e incrementar asistencias
     Logger.log('✅ Participante asistió a la sesión ' + numSesion);
     Logger.log('✅ Número de sesión se mantiene en: ' + numSesion);
-    ss.toast('✅ Asistencia registrada\n\n' + nombre + ' asistio a la sesion ' + numSesion, 'Vino', 3);
+
+    // Incrementar contador de asistencias (Columna J: Asistencias)
+    const asistenciasActuales = sheet.getRange(fila, 10).getValue() || 0;
+    const nuevasAsistencias = parseInt(asistenciasActuales) + 1;
+    sheet.getRange(fila, 10).setValue(nuevasAsistencias);
+
+    Logger.log('📊 Asistencias actualizadas: ' + asistenciasActuales + ' → ' + nuevasAsistencias);
+
+    ss.toast('✅ Asistencia registrada\n\n' + nombre + ' asistio a la sesion ' + numSesion + '\nTotal asistencias: ' + nuevasAsistencias, 'Vino', 3);
 
   } else if (respuesta === ui.Button.NO) {
     // No vino - REVERTIR número de sesión al anterior e incrementar inasistencias
@@ -6922,11 +6906,15 @@ function diagnosticarFormularioInteres() {
         const hCSV = filas[0];
         const iCreamosID  = _buscarCol(hCSV, ['creamos id', 'creamos_id', 'creamos']);
         const iNombres    = _buscarCol(hCSV, ['inicio/nombre', 'nombre(s)', 'nombres']);
+        const iEdad       = _buscarCol(hCSV, ['inicio/edad', 'edad', 'inicio/¿cuántos años tienes', '¿cuántos años tienes', 'años', 'age']);
+        const iTelefono   = _buscarCol(hCSV, ['inicio/número de teléfono', 'inicio/numero de telefono', 'teléfono', 'telefono', 'número de teléfono', 'numero de telefono', 'tel', 'phone']);
         const iTerapiaInd = _buscarCol(hCSV, ['/terapia individual', 'terapia_individual', 'interesa(n)?/terapia']);
         const iUUID       = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
         info += '  Creamos ID:       ' + (iCreamosID  >= 0 ? '"' + hCSV[iCreamosID]  + '"' : '❌ no encontrada') + '\n';
         info += '  Nombre:           ' + (iNombres    >= 0 ? '"' + hCSV[iNombres]    + '"' : '❌ no encontrada') + '\n';
+        info += '  Edad:             ' + (iEdad       >= 0 ? '"' + hCSV[iEdad]       + '"' : '❌ NO ENCONTRADA') + '\n';
+        info += '  Teléfono:         ' + (iTelefono   >= 0 ? '"' + hCSV[iTelefono]   + '"' : '❌ NO ENCONTRADA') + '\n';
         info += '  Terapia Indiv.:   ' + (iTerapiaInd >= 0 ? '"' + hCSV[iTerapiaInd] + '"' : '⚠️ col no encontrada → importa todos') + '\n';
         info += '  _uuid:            ' + (iUUID       >= 0 ? '"' + hCSV[iUUID]       + '"' : '⚠️ no encontrado') + '\n';
 
@@ -7267,23 +7255,18 @@ function crearHojaReferencias() {
   const headers = [
     'Fecha', 'Programa que refiere', 'Persona que refiere',
     'Nombre Completo', 'Teléfono', 'Dirección',
-    'Servicio', 'Motivo de referencia', '_uuid', 'Enviar a Lista de Espera'
+    'Servicio', 'Motivo de referencia', '_uuid'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground('#00695c').setFontColor('white')
     .setFontWeight('bold').setHorizontalAlignment('center').setWrap(true);
 
-  [110, 200, 200, 200, 130, 200, 200, 250, 0, 170].forEach((w, i) => {
+  [110, 200, 200, 200, 130, 200, 200, 250, 0].forEach((w, i) => {
     if (w === 0) { sheet.hideColumns(i + 1); } // ocultar _uuid
     else sheet.setColumnWidth(i + 1, w);
   });
   sheet.setFrozenRows(1);
-
-  sheet.getRange('J2:J1000').setDataValidation(
-    SpreadsheetApp.newDataValidation()
-      .requireValueInList(['Sí', 'No'], true).setAllowInvalid(false).build()
-  );
 
   Logger.log('✅ Hoja Referencias creada');
   return sheet;
@@ -7394,14 +7377,13 @@ function importarReferencias() {
         iDireccion >= 0 ? f[iDireccion] : '',          // F: Dirección
         'Terapia Individual',                          // G: Servicio (siempre Terapia Individual por filtro)
         iMotivo >= 0    ? f[iMotivo]    : '',          // H: Motivo
-        uuid,                                           // I: _uuid
-        ''                                              // J: Enviar (usuario)
+        uuid                                            // I: _uuid
       ]);
       if (uuid) uuidsSet.add(uuid);
     }
 
     if (filasNuevas.length > 0) {
-      sheet.getRange(sheet.getLastRow() + 1, 1, filasNuevas.length, 10).setValues(filasNuevas);
+      sheet.getRange(sheet.getLastRow() + 1, 1, filasNuevas.length, 9).setValues(filasNuevas);
     }
 
     const msg = filasNuevas.length > 0
@@ -7417,27 +7399,26 @@ function importarReferencias() {
 }
 
 /**
- * Envía un registro de Referencias a Lista de Espera.
- * Estructura fija: A=Fecha B=Programa C=Persona D=Nombre E=Tel F=Dir G=Servicio H=Motivo I=UUID J=Enviar
- * Se llama desde alEditar cuando columna J (10) = "Sí".
+ * [DESHABILITADA] Envía un registro de Referencias a Lista de Espera.
+ * Columna "Enviar a Lista de Espera" removida según solicitud del usuario.
  */
-function enviarReferenciaAListaEspera(sheet, fila) {
-  Logger.log('🔄 enviarReferenciaAListaEspera — fila ' + fila);
-  const datos = sheet.getRange(fila, 1, 1, COL_ENVIAR_REFERENCIAS - 1).getValues()[0];
-  // [0]=Fecha [1]=Programa [2]=Persona [3]=Nombre [4]=Tel [5]=Dir [6]=Servicio [7]=Motivo [8]=UUID
-  return _agregarAListaEspera(sheet, fila, COL_ENVIAR_REFERENCIAS, {
-    nombre:      datos[3],    // D: Nombre Completo
-    creamosID:   '',          // no disponible en este formulario
-    genero:      '',
-    edad:        '',
-    malestar:    datos[7],    // H: Motivo de referencia
-    telefono:    datos[4],    // E: Teléfono
-    derivacion:  'Referencia de Programa',
-    quienDeriva: datos[2],    // C: Persona que refiere
-    programa:    datos[1],    // B: Programa que refiere
-    servicio:    datos[6]     // G: Servicio
-  });
-}
+// function enviarReferenciaAListaEspera(sheet, fila) {
+//   Logger.log('🔄 enviarReferenciaAListaEspera — fila ' + fila);
+//   const datos = sheet.getRange(fila, 1, 1, COL_ENVIAR_REFERENCIAS - 1).getValues()[0];
+//   // [0]=Fecha [1]=Programa [2]=Persona [3]=Nombre [4]=Tel [5]=Dir [6]=Servicio [7]=Motivo [8]=UUID
+//   return _agregarAListaEspera(sheet, fila, COL_ENVIAR_REFERENCIAS, {
+//     nombre:      datos[3],    // D: Nombre Completo
+//     creamosID:   '',          // no disponible en este formulario
+//     genero:      '',
+//     edad:        '',
+//     malestar:    datos[7],    // H: Motivo de referencia
+//     telefono:    datos[4],    // E: Teléfono
+//     derivacion:  'Referencia de Programa',
+//     quienDeriva: datos[2],    // C: Persona que refiere
+//     programa:    datos[1],    // B: Programa que refiere
+//     servicio:    datos[6]     // G: Servicio
+//   });
+// }
 
 
 // =====================================================================
@@ -7619,24 +7600,28 @@ function enviarDerivacionInstitucionalAListaEspera(sheet, fila) {
  *   A: Fecha | B: Participante | C: Terapeuta | D: Creamos ID
  *   E: Tipo  | F: Motivo       | G: _uuid (oculto) | H: Enviar a Lista de Espera
  */
-function enviarIntervencionCasosAListaEspera(sheet, fila) {
-  Logger.log('🔄 enviarIntervencionCasosAListaEspera — fila ' + fila);
-  const datos = sheet.getRange(fila, 1, 1, 7).getValues()[0];
-  // [0]=Fecha [1]=Participante [2]=Terapeuta [3]=CreamosID [4]=Tipo [5]=Motivo [6]=UUID
-
-  return _agregarAListaEspera(sheet, fila, 8, {
-    nombre:      datos[1],    // B: Participante
-    creamosID:   datos[3],    // D: Creamos ID
-    genero:      '',          // no disponible
-    edad:        '',          // no disponible
-    malestar:    datos[5],    // F: Motivo (se usa como Malestar Principal)
-    telefono:    '',          // no disponible
-    derivacion:  'Intervención de Caso (' + (datos[4] || '') + ')',  // E: Tipo
-    quienDeriva: datos[2] || '',  // C: Terapeuta que hizo la intervención
-    programa:    'Intervención de casos',
-    servicio:    'Apoyo Emocional'
-  });
-}
+/**
+ * [DESHABILITADA] Envía un registro de Intervención de Casos a Lista de Espera.
+ * Columna "Enviar a Lista de Espera" removida según solicitud del usuario.
+ */
+// function enviarIntervencionCasosAListaEspera(sheet, fila) {
+//   Logger.log('🔄 enviarIntervencionCasosAListaEspera — fila ' + fila);
+//   const datos = sheet.getRange(fila, 1, 1, 7).getValues()[0];
+//   // [0]=Fecha [1]=Participante [2]=Terapeuta [3]=CreamosID [4]=Tipo [5]=Motivo [6]=UUID
+//
+//   return _agregarAListaEspera(sheet, fila, 8, {
+//     nombre:      datos[1],    // B: Participante
+//     creamosID:   datos[3],    // D: Creamos ID
+//     genero:      '',          // no disponible
+//     edad:        '',          // no disponible
+//     malestar:    datos[5],    // F: Motivo (se usa como Malestar Principal)
+//     telefono:    '',          // no disponible
+//     derivacion:  'Intervención de Caso (' + (datos[4] || '') + ')',  // E: Tipo
+//     quienDeriva: datos[2] || '',  // C: Terapeuta que hizo la intervención
+//     programa:    'Intervención de casos',
+//     servicio:    'Apoyo Emocional'
+//   });
+// }
 
 
 // =====================================================================
