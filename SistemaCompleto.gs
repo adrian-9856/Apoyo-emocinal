@@ -6557,6 +6557,14 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
     'mi-eelo'
   ]);
 
+  // COLUMNA CORRECTA: "¿Deseas inscribirte en el programa de Apoyo Emocional?"
+  const iDeseaInscribirseAE = _buscarCol(hCSV, [
+    'apoyo emocional/¿deseas inscribirte',
+    'deseas inscribirte en el programa de apoyo emocional',
+    '¿deseas inscribirte en el programa de apoyo emocional?',
+    'apoyo emocional/deseas inscribirte'
+  ]);
+
   // Terapia Individual - sub-programa de Apoyo Emocional
   const iTerapiaIndividual = _buscarCol(hCSV, [
     '/terapia individual',
@@ -6589,16 +6597,24 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
   for (let i = 1; i < filas.length; i++) {
     const f = filas[i];
 
-    // Filtrar: solo Apoyo Emocional
-    // Importar TODAS las personas que marcaron "Apoyo Emocional" (no solo Terapia Individual)
-    if (iProg_AE >= 0) {
+    // Filtrar: solo personas que dijeron "Sí" a inscribirse en Apoyo Emocional
+    // Usar la columna "¿Deseas inscribirte en el programa de Apoyo Emocional?"
+    if (iDeseaInscribirseAE >= 0) {
+      const respuesta = (f[iDeseaInscribirseAE] || '').toString().trim().toLowerCase();
+      const deseaInscribirse = respuesta === 'sí' || respuesta === 'si' || respuesta === 'yes' || respuesta === '1';
+      if (!deseaInscribirse) {
+        resultado.omitidos++;
+        continue;
+      }
+    } else if (iProg_AE >= 0) {
+      // Fallback: usar checkbox de "¿Qué programas te interesan?/Apoyo Emocional"
       const apoyoEmocionalSeleccionado = f[iProg_AE] ? true : false;
       if (!apoyoEmocionalSeleccionado) {
         resultado.omitidos++;
         continue;
       }
     } else {
-      // Si no existe la columna de Apoyo Emocional, omitir
+      // Si no existe ninguna columna de Apoyo Emocional, omitir
       resultado.omitidos++;
       continue;
     }
