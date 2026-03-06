@@ -6062,7 +6062,7 @@ function _agregarAListaEspera(sheetOrigen, filaOrigen, numColsOrigen, campos) {
   }
 
   const nombre    = (campos.nombre    || '').toString().trim();
-  const creamosID = (campos.creamosID || '').toString().trim();
+  const creamosID = (campos.creamosID || '').toString().trim().toUpperCase();
 
   if (!nombre && !creamosID) {
     ss.toast('⚠️ Falta Nombre Completo o Creamos ID', 'Error', 3);
@@ -6172,6 +6172,70 @@ function _normalizarGenero(valor) {
   if (v.includes('hombre') || v.includes('masculino'))          return 'Hombre';
   if (v.includes('otro'))                                        return 'Otro';
   return valor.toString().trim();
+}
+
+/**
+ * Convierte una fecha de nacimiento a edad en años (número entero).
+ * Si el valor ya es un número, lo devuelve tal cual.
+ * Si el valor es una fecha (en formato ISO, Excel serial, o Date), calcula la edad.
+ * @param {string|number|Date} valor - Fecha de nacimiento o edad
+ * @return {number|string} Edad en años como número entero, o cadena vacía si no se puede calcular
+ */
+function _calcularEdadDesdeNacimiento(valor) {
+  if (!valor) return '';
+
+  const str = (valor || '').toString().trim();
+  if (!str) return '';
+
+  // Si ya es un número entero (edad directa), devolverlo
+  if (/^\d+$/.test(str)) {
+    const edad = parseInt(str, 10);
+    if (edad > 0 && edad < 120) return edad;
+  }
+
+  // Intentar parsear como fecha
+  let fechaNacimiento;
+
+  // Formato ISO: YYYY-MM-DD o YYYY-MM-DDTHH:MM:SS
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    fechaNacimiento = new Date(str);
+  }
+  // Número de serie de Excel (días desde 1900-01-01)
+  else if (/^\d+(\.\d+)?$/.test(str)) {
+    const serialNumber = parseFloat(str);
+    // Excel serial date: días desde 1900-01-01 (con bug de año bisiesto 1900)
+    if (serialNumber > 1000 && serialNumber < 100000) {
+      const excelEpoch = new Date(1899, 11, 30); // 30 dic 1899
+      fechaNacimiento = new Date(excelEpoch.getTime() + serialNumber * 86400000);
+    }
+  }
+  // Si el valor ya es un objeto Date
+  else if (valor instanceof Date) {
+    fechaNacimiento = valor;
+  }
+
+  // Calcular edad
+  if (fechaNacimiento && !isNaN(fechaNacimiento.getTime())) {
+    const hoy = new Date();
+    let edad = hoy.getFullYear() - fechaNacimiento.getFullYear();
+    const mesActual = hoy.getMonth();
+    const mesNacimiento = fechaNacimiento.getMonth();
+    const diaActual = hoy.getDate();
+    const diaNacimiento = fechaNacimiento.getDate();
+
+    // Ajustar si aún no ha cumplido años este año
+    if (mesActual < mesNacimiento || (mesActual === mesNacimiento && diaActual < diaNacimiento)) {
+      edad--;
+    }
+
+    // Validar que la edad sea razonable
+    if (edad >= 0 && edad < 120) {
+      return edad;
+    }
+  }
+
+  // Si no se pudo convertir, devolver el valor original
+  return str;
 }
 
 
@@ -6392,7 +6456,7 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
     }
 
     const uuid      = iUUID >= 0      ? (f[iUUID]      || '').trim() : '';
-    const creamosID = iCreamosID >= 0 ? (f[iCreamosID] || '').trim() : '';
+    const creamosID = iCreamosID >= 0 ? (f[iCreamosID] || '').toString().trim().toUpperCase() : '';
     const nombres   = iNombres >= 0   ? (f[iNombres]   || '').trim() : '';
     const apellidos = iApellidos >= 0 ? (f[iApellidos] || '').trim() : '';
     const nombreCompleto = [nombres, apellidos].filter(Boolean).join(' ').trim();
@@ -6550,7 +6614,7 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
     }
 
     const uuid      = iUUID >= 0      ? (f[iUUID]      || '').trim() : '';
-    const creamosID = iCreamosID >= 0 ? (f[iCreamosID] || '').trim() : '';
+    const creamosID = iCreamosID >= 0 ? (f[iCreamosID] || '').toString().trim().toUpperCase() : '';
     const nombres   = iNombres >= 0   ? (f[iNombres]   || '').trim() : '';
     const apellidos = iApellidos >= 0 ? (f[iApellidos] || '').trim() : '';
     const nombreCompleto = [nombres, apellidos].filter(Boolean).join(' ').trim();
@@ -6567,7 +6631,7 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
     const yaParticipante = iYaParticipante >= 0 ? (f[iYaParticipante] || '').trim() : '';
     const genero         = iGenero >= 0 ? _normalizarGenero(f[iGenero]) : '';
     const autodesc       = iAutodesc >= 0   ? (f[iAutodesc]   || '').trim() : '';
-    const edad           = iEdad >= 0       ? (f[iEdad]       || '').trim() : '';
+    const edad           = iEdad >= 0       ? _calcularEdadDesdeNacimiento(f[iEdad]) : '';
     const telefono       = iTelefono >= 0   ? (f[iTelefono]   || '').trim() : '';
     const zona           = iZona >= 0       ? (f[iZona]       || '').trim() : '';
     const otraZona       = iOtraZona >= 0   ? (f[iOtraZona]   || '').trim() : '';
