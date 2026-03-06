@@ -6597,24 +6597,18 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
   for (let i = 1; i < filas.length; i++) {
     const f = filas[i];
 
-    // Filtrar: solo personas que dijeron "Sí" a inscribirse en Apoyo Emocional
-    // Usar la columna "¿Deseas inscribirte en el programa de Apoyo Emocional?"
-    if (iDeseaInscribirseAE >= 0) {
-      const respuesta = (f[iDeseaInscribirseAE] || '').toString().trim().toLowerCase();
-      const deseaInscribirse = respuesta === 'sí' || respuesta === 'si' || respuesta === 'yes' || respuesta === '1';
-      if (!deseaInscribirse) {
-        resultado.omitidos++;
-        continue;
-      }
-    } else if (iProg_AE >= 0) {
-      // Fallback: usar checkbox de "¿Qué programas te interesan?/Apoyo Emocional"
-      const apoyoEmocionalSeleccionado = f[iProg_AE] ? true : false;
-      if (!apoyoEmocionalSeleccionado) {
+    // Filtrar: SOLO personas con "Terapia Individual" específicamente (columna 34)
+    // Verificar directamente la columna de Terapia Individual
+    if (iTerapiaIndividual >= 0) {
+      const valorTerapia = (f[iTerapiaIndividual] || '').toString().trim();
+      const tieneTerapiaIndividual = valorTerapia === '1' || valorTerapia.toLowerCase() === 'true' ||
+                                     valorTerapia.toLowerCase() === 'yes' || valorTerapia.toLowerCase().includes('terapia');
+      if (!tieneTerapiaIndividual) {
         resultado.omitidos++;
         continue;
       }
     } else {
-      // Si no existe ninguna columna de Apoyo Emocional, omitir
+      // Si no existe la columna de Terapia Individual, omitir
       resultado.omitidos++;
       continue;
     }
