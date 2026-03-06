@@ -6440,20 +6440,13 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
     _checkServicio(iGestionCasos, 'Gestión de Casos');
     const tieneApoyoEmocional = _checkServicio(iApoyoEmocional, 'Grupo de apoyo emocional');
 
-    // Filtrar: SOLO Terapia Individual
-    // Si existe la columna de Terapia Individual, filtrar por ella
-    // Si no existe, filtrar por Apoyo Emocional (fallback para datos antiguos)
-    if (iTerapiaInd >= 0) {
-      if (!tieneTerapiaInd) {
-        resultado.omitidos++;
-        continue;
-      }
-    } else if (iApoyoEmocional >= 0) {
-      // Fallback: si no hay columna de Terapia Individual, usar Apoyo Emocional
-      if (!tieneApoyoEmocional) {
-        resultado.omitidos++;
-        continue;
-      }
+    // Filtrar: SOLO personas con servicios de Apoyo Emocional
+    // Importar si tienen Terapia Individual O cualquier otro servicio de Apoyo Emocional
+    const tieneAlgunServicioAE = tieneTerapiaInd || tieneApoyoEmocional || serviciosSeleccionados.length > 0;
+
+    if (!tieneAlgunServicioAE) {
+      resultado.omitidos++;
+      continue;
     }
 
     const uuid      = iUUID >= 0      ? (f[iUUID]      || '').trim() : '';
@@ -6473,7 +6466,7 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
     const zona     = iZona >= 0   ? (f[iZona] || '').trim() : '';
 
     // Consolidar servicios en una cadena
-    const programas = serviciosSeleccionados.join(', ') || 'Terapia Individual';
+    const programas = serviciosSeleccionados.join(', ') || 'Apoyo Emocional';
 
     // Log detallado para la primera fila procesada
     if (i === 1) {
@@ -6596,22 +6589,18 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
   for (let i = 1; i < filas.length; i++) {
     const f = filas[i];
 
-    // Filtrar: solo Terapia Individual (dentro de Apoyo Emocional)
-    // Si existe la columna de Terapia Individual, filtrar por ella
-    // Si no existe, filtrar por Apoyo Emocional (comportamiento anterior)
-    if (iTerapiaIndividual >= 0) {
-      const terapiaIndividualSeleccionada = f[iTerapiaIndividual] ? true : false;
-      if (!terapiaIndividualSeleccionada) {
-        resultado.omitidos++;
-        continue;
-      }
-    } else if (iProg_AE >= 0) {
-      // Fallback: si no hay columna de Terapia Individual, usar Apoyo Emocional
+    // Filtrar: solo Apoyo Emocional
+    // Importar TODAS las personas que marcaron "Apoyo Emocional" (no solo Terapia Individual)
+    if (iProg_AE >= 0) {
       const apoyoEmocionalSeleccionado = f[iProg_AE] ? true : false;
       if (!apoyoEmocionalSeleccionado) {
         resultado.omitidos++;
         continue;
       }
+    } else {
+      // Si no existe la columna de Apoyo Emocional, omitir
+      resultado.omitidos++;
+      continue;
     }
 
     const uuid      = iUUID >= 0      ? (f[iUUID]      || '').trim() : '';
