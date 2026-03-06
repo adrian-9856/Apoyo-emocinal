@@ -33,6 +33,7 @@ function onOpen() {
       .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
       .addItem('🔧 Reparar Fórmulas Reporte', 'actualizarFormulasReporte')
       .addItem('🔍 Diagnóstico CSV Hoja de interés', 'diagnosticarFormularioInteres')
+      .addItem('📋 Mostrar todas las columnas CSV', 'mostrarColumnasCSVInteres')
       .addItem('🔍 Diagnóstico CSV Referencias y Derivaciones', 'diagnosticarReferenciasYDerivaciones')
       .addItem('📦 Migrar datos antiguos a Hoja de interés', 'migrarDatosAntiguosInteres')
       .addSeparator()
@@ -6280,16 +6281,74 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
   const iUUID      = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
   // Buscar TODOS los servicios/programas (checkboxes histórico)
-  const iTerapiaInd = _buscarCol(hCSV, ['terapia individual', 'terapia_individual']);
-  const iRelajArte  = _buscarCol(hCSV, ['relajarte', 'relaj arte', 'grupos terapeuticos']);
-  const iTerapiaOcup = _buscarCol(hCSV, ['terapia ocupacional', 'terapia_ocupacional']);
-  const iEscuelaPadres = _buscarCol(hCSV, ['escuela para madres', 'escuela para padres', 'escuela madres/padres']);
-  const iAutopercepcion = _buscarCol(hCSV, ['autopercepción', 'autopercepcion', 'grupo de autopercepción']);
-  const iGestionCasos = _buscarCol(hCSV, ['gestión de casos', 'gestion de casos', 'gestion_casos']);
-  const iApoyoEmocional = _buscarCol(hCSV, ['grupo de apoyo emocional', 'apoyo emocional', 'apoyo_emocional']);
+  const iTerapiaInd = _buscarCol(hCSV, [
+    'terapia individual',
+    'terapia_individual',
+    'servicios/terapia individual',
+    'servicios te interesan/terapia individual'
+  ]);
+  const iRelajArte  = _buscarCol(hCSV, [
+    'relajarte',
+    'relaj arte',
+    'grupos terapeuticos',
+    'servicios/relajarte',
+    'servicios te interesan/relajarte'
+  ]);
+  const iTerapiaOcup = _buscarCol(hCSV, [
+    'terapia ocupacional',
+    'terapia_ocupacional',
+    'servicios/terapia ocupacional',
+    'servicios te interesan/terapia ocupacional'
+  ]);
+  const iEscuelaPadres = _buscarCol(hCSV, [
+    'escuela para madres',
+    'escuela para padres',
+    'escuela madres/padres',
+    'servicios/escuela',
+    'servicios te interesan/escuela'
+  ]);
+  const iAutopercepcion = _buscarCol(hCSV, [
+    'autopercepción',
+    'autopercepcion',
+    'grupo de autopercepción',
+    'servicios/autopercepción',
+    'servicios te interesan/autopercepción'
+  ]);
+  const iGestionCasos = _buscarCol(hCSV, [
+    'gestión de casos',
+    'gestion de casos',
+    'gestion_casos',
+    'servicios/gestión',
+    'servicios te interesan/gestión'
+  ]);
+  const iApoyoEmocional = _buscarCol(hCSV, [
+    'grupo de apoyo emocional',
+    'apoyo emocional',
+    'apoyo_emocional',
+    'servicios/apoyo emocional',
+    'servicios te interesan/apoyo emocional'
+  ]);
 
-  Logger.log('📍 ' + fuente + ' (Histórico): encontradas ' + hCSV.length + ' columnas');
-  Logger.log('📍 Servicios: TerapiaInd=' + iTerapiaInd + ' RelajArte=' + iRelajArte + ' TerapiaOcup=' + iTerapiaOcup + ' EscuelaPadres=' + iEscuelaPadres + ' Autopercepción=' + iAutopercepcion + ' GestiónCasos=' + iGestionCasos + ' ApoyoEmocional=' + iApoyoEmocional);
+  Logger.log('📍 ' + fuente + ' (Histórico): Total columnas CSV: ' + hCSV.length);
+  Logger.log('📍 Servicios detectados:');
+  Logger.log('   - Terapia Individual: ' + (iTerapiaInd >= 0 ? hCSV[iTerapiaInd] : '❌ NO ENCONTRADA'));
+  Logger.log('   - RelajArte: ' + (iRelajArte >= 0 ? hCSV[iRelajArte] : '❌ NO ENCONTRADA'));
+  Logger.log('   - Terapia Ocupacional: ' + (iTerapiaOcup >= 0 ? hCSV[iTerapiaOcup] : '❌ NO ENCONTRADA'));
+  Logger.log('   - Escuela Padres: ' + (iEscuelaPadres >= 0 ? hCSV[iEscuelaPadres] : '❌ NO ENCONTRADA'));
+  Logger.log('   - Autopercepción: ' + (iAutopercepcion >= 0 ? hCSV[iAutopercepcion] : '❌ NO ENCONTRADA'));
+  Logger.log('   - Gestión Casos: ' + (iGestionCasos >= 0 ? hCSV[iGestionCasos] : '❌ NO ENCONTRADA'));
+  Logger.log('   - Apoyo Emocional: ' + (iApoyoEmocional >= 0 ? hCSV[iApoyoEmocional] : '❌ NO ENCONTRADA'));
+
+  // Si no se encontraron servicios, mostrar columnas relevantes
+  if (iTerapiaInd < 0 && iApoyoEmocional < 0) {
+    Logger.log('⚠️ NO SE ENCONTRARON COLUMNAS DE SERVICIOS. Columnas disponibles:');
+    hCSV.forEach((col, idx) => {
+      const colLower = col.toLowerCase();
+      if (colLower.includes('servicio') || colLower.includes('terapia') || colLower.includes('apoyo')) {
+        Logger.log('   [' + idx + '] ' + col);
+      }
+    });
+  }
 
   for (let i = 1; i < filas.length; i++) {
     const f = filas[i];
@@ -6340,6 +6399,16 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
     // Consolidar servicios en una cadena
     const programas = serviciosSeleccionados.join(', ') || 'Terapia Individual';
 
+    // Log detallado para la primera fila procesada
+    if (i === 1) {
+      Logger.log('📋 Ejemplo de registro histórico (fila 1):');
+      Logger.log('   - Valores de servicios en CSV:');
+      Logger.log('     TerapiaInd[' + iTerapiaInd + '] = ' + (iTerapiaInd >= 0 ? f[iTerapiaInd] : 'N/A'));
+      Logger.log('     ApoyoEmocional[' + iApoyoEmocional + '] = ' + (iApoyoEmocional >= 0 ? f[iApoyoEmocional] : 'N/A'));
+      Logger.log('   - Servicios seleccionados: ' + JSON.stringify(serviciosSeleccionados));
+      Logger.log('   - Programas consolidados: "' + programas + '"');
+    }
+
     // Crear fila con 13 columnas (estructura simplificada)
     resultado.filas.push([
       fecha, creamosID, '', nombres, apellidos, genero, '', '', zona, '', programas,
@@ -6388,15 +6457,56 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
   const iOtraZona       = _buscarCol(hCSV, ['inicio/otra zona', 'otra zona']);
   const iNivelEstudios  = _buscarCol(hCSV, ['nivel de estudios', 'inicio/¿cuál es tu último nivel']);
   // Programas de interés (checkboxes) - consolidar en una columna
-  const iProg_IL  = _buscarCol(hCSV, ['programas te interesan/inclusión laboral', 'programas te interesan/inclusion laboral']);
-  const iProg_Edu = _buscarCol(hCSV, ['programas te interesan/educación', 'programas te interesan/educacion']);
-  const iProg_AE  = _buscarCol(hCSV, ['programas te interesan/apoyo emocional']);
-  const iProg_ME  = _buscarCol(hCSV, ['programas te interesan/mi eelo']);
+  // Buscar con múltiples variantes de nombres
+  const iProg_IL  = _buscarCol(hCSV, [
+    'programas te interesan/inclusión laboral',
+    'programas te interesan/inclusion laboral',
+    'interesan/inclusión laboral',
+    'interesan/inclusion laboral',
+    'inclusion laboral',
+    'inclusión laboral'
+  ]);
+  const iProg_Edu = _buscarCol(hCSV, [
+    'programas te interesan/educación',
+    'programas te interesan/educacion',
+    'interesan/educación',
+    'interesan/educacion',
+    'educación',
+    'educacion'
+  ]);
+  const iProg_AE  = _buscarCol(hCSV, [
+    'programas te interesan/apoyo emocional',
+    'interesan/apoyo emocional',
+    'apoyo emocional'
+  ]);
+  const iProg_ME  = _buscarCol(hCSV, [
+    'programas te interesan/mi eelo',
+    'programas te interesan/mi-eelo',
+    'interesan/mi eelo',
+    'interesan/mi-eelo',
+    'mi eelo',
+    'mi-eelo'
+  ]);
 
   const iUUID = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
-  Logger.log('📍 ' + fuente + ' (2026): Mapeadas ' + hCSV.length + ' columnas');
-  Logger.log('📍 ' + fuente + ' - Programas: IL=' + iProg_IL + ' Edu=' + iProg_Edu + ' AE=' + iProg_AE + ' ME=' + iProg_ME);
+  // Log detallado de columnas encontradas
+  Logger.log('📍 ' + fuente + ' (2026): Total columnas CSV: ' + hCSV.length);
+  Logger.log('📍 Columnas de Programas detectadas:');
+  Logger.log('   - Inclusión Laboral: ' + (iProg_IL >= 0 ? hCSV[iProg_IL] : '❌ NO ENCONTRADA'));
+  Logger.log('   - Educación: ' + (iProg_Edu >= 0 ? hCSV[iProg_Edu] : '❌ NO ENCONTRADA'));
+  Logger.log('   - Apoyo Emocional: ' + (iProg_AE >= 0 ? hCSV[iProg_AE] : '❌ NO ENCONTRADA'));
+  Logger.log('   - Mi-eelo: ' + (iProg_ME >= 0 ? hCSV[iProg_ME] : '❌ NO ENCONTRADA'));
+
+  // Si ninguna columna fue encontrada, mostrar todas las columnas disponibles
+  if (iProg_IL < 0 && iProg_Edu < 0 && iProg_AE < 0 && iProg_ME < 0) {
+    Logger.log('⚠️ NO SE ENCONTRARON COLUMNAS DE PROGRAMAS. Columnas disponibles:');
+    hCSV.forEach((col, idx) => {
+      if (col.toLowerCase().includes('program') || col.toLowerCase().includes('interes')) {
+        Logger.log('   [' + idx + '] ' + col);
+      }
+    });
+  }
 
   for (let i = 1; i < filas.length; i++) {
     const f = filas[i];
@@ -6441,6 +6551,17 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
     if (iProg_AE >= 0 && f[iProg_AE]) programasSeleccionados.push('Apoyo Emocional');
     if (iProg_ME >= 0 && f[iProg_ME]) programasSeleccionados.push('mi-eelo');
     const programas = programasSeleccionados.join(', ') || '';
+
+    // Log detallado para la primera fila procesada
+    if (i === 1) {
+      Logger.log('📋 Ejemplo de registro (fila 1):');
+      Logger.log('   - Valores de programas en CSV:');
+      Logger.log('     IL[' + iProg_IL + '] = ' + (iProg_IL >= 0 ? f[iProg_IL] : 'N/A'));
+      Logger.log('     Edu[' + iProg_Edu + '] = ' + (iProg_Edu >= 0 ? f[iProg_Edu] : 'N/A'));
+      Logger.log('     AE[' + iProg_AE + '] = ' + (iProg_AE >= 0 ? f[iProg_AE] : 'N/A'));
+      Logger.log('     ME[' + iProg_ME + '] = ' + (iProg_ME >= 0 ? f[iProg_ME] : 'N/A'));
+      Logger.log('   - Programas consolidados: "' + programas + '"');
+    }
 
     // Crear fila con 13 columnas (estructura simplificada)
     resultado.filas.push([
@@ -6609,6 +6730,62 @@ function diagnosticarFormularioInteres() {
   } catch (e) {
     ui.alert('❌ Error', 'Error al diagnosticar:\n' + e.message, ui.ButtonSet.OK);
     Logger.log('❌ Error diagnóstico Interés: ' + e.message);
+  }
+}
+
+/**
+ * Muestra TODAS las columnas del CSV de Hoja de interés (formulario 2026)
+ * para identificar los nombres exactos de las columnas.
+ */
+function mostrarColumnasCSVInteres() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    ss.toast('📥 Descargando CSV...', 'Diagnóstico', 5);
+
+    const resp = UrlFetchApp.fetch(URL_FORMULARIO_INTERES_2026, { muteHttpExceptions: true, followRedirects: true });
+
+    if (resp.getResponseCode() !== 200) {
+      ui.alert('❌ Error', 'HTTP ' + resp.getResponseCode() + ' - URL inválida o caducada', ui.ButtonSet.OK);
+      return;
+    }
+
+    const csvTexto = resp.getContentText();
+    const filas = _parsearCSV(csvTexto);
+
+    if (filas.length === 0) {
+      ui.alert('❌ Error', 'CSV vacío o sin encabezados', ui.ButtonSet.OK);
+      return;
+    }
+
+    const headers = filas[0];
+
+    let info = '📋 COLUMNAS DEL CSV (Formulario 2026)\n';
+    info += 'Total de columnas: ' + headers.length + '\n';
+    info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+    // Mostrar todas las columnas con índice
+    headers.forEach((col, idx) => {
+      info += '[' + idx + '] ' + col + '\n';
+    });
+
+    info += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    info += 'Columnas que contienen "program" o "interes":\n\n';
+
+    headers.forEach((col, idx) => {
+      const colLower = col.toLowerCase();
+      if (colLower.includes('program') || colLower.includes('interes')) {
+        info += '[' + idx + '] ' + col + '\n';
+      }
+    });
+
+    Logger.log(info);
+    ui.alert('📋 Columnas CSV', info, ui.ButtonSet.OK);
+
+  } catch (e) {
+    ui.alert('❌ Error', 'Error: ' + e.message, ui.ButtonSet.OK);
+    Logger.log('❌ Error: ' + e.message);
   }
 }
 
