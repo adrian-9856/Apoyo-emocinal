@@ -6374,10 +6374,20 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
     _checkServicio(iGestionCasos, 'Gestión de Casos');
     const tieneApoyoEmocional = _checkServicio(iApoyoEmocional, 'Grupo de apoyo emocional');
 
-    // Filtrar: solo si tiene Terapia Individual O Apoyo Emocional
-    if (!tieneTerapiaInd && !tieneApoyoEmocional) {
-      resultado.omitidos++;
-      continue;
+    // Filtrar: SOLO Terapia Individual
+    // Si existe la columna de Terapia Individual, filtrar por ella
+    // Si no existe, filtrar por Apoyo Emocional (fallback para datos antiguos)
+    if (iTerapiaInd >= 0) {
+      if (!tieneTerapiaInd) {
+        resultado.omitidos++;
+        continue;
+      }
+    } else if (iApoyoEmocional >= 0) {
+      // Fallback: si no hay columna de Terapia Individual, usar Apoyo Emocional
+      if (!tieneApoyoEmocional) {
+        resultado.omitidos++;
+        continue;
+      }
     }
 
     const uuid      = iUUID >= 0      ? (f[iUUID]      || '').trim() : '';
@@ -6488,6 +6498,14 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
     'mi-eelo'
   ]);
 
+  // Terapia Individual - sub-programa de Apoyo Emocional
+  const iTerapiaIndividual = _buscarCol(hCSV, [
+    'terapia individual',
+    'terapia_individual',
+    'apoyo emocional/terapia individual',
+    'apoyo_emocional/terapia_individual'
+  ]);
+
   const iUUID = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
   // Log detallado de columnas encontradas
@@ -6496,6 +6514,7 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
   Logger.log('   - Inclusión Laboral: ' + (iProg_IL >= 0 ? hCSV[iProg_IL] : '❌ NO ENCONTRADA'));
   Logger.log('   - Educación: ' + (iProg_Edu >= 0 ? hCSV[iProg_Edu] : '❌ NO ENCONTRADA'));
   Logger.log('   - Apoyo Emocional: ' + (iProg_AE >= 0 ? hCSV[iProg_AE] : '❌ NO ENCONTRADA'));
+  Logger.log('   - Terapia Individual: ' + (iTerapiaIndividual >= 0 ? hCSV[iTerapiaIndividual] : '❌ NO ENCONTRADA'));
   Logger.log('   - Mi-eelo: ' + (iProg_ME >= 0 ? hCSV[iProg_ME] : '❌ NO ENCONTRADA'));
 
   // Si ninguna columna fue encontrada, mostrar todas las columnas disponibles
@@ -6511,8 +6530,17 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
   for (let i = 1; i < filas.length; i++) {
     const f = filas[i];
 
-    // Filtrar: solo Apoyo Emocional
-    if (iProg_AE >= 0) {
+    // Filtrar: solo Terapia Individual (dentro de Apoyo Emocional)
+    // Si existe la columna de Terapia Individual, filtrar por ella
+    // Si no existe, filtrar por Apoyo Emocional (comportamiento anterior)
+    if (iTerapiaIndividual >= 0) {
+      const terapiaIndividualSeleccionada = f[iTerapiaIndividual] ? true : false;
+      if (!terapiaIndividualSeleccionada) {
+        resultado.omitidos++;
+        continue;
+      }
+    } else if (iProg_AE >= 0) {
+      // Fallback: si no hay columna de Terapia Individual, usar Apoyo Emocional
       const apoyoEmocionalSeleccionado = f[iProg_AE] ? true : false;
       if (!apoyoEmocionalSeleccionado) {
         resultado.omitidos++;
