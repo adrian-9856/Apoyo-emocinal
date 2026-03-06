@@ -11,6 +11,7 @@ function onOpen() {
       .addSeparator()
       // Captación
       .addItem('📥 Importar Captación Ahora', 'importarHojasCaptacionSilencioso')
+      .addItem('📜 Importar Históricos 2024-2026', 'importarFormularioInteresHistorico')
       .addItem('✅ Activar auto-captación (10 min)', 'instalarAutoImportCaptacion')
       .addItem('🛑 Desactivar auto-captación', 'desactivarAutoImportCaptacion')
       .addSeparator()
@@ -6689,6 +6690,111 @@ function importarFormularioInteres() {
   } catch (e) {
     Logger.log('❌ Error en importarFormularioInteres: ' + e.message + '\n' + e.stack);
     ss.toast('❌ Error: ' + e.message, 'Error', 5);
+  }
+}
+
+/**
+ * Importa SOLO los datos históricos 2024-2026 (una sola vez).
+ * Esta función solo importa desde URL_FORMULARIO_INTERES_HIST.
+ * NO importa desde el formulario activo 2026.
+ * Útil para importación inicial de datos históricos.
+ */
+function importarFormularioInteresHistorico() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Confirmar con el usuario
+  const respuesta = ui.alert(
+    '📥 Importar Históricos 2024-2026',
+    '¿Deseas importar los datos históricos (2024-2026)?\n\n' +
+    '⚠️ Esta función solo debe ejecutarse UNA VEZ para importar datos antiguos.\n' +
+    'No es necesario volver a ejecutarla después.',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) {
+    ss.toast('❌ Importación cancelada', 'Cancelado', 3);
+    return;
+  }
+
+  ss.toast('📥 Importando Históricos 2024-2026...', 'Importando', 10);
+
+  try {
+    let sheet = ss.getSheetByName('Hoja de interés');
+    if (!sheet) sheet = crearHojaFormularioInteres();
+
+    // Construir sets de dedup con datos ya existentes en la hoja
+    const existentes = sheet.getLastRow() > 1
+      ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues()
+      : [];
+    const uuidsSet   = new Set(existentes.map(r => (r[11] || '').toString().trim()).filter(Boolean));
+    const creamosSet = new Set(existentes.map(r => (r[1]  || '').toString().trim()).filter(Boolean));
+    const nombresSet = new Set(
+      existentes.map(r => {
+        const nom = (r[3] || '').toString().trim();
+        const ape = (r[4] || '').toString().trim();
+        return [nom, ape].filter(Boolean).join(' ').trim().toLowerCase();
+      }).filter(Boolean)
+    );
+
+    const todasFilasNuevas = [];
+    let totalOmitidos = 0;
+
+    // SOLO importar históricos
+    const fuente = {
+      url: URL_FORMULARIO_INTERES_HIST,
+      nombre: 'Histórico 2024-2026',
+      extractor: _extraerFilasInteresHistorico
+    };
+
+    if (!fuente.url) {
+      ui.alert('❌ Error', 'URL histórica no configurada. Verifica URL_FORMULARIO_INTERES_HIST', ui.ButtonSet.OK);
+      return;
+    }
+
+    ss.toast('📥 Descargando ' + fuente.nombre + '...', 'Importando', 8);
+
+    try {
+      const resp = UrlFetchApp.fetch(fuente.url, { muteHttpExceptions: true, followRedirects: true });
+      if (resp.getResponseCode() !== 200) {
+        ui.alert('❌ Error HTTP', 'HTTP ' + resp.getResponseCode() + ' - No se pudo descargar los históricos', ui.ButtonSet.OK);
+        return;
+      }
+
+      const csvTexto = resp.getContentText();
+      if (!csvTexto || csvTexto.trim().length === 0) {
+        ui.alert('❌ Error', 'CSV vacío o sin datos', ui.ButtonSet.OK);
+        return;
+      }
+
+      // Extraer filas usando el extractor histórico
+      const r = fuente.extractor(csvTexto, fuente.nombre, uuidsSet, creamosSet, nombresSet);
+      todasFilasNuevas.push(...r.filas);
+      totalOmitidos = r.omitidos;
+      Logger.log('✅ ' + fuente.nombre + ': ' + r.filas.length + ' nuevos, ' + r.omitidos + ' omitidos');
+
+    } catch (eFuente) {
+      Logger.log('❌ Error: ' + eFuente.message);
+      ui.alert('❌ Error', 'Error al descargar históricos:\n' + eFuente.message, ui.ButtonSet.OK);
+      return;
+    }
+
+    // Escribir en lote
+    if (todasFilasNuevas.length > 0) {
+      const dest = sheet.getLastRow() + 1;
+      sheet.getRange(dest, 1, todasFilasNuevas.length, 13).setValues(todasFilasNuevas);
+    }
+
+    const msg = todasFilasNuevas.length > 0
+      ? '✅ ' + todasFilasNuevas.length + ' registros históricos importados'
+      : 'ℹ️ Sin registros nuevos' + (totalOmitidos > 0 ? ' (' + totalOmitidos + ' omitidos - no tienen Terapia Individual)' : '');
+
+    Logger.log('📊 Históricos importados: ' + todasFilasNuevas.length + ' nuevos, ' + totalOmitidos + ' omitidos');
+    ui.alert('✅ Importación Completa', msg, ui.ButtonSet.OK);
+
+  } catch (e) {
+    Logger.log('❌ Error en importarFormularioInteresHistorico: ' + e.message + '\n' + e.stack);
+    ui.alert('❌ Error', 'Error al importar históricos:\n' + e.message, ui.ButtonSet.OK);
   }
 }
 
