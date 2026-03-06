@@ -6166,7 +6166,7 @@ function _normalizarGenero(valor) {
 // =====================================================================
 // HOJA: FORMULARIO DE INTERÉS  (Múltiples Programas)
 // URL Histórico 2024-2026: https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/
-//      export-settings/esuV4RKqQhYUUaUizfWBP8S/data.csv
+//      export-settings/esvntaAqU9GDq9aAkoKjPpY/data.csv
 // URL Formulario Activo 2026: https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/
 //      export-settings/esd2gxqN87HPuQDypxFqUNi/data.csv
 //
@@ -6180,11 +6180,11 @@ function _normalizarGenero(valor) {
 // Los programas seleccionados se listan en la columna M separados por comas.
 // =====================================================================
 
-var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esuV4RKqQhYUUaUizfWBP8S/data.csv';  // histórico 2024-2026
+var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esvntaAqU9GDq9aAkoKjPpY/data.csv';  // histórico 2024-2026
 var URL_FORMULARIO_INTERES_2026 = 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/esd2gxqN87HPuQDypxFqUNi/data.csv';  // formulario activo 2026
 
-/** Columna de "Enviar" en Hoja de interés (1-based) - columna 15 (O) */
-var COL_ENVIAR_INTERES = 15;
+/** Columna de "Enviar" en Hoja de interés (1-based) - columna 13 (M) */
+var COL_ENVIAR_INTERES = 13;
 
 /**
  * Crea la hoja "Hoja de interés" con estructura expandida (27 columnas).
@@ -6199,10 +6199,10 @@ function crearHojaFormularioInteres() {
 
   const sheet = ss.insertSheet('Hoja de interés');
   const headers = [
-    // Columnas básicas (A-N)
+    // Columnas básicas (A-M)
     'Fecha', 'Creamos ID', 'Ya Participante', 'Nombre(s)', 'Apellido(s)',
-    'Género', 'Autodescripción', 'Edad', 'Teléfono', 'Zona', 'Otra Zona',
-    'Nivel Estudios', 'Programas Interés', '_uuid', 'Enviar a Lista de Espera'
+    'Género', 'Edad', 'Teléfono', 'Zona', 'Otra Zona',
+    'Programas Interés', '_uuid', 'Enviar a Lista de Espera'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -6212,9 +6212,9 @@ function crearHojaFormularioInteres() {
   // Anchos de columna optimizados
   const anchos = [
     110, 100, 80, 120, 120,  // A-E: Fecha, Creamos ID, Ya Participante, Nombre, Apellido
-    80, 120, 50, 110, 100, 100,  // F-K: Género, Autodesc, Edad, Tel, Zona, Otra Zona
-    150, 250,  // L-M: Nivel Estudios, Programas Interés
-    0, 150  // N-O: _uuid (oculto), Enviar
+    80, 50, 110, 100, 100,  // F-J: Género, Edad, Tel, Zona, Otra Zona
+    250,  // K: Programas Interés
+    0, 150  // L-M: _uuid (oculto), Enviar
   ];
   anchos.forEach((w, i) => {
     if (w > 0) sheet.setColumnWidth(i + 1, w);
@@ -6222,11 +6222,11 @@ function crearHojaFormularioInteres() {
 
   sheet.setFrozenRows(1);
 
-  // Ocultar columna _uuid (N, columna 14)
-  sheet.hideColumns(14);
+  // Ocultar columna _uuid (L, columna 12)
+  sheet.hideColumns(12);
 
-  // Dropdown "Enviar a Lista de Espera" (columna O = 15)
-  sheet.getRange('O2:O1000').setDataValidation(
+  // Dropdown "Enviar a Lista de Espera" (columna M = 13)
+  sheet.getRange('M2:M1000').setDataValidation(
     SpreadsheetApp.newDataValidation()
       .requireValueInList(['Sí', 'No'], true).setAllowInvalid(false).build()
   );
@@ -6238,15 +6238,15 @@ function crearHojaFormularioInteres() {
       .setAllowInvalid(true).build()
   );
 
-  Logger.log('✅ Hoja Hoja de interés creada (15 columnas - estructura simplificada)');
+  Logger.log('✅ Hoja Hoja de interés creada (13 columnas - estructura simplificada)');
   return sheet;
 }
 
 /**
  * Extrae filas del formulario HISTÓRICO (columnas básicas).
  * Filtra solo "Terapia Individual".
- * Devuelve array de filas: [fecha, creamosID, '', nombres, apellidos, genero, '', '', '', zona, '', '', 'Terapia Individual', uuid, '']
- * (15 columnas - estructura simplificada)
+ * Devuelve array de filas: [fecha, creamosID, '', nombres, apellidos, genero, '', '', zona, '', 'Terapia Individual', uuid, '']
+ * (13 columnas - estructura simplificada)
  */
 function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, nombresSet) {
   if (!nombresSet) nombresSet = new Set();
@@ -6395,12 +6395,12 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
     if (iProg_ME >= 0 && f[iProg_ME]) programasSeleccionados.push('mi-eelo');
     const programas = programasSeleccionados.join(', ') || '';
 
-    // Crear fila con 15 columnas (estructura simplificada)
+    // Crear fila con 13 columnas (estructura simplificada)
     resultado.filas.push([
       fecha, creamosID, yaParticipante, nombres, apellidos,          // A-E
-      genero, autodesc, edad, telefono, zona, otraZona,              // F-K
-      nivelEstudios, programas,                                      // L-M
-      uuid, ''                                                       // N-O: _uuid, Enviar
+      genero, edad, telefono, zona, otraZona,                        // F-J
+      programas,                                                     // K
+      uuid, ''                                                       // L-M: _uuid, Enviar
     ]);
 
     // Actualizar sets
