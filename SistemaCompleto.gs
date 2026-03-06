@@ -6347,12 +6347,10 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
 
   // Buscar TODOS los servicios/programas (checkboxes histórico)
   const iTerapiaInd = _buscarCol(hCSV, [
-    'terapia individual',
+    '/terapia individual',
     'terapia_individual',
-    'servicios/terapia individual',
-    'servicios te interesan/terapia individual',
-    '¿qué servicio(s)/grupo(s) de apoyo emocional te interesa(n)?/terapia individual',
-    'servicio(s)/grupo(s) de apoyo emocional te interesa(n)?/terapia individual'
+    'servicios/terapia',
+    'interesa(n)?/terapia individual'
   ]);
   const iRelajArte  = _buscarCol(hCSV, [
     'relajarte',
@@ -6567,12 +6565,10 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
 
   // Terapia Individual - sub-programa de Apoyo Emocional
   const iTerapiaIndividual = _buscarCol(hCSV, [
-    'terapia individual',
+    '/terapia individual',
     'terapia_individual',
-    'apoyo emocional/terapia individual',
-    'apoyo_emocional/terapia_individual',
-    '¿qué servicio(s)/grupo(s) de apoyo emocional te interesa(n)?/terapia individual',
-    'servicio(s)/grupo(s) de apoyo emocional te interesa(n)?/terapia individual'
+    'apoyo emocional/terapia',
+    'interesa(n)?/terapia individual'
   ]);
 
   const iUUID = _buscarCol(hCSV, ['_uuid', 'uuid']);
