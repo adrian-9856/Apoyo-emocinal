@@ -6440,11 +6440,9 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
     _checkServicio(iGestionCasos, 'Gestión de Casos');
     const tieneApoyoEmocional = _checkServicio(iApoyoEmocional, 'Grupo de apoyo emocional');
 
-    // Filtrar: SOLO personas con servicios de Apoyo Emocional
-    // Importar si tienen Terapia Individual O cualquier otro servicio de Apoyo Emocional
-    const tieneAlgunServicioAE = tieneTerapiaInd || tieneApoyoEmocional || serviciosSeleccionados.length > 0;
-
-    if (!tieneAlgunServicioAE) {
+    // Filtrar: SOLO personas con "Terapia Individual" específicamente
+    // NO importar otros servicios (RelajArte, Escuela para Madres, etc.)
+    if (!tieneTerapiaInd) {
       resultado.omitidos++;
       continue;
     }
