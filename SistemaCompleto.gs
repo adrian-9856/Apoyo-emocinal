@@ -6104,18 +6104,28 @@ function _agregarAListaEspera(sheetOrigen, filaOrigen, numColsOrigen, campos) {
     ''                                               // P: _notas_llamadas (oculto)
   ];
 
-  // Buscar la primera fila vacía en columna C (Nombre) dentro del rango de fórmulas (2-1000).
-  // Así el registro queda dentro del rango que tiene las fórmulas de Fecha y No. automático.
-  // Si las 999 filas están ocupadas, se extiende después de la fila 1000.
-  const valoresC = espera.getRange('C2:C1000').getValues();
+  // Buscar la primera fila vacía real (sin contenido en columnas importantes)
+  // Revisamos solo hasta 100 filas después de la última con datos para no buscar muy lejos
+  const ultimaFilaConDatos = espera.getLastRow();
+  const limiteInferior = Math.min(ultimaFilaConDatos + 100, 1000);
+
+  const valoresRango = espera.getRange(2, 1, limiteInferior - 1, 16).getValues();
   let dest = -1;
-  for (let i = 0; i < valoresC.length; i++) {
-    if (!valoresC[i][0] || valoresC[i][0].toString().trim() === '') {
+
+  for (let i = 0; i < valoresRango.length; i++) {
+    // Una fila está vacía si las columnas C (Nombre), D (Creamos ID) y G (Malestar) están vacías
+    const nombre = (valoresRango[i][2] || '').toString().trim();     // Columna C
+    const creamosId = (valoresRango[i][3] || '').toString().trim();  // Columna D
+    const malestar = (valoresRango[i][6] || '').toString().trim();   // Columna G
+
+    if (!nombre && !creamosId && !malestar) {
       dest = i + 2; // 0-based → fila real (header en fila 1, datos desde fila 2)
       break;
     }
   }
-  if (dest === -1) dest = espera.getLastRow() + 1; // rango lleno → extender
+
+  // Si no encontramos espacio, agregar después de la última fila con datos
+  if (dest === -1) dest = ultimaFilaConDatos + 1;
 
   espera.getRange(dest, 1, 1, 16).setValues([nuevaFila]);
   espera.getRange(dest, 1, 1, 16)
