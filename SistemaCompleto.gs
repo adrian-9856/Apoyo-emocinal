@@ -6268,21 +6268,47 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
   const iGenero    = _buscarCol(hCSV, ['inicio/género', 'inicio/genero', 'género', 'genero', 'sexo']);
   const iZona      = _buscarCol(hCSV, ['inicio/zona', 'zona']);
   const iUUID      = _buscarCol(hCSV, ['_uuid', 'uuid']);
+
+  // Buscar TODOS los servicios/programas (checkboxes histórico)
   const iTerapiaInd = _buscarCol(hCSV, ['terapia individual', 'terapia_individual']);
+  const iRelajArte  = _buscarCol(hCSV, ['relajarte', 'relaj arte', 'grupos terapeuticos']);
+  const iTerapiaOcup = _buscarCol(hCSV, ['terapia ocupacional', 'terapia_ocupacional']);
+  const iEscuelaPadres = _buscarCol(hCSV, ['escuela para madres', 'escuela para padres', 'escuela madres/padres']);
+  const iAutopercepcion = _buscarCol(hCSV, ['autopercepción', 'autopercepcion', 'grupo de autopercepción']);
+  const iGestionCasos = _buscarCol(hCSV, ['gestión de casos', 'gestion de casos', 'gestion_casos']);
+  const iApoyoEmocional = _buscarCol(hCSV, ['grupo de apoyo emocional', 'apoyo emocional', 'apoyo_emocional']);
 
   Logger.log('📍 ' + fuente + ' (Histórico): encontradas ' + hCSV.length + ' columnas');
+  Logger.log('📍 Servicios: TerapiaInd=' + iTerapiaInd + ' RelajArte=' + iRelajArte + ' TerapiaOcup=' + iTerapiaOcup + ' EscuelaPadres=' + iEscuelaPadres + ' Autopercepción=' + iAutopercepcion + ' GestiónCasos=' + iGestionCasos + ' ApoyoEmocional=' + iApoyoEmocional);
 
   for (let i = 1; i < filas.length; i++) {
     const f = filas[i];
 
-    // Filtrar: solo Terapia Individual
-    if (iTerapiaInd >= 0) {
-      const v = (f[iTerapiaInd] || '').toString().trim().toLowerCase();
-      const seleccionado = v === '1' || v === 'true' || v === 'yes' || v === 'terapia individual' || v === 'terapia_individual';
-      if (!seleccionado) {
-        resultado.omitidos++;
-        continue;
+    // Consolidar todos los servicios seleccionados
+    const serviciosSeleccionados = [];
+    const _checkServicio = (idx, nombre) => {
+      if (idx >= 0 && f[idx]) {
+        const v = (f[idx] || '').toString().trim().toLowerCase();
+        if (v === '1' || v === 'true' || v === 'yes' || v.includes(nombre.toLowerCase())) {
+          serviciosSeleccionados.push(nombre);
+          return true;
+        }
       }
+      return false;
+    };
+
+    const tieneTerapiaInd = _checkServicio(iTerapiaInd, 'Terapia Individual');
+    _checkServicio(iRelajArte, 'Grupos Terapeuticos: RelajArte');
+    _checkServicio(iTerapiaOcup, 'Grupos Psicoeducativos: Terapia Ocupacional');
+    _checkServicio(iEscuelaPadres, 'Grupos Psicoeducativos: Escuela para Madres/Padres');
+    _checkServicio(iAutopercepcion, 'Grupo de Autopercepción');
+    _checkServicio(iGestionCasos, 'Gestión de Casos');
+    const tieneApoyoEmocional = _checkServicio(iApoyoEmocional, 'Grupo de apoyo emocional');
+
+    // Filtrar: solo si tiene Terapia Individual O Apoyo Emocional
+    if (!tieneTerapiaInd && !tieneApoyoEmocional) {
+      resultado.omitidos++;
+      continue;
     }
 
     const uuid      = iUUID >= 0      ? (f[iUUID]      || '').trim() : '';
@@ -6301,9 +6327,12 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
     const genero   = iGenero >= 0 ? _normalizarGenero(f[iGenero]) : '';
     const zona     = iZona >= 0   ? (f[iZona] || '').trim() : '';
 
+    // Consolidar servicios en una cadena
+    const programas = serviciosSeleccionados.join(', ') || 'Terapia Individual';
+
     // Crear fila con 13 columnas (estructura simplificada)
     resultado.filas.push([
-      fecha, creamosID, '', nombres, apellidos, genero, '', '', zona, '', 'Terapia Individual',
+      fecha, creamosID, '', nombres, apellidos, genero, '', '', zona, '', programas,
       uuid, ''
     ]);
 
