@@ -6362,6 +6362,15 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
   for (let i = 1; i < filas.length; i++) {
     const f = filas[i];
 
+    // Filtrar: solo Apoyo Emocional
+    if (iProg_AE >= 0) {
+      const apoyoEmocionalSeleccionado = f[iProg_AE] ? true : false;
+      if (!apoyoEmocionalSeleccionado) {
+        resultado.omitidos++;
+        continue;
+      }
+    }
+
     const uuid      = iUUID >= 0      ? (f[iUUID]      || '').trim() : '';
     const creamosID = iCreamosID >= 0 ? (f[iCreamosID] || '').trim() : '';
     const nombres   = iNombres >= 0   ? (f[iNombres]   || '').trim() : '';
