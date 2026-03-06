@@ -6170,14 +6170,13 @@ function _normalizarGenero(valor) {
 // URL Formulario Activo 2026: https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/
 //      export-settings/esd2gxqN87HPuQDypxFqUNi/data.csv
 //
-// Estructura simplificada de la hoja (15 columnas):
+// Estructura simplificada de la hoja (13 columnas):
 //   A: Fecha | B: Creamos ID | C: Ya Participante | D: Nombre(s) | E: Apellido(s)
-//   F: Género | G: Autodescripción | H: Edad | I: Teléfono | J: Zona | K: Otra Zona
-//   L: Nivel Estudios | M: Programas Interés (consolidados)
-//   N: _uuid (oculto, deduplicación) | O: Enviar a Lista de Espera
+//   F: Género | G: Edad | H: Teléfono | I: Zona | J: Otra Zona
+//   K: Programas Interés (consolidados) | L: _uuid (oculto, deduplicación) | M: Enviar a Lista de Espera
 //
 // El formulario histórico y el 2026 se consolidan en la misma estructura básica.
-// Los programas seleccionados se listan en la columna M separados por comas.
+// Los programas seleccionados se listan en la columna K separados por comas.
 // =====================================================================
 
 var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esvntaAqU9GDq9aAkoKjPpY/data.csv';  // histórico 2024-2026
@@ -6187,8 +6186,8 @@ var URL_FORMULARIO_INTERES_2026 = 'https://kf.kobotoolbox.org/api/v2/assets/auvE
 var COL_ENVIAR_INTERES = 13;
 
 /**
- * Crea la hoja "Hoja de interés" con estructura expandida (27 columnas).
- * Incluye todas las columnas del formulario 2026 + compatibilidad con histórico.
+ * Crea la hoja "Hoja de interés" con estructura simplificada (13 columnas).
+ * Incluye todas las columnas básicas del formulario 2026 + compatibilidad con histórico.
  */
 function crearHojaFormularioInteres() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -6302,9 +6301,9 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
     const genero   = iGenero >= 0 ? _normalizarGenero(f[iGenero]) : '';
     const zona     = iZona >= 0   ? (f[iZona] || '').trim() : '';
 
-    // Crear fila con 15 columnas (estructura simplificada)
+    // Crear fila con 13 columnas (estructura simplificada)
     resultado.filas.push([
-      fecha, creamosID, '', nombres, apellidos, genero, '', '', '', zona, '', '', 'Terapia Individual',
+      fecha, creamosID, '', nombres, apellidos, genero, '', '', zona, '', 'Terapia Individual',
       uuid, ''
     ]);
 
@@ -6318,7 +6317,7 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
 }
 
 /**
- * Extrae filas del formulario 2026 (15 columnas - estructura simplificada).
+ * Extrae filas del formulario 2026 (13 columnas - estructura simplificada).
  * Solo incluye columnas básicas y consolida programas en una columna.
  * Devuelve array de filas con estructura simplificada.
  */
@@ -6429,11 +6428,11 @@ function importarFormularioInteres() {
     if (!sheet) sheet = crearHojaFormularioInteres();
 
     // Construir sets de dedup con datos ya existentes en la hoja
-    // Col B (índice 1) = Creamos ID | Col Z (índice 25) = _uuid | Col D+E (índice 3+4) = Nombres+Apellidos
+    // Col B (índice 1) = Creamos ID | Col L (índice 11) = _uuid | Col D+E (índice 3+4) = Nombres+Apellidos
     const existentes = sheet.getLastRow() > 1
-      ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 27).getValues()
+      ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues()
       : [];
-    const uuidsSet   = new Set(existentes.map(r => (r[25] || '').toString().trim()).filter(Boolean)); // col Z = _uuid
+    const uuidsSet   = new Set(existentes.map(r => (r[11] || '').toString().trim()).filter(Boolean)); // col L = _uuid
     const creamosSet = new Set(existentes.map(r => (r[1]  || '').toString().trim()).filter(Boolean)); // col B = Creamos ID
     // Construir nombre completo de cols D+E (Nombre + Apellido)
     const nombresSet = new Set(
@@ -6478,10 +6477,10 @@ function importarFormularioInteres() {
       }
     }
 
-    // Escribir en lote (estructura simplificada: 15 columnas)
+    // Escribir en lote (estructura simplificada: 13 columnas)
     if (todasFilasNuevas.length > 0) {
       const dest = sheet.getLastRow() + 1;
-      sheet.getRange(dest, 1, todasFilasNuevas.length, 15).setValues(todasFilasNuevas);
+      sheet.getRange(dest, 1, todasFilasNuevas.length, 13).setValues(todasFilasNuevas);
     }
 
     const msg = todasFilasNuevas.length > 0
@@ -6653,18 +6652,18 @@ function diagnosticarReferenciasYDerivaciones() {
 
 /**
  * Envía un registro de Hoja de interés a Lista de Espera.
- * Estructura simplificada (15 columnas):
+ * Estructura simplificada (13 columnas):
  *   A=Fecha B=CreamosID C=YaParticipante D=Nombre(s) E=Apellido(s) F=Género
- *   G=Autodesc H=Edad I=Teléfono J=Zona K=OtraZona L=NivelEstudios M=ProgramasInterés
- *   N=_uuid O=Enviar(15)
- * Se llama desde alEditar cuando columna O (15) = "Sí".
+ *   G=Edad H=Teléfono I=Zona J=OtraZona K=ProgramasInterés
+ *   L=_uuid M=Enviar(13)
+ * Se llama desde alEditar cuando columna M (13) = "Sí".
  */
 function enviarInteresAListaEspera(sheet, fila) {
   Logger.log('🔄 enviarInteresAListaEspera — fila ' + fila);
   const datos = sheet.getRange(fila, 1, 1, COL_ENVIAR_INTERES - 1).getValues()[0];
   // [0]=Fecha [1]=CreamosID [2]=YaParticipante [3]=Nombre(s) [4]=Apellido(s)
-  // [5]=Género [6]=Autodesc [7]=Edad [8]=Teléfono [9]=Zona [10]=OtraZona
-  // [11]=NivelEstudios [12]=ProgramasInterés ...
+  // [5]=Género [6]=Edad [7]=Teléfono [8]=Zona [9]=OtraZona
+  // [10]=ProgramasInterés [11]=_uuid ...
 
   const nombres    = (datos[3] || '').toString().trim();
   const apellidos  = (datos[4] || '').toString().trim();
@@ -6674,13 +6673,13 @@ function enviarInteresAListaEspera(sheet, fila) {
     nombre:      nombreCompleto,
     creamosID:   datos[1],
     genero:      datos[5],
-    edad:        datos[7],
+    edad:        datos[6],
     malestar:    'Interesado en programas de Creamos',
-    telefono:    datos[8],
+    telefono:    datos[7],
     derivacion:  'Hoja de interés',
     quienDeriva: '',
     programa:    '',
-    servicio:    datos[12] || 'Sin especificar'  // Programas Interés
+    servicio:    datos[10] || 'Sin especificar'  // Programas Interés
   });
 }
 
@@ -7792,9 +7791,9 @@ function migrarDatosAntiguosInteres() {
     return;
   }
 
-  // Construir conjuntos de deduplicación con datos ya existentes en el destino (nueva estructura 27 cols)
+  // Construir conjuntos de deduplicación con datos ya existentes en el destino (estructura 13 cols)
   const existentes = destino.getLastRow() > 1
-    ? destino.getRange(2, 1, destino.getLastRow() - 1, 27).getValues()
+    ? destino.getRange(2, 1, destino.getLastRow() - 1, 13).getValues()
     : [];
   const creamosSet = new Set(existentes.map(r => (r[1] || '').toString().trim()).filter(Boolean)); // col B
   // Nombre completo: cols D (nombres) + E (apellidos)
@@ -7829,7 +7828,7 @@ function migrarDatosAntiguosInteres() {
     const zona        = iZona >= 0     ? (f[iZona]     || '').toString().trim() : '';
     const servicio    = iServicio >= 0 ? (f[iServicio] || '').toString().trim() : 'Terapia Individual';
 
-    // Crear fila con 15 columnas (estructura simplificada)
+    // Crear fila con 13 columnas (estructura simplificada)
     nuevosDatos.push([
       fechaOrigen,   // A: Fecha
       creamosID,     // B: Creamos ID
@@ -7837,11 +7836,10 @@ function migrarDatosAntiguosInteres() {
       nombres,       // D: Nombre(s)
       apellidos,     // E: Apellido(s)
       genero,        // F: Género
-      '', '', '', zona, '',  // G-K: Autodesc, Edad, Tel, Zona, OtraZona (vacíos)
-      '',            // L: Nivel Estudios
-      servicio || 'Terapia Individual',  // M: Programas Interés
-      '',            // N: _uuid (vacío para históricos)
-      ''             // O: Enviar (usuario selecciona)
+      '', '', zona, '',  // G-J: Edad, Tel, Zona, OtraZona (vacíos)
+      servicio || 'Terapia Individual',  // K: Programas Interés
+      '',            // L: _uuid (vacío para históricos)
+      ''             // M: Enviar (usuario selecciona)
     ]);
 
     // Agregar a sets para no duplicar entre sí los nuevos registros
@@ -7856,12 +7854,12 @@ function migrarDatosAntiguosInteres() {
     return;
   }
 
-  // Escribir en la hoja destino a partir de la primera fila vacía (15 columnas)
+  // Escribir en la hoja destino a partir de la primera fila vacía (13 columnas)
   const primeraVacia = destino.getLastRow() + 1;
-  destino.getRange(primeraVacia, 1, nuevosDatos.length, 15).setValues(nuevosDatos);
+  destino.getRange(primeraVacia, 1, nuevosDatos.length, 13).setValues(nuevosDatos);
 
   // Marcar filas migradas con fondo naranja claro para identificarlas
-  destino.getRange(primeraVacia, 1, nuevosDatos.length, 15).setBackground('#fff3e0');
+  destino.getRange(primeraVacia, 1, nuevosDatos.length, 13).setBackground('#fff3e0');
 
   Logger.log('✅ Migración completada: ' + nuevosDatos.length + ' registros de "' + nombreHoja + '"');
 
