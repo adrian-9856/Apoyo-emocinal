@@ -7005,45 +7005,75 @@ function mostrarValoresTerapiaIndividual() {
     }
 
     const hCSV = filas[0];
+    // Buscar AMBAS columnas
+    const iApoyoEmocional = _buscarCol(hCSV, [
+      'programas te interesan/apoyo emocional',
+      'interesan/apoyo emocional',
+      'apoyo emocional'
+    ]);
+
     const iTerapiaInd = _buscarCol(hCSV, [
       '/terapia individual',
       'terapia_individual',
       'interesa(n)?/terapia'
     ]);
 
-    let info = '🔍 VALORES REALES - Columna Terapia Individual\n';
+    let info = '🔍 VALORES REALES - Apoyo Emocional\n';
     info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
     info += 'Total registros: ' + (filas.length - 1) + '\n\n';
 
-    if (iTerapiaInd < 0) {
-      info += '❌ Columna NO encontrada\n';
-      ui.alert('🔍 Diagnóstico', info, ui.ButtonSet.OK);
-      return;
+    // Mostrar columna de Apoyo Emocional GENERAL (la que importa)
+    if (iApoyoEmocional >= 0) {
+      info += '✅ COLUMNA PRINCIPAL (la que se usa para filtrar):\n';
+      info += '"' + hCSV[iApoyoEmocional] + '"\n';
+      info += '📍 Posición: columna ' + iApoyoEmocional + '\n\n';
+      info += 'Valores únicos:\n';
+      info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+
+      const valoresAE = {};
+      for (let i = 1; i < filas.length; i++) {
+        const valor = (filas[i][iApoyoEmocional] || '').toString().trim();
+        const key = valor || '(vacío)';
+        valoresAE[key] = (valoresAE[key] || 0) + 1;
+      }
+
+      Object.entries(valoresAE)
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([valor, count]) => {
+          const marca = (valor === '1' || valor.toLowerCase() === 'true') ? '✅' : '❌';
+          info += marca + ' "' + valor + '" → ' + count + ' registros\n';
+        });
+
+      info += '\n';
+    } else {
+      info += '❌ Columna "Apoyo Emocional" NO encontrada\n\n';
     }
 
-    info += '✅ Columna encontrada: "' + hCSV[iTerapiaInd] + '"\n';
-    info += '📍 Posición: columna ' + iTerapiaInd + '\n\n';
-    info += 'Valores únicos encontrados:\n';
-    info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    // Mostrar columna de Terapia Individual (sub-opción)
+    if (iTerapiaInd >= 0) {
+      info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+      info += 'ℹ️ SUB-OPCIÓN (solo informativa):\n';
+      info += '"' + hCSV[iTerapiaInd] + '"\n';
+      info += '📍 Posición: columna ' + iTerapiaInd + '\n\n';
+      info += 'Valores únicos:\n';
+      info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
 
-    // Contar valores únicos
-    const valoresMap = {};
-    for (let i = 1; i < filas.length; i++) {
-      const valor = (filas[i][iTerapiaInd] || '').toString().trim();
-      const key = valor || '(vacío)';
-      valoresMap[key] = (valoresMap[key] || 0) + 1;
+      const valoresTI = {};
+      for (let i = 1; i < filas.length; i++) {
+        const valor = (filas[i][iTerapiaInd] || '').toString().trim();
+        const key = valor || '(vacío)';
+        valoresTI[key] = (valoresTI[key] || 0) + 1;
+      }
+
+      Object.entries(valoresTI)
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([valor, count]) => {
+          info += '  "' + valor + '" → ' + count + ' registros\n';
+        });
     }
-
-    // Mostrar valores ordenados por frecuencia
-    Object.entries(valoresMap)
-      .sort((a, b) => b[1] - a[1])
-      .forEach(([valor, count]) => {
-        const marca = (valor === '1' || valor.toLowerCase() === 'true' || valor.toLowerCase().includes('terapia')) ? '✅' : '❌';
-        info += marca + ' "' + valor + '" → ' + count + ' registros\n';
-      });
 
     info += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
-    info += 'Leyenda:\n✅ = Se importaría\n❌ = Se omitiría';
+    info += 'Leyenda:\n✅ = Se importaría (tiene "1" en Apoyo Emocional)\n❌ = Se omitiría';
 
     ui.alert('🔍 Valores Reales', info, ui.ButtonSet.OK);
 
