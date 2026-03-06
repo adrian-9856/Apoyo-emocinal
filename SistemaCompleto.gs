@@ -6343,6 +6343,8 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
   const iNombres   = _buscarCol(hCSV, ['inicio/nombre', 'nombre(s)', 'nombres']);
   const iApellidos = _buscarCol(hCSV, ['inicio/apellido', 'apellido(s)', 'apellidos']);
   const iGenero    = _buscarCol(hCSV, ['inicio/género', 'inicio/genero', 'género', 'genero', 'sexo']);
+  const iEdad      = _buscarCol(hCSV, ['inicio/edad', 'edad', 'inicio/¿cuántos años tienes', '¿cuántos años tienes', 'años', 'age']);
+  const iTelefono  = _buscarCol(hCSV, ['inicio/número de teléfono', 'inicio/numero de telefono', 'teléfono', 'telefono', 'número de teléfono', 'numero de telefono', 'tel', 'phone']);
   const iZona      = _buscarCol(hCSV, ['inicio/zona', 'zona']);
   const iUUID      = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
@@ -6480,6 +6482,8 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
     const fechaRaw = iFecha >= 0 ? (f[iFecha] || '').trim() : '';
     const fecha    = fechaRaw ? new Date(fechaRaw) : new Date();
     const genero   = iGenero >= 0 ? _normalizarGenero(f[iGenero]) : '';
+    const edad     = iEdad >= 0 ? _calcularEdadDesdeNacimiento(f[iEdad]) : '';
+    const telefono = iTelefono >= 0 ? (f[iTelefono] || '').trim() : '';
     const zona     = iZona >= 0   ? (f[iZona] || '').trim() : '';
 
     // Consolidar servicios en una cadena
@@ -6497,7 +6501,7 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
 
     // Crear fila con 13 columnas (estructura simplificada)
     resultado.filas.push([
-      fecha, creamosID, '', nombres, apellidos, genero, '', '', zona, '', programas,
+      fecha, creamosID, '', nombres, apellidos, genero, edad, telefono, zona, '', programas,
       uuid, ''
     ]);
 
@@ -6537,8 +6541,8 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
   const iApellidos      = _buscarCol(hCSV, ['inicio/apellido', 'apellido(s)', 'apellidos']);
   const iGenero         = _buscarCol(hCSV, ['inicio/género', 'inicio/genero', 'género', 'genero']);
   const iAutodesc       = _buscarCol(hCSV, ['autodescribes', 'inicio/¿cómo te autodescribes']);
-  const iEdad           = _buscarCol(hCSV, ['inicio/edad', 'edad']);
-  const iTelefono       = _buscarCol(hCSV, ['inicio/número de teléfono', 'teléfono', 'telefono', 'número']);
+  const iEdad           = _buscarCol(hCSV, ['inicio/edad', 'edad', 'inicio/¿cuántos años tienes', '¿cuántos años tienes', 'años', 'age']);
+  const iTelefono       = _buscarCol(hCSV, ['inicio/número de teléfono', 'inicio/numero de telefono', 'teléfono', 'telefono', 'número de teléfono', 'numero de telefono', 'tel', 'phone']);
   const iZona           = _buscarCol(hCSV, ['inicio/zona', 'zona']);
   const iOtraZona       = _buscarCol(hCSV, ['inicio/otra zona', 'otra zona']);
   const iNivelEstudios  = _buscarCol(hCSV, ['nivel de estudios', 'inicio/¿cuál es tu último nivel']);
