@@ -6395,6 +6395,13 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
     'servicios te interesan/apoyo emocional'
   ]);
 
+  // NUEVO: Columna consolidada (histórico 2025) que contiene TODOS los servicios como texto
+  const iServiciosConsolidados = _buscarCol(hCSV, [
+    'apoyo emocional / ¿qué servicio(s)/grupo(s)',
+    '¿qué servicio(s)/grupo(s) de apoyo emocional te interesa(n)?',
+    'apoyo emocional/¿qué servicio'
+  ]);
+
   Logger.log('📍 ' + fuente + ' (Histórico): Total columnas CSV: ' + hCSV.length);
   Logger.log('📍 Servicios detectados:');
   Logger.log('   - Terapia Individual: ' + (iTerapiaInd >= 0 ? hCSV[iTerapiaInd] : '❌ NO ENCONTRADA'));
@@ -6432,7 +6439,19 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
       return false;
     };
 
-    const tieneTerapiaInd = _checkServicio(iTerapiaInd, 'Terapia Individual');
+    // Verificar Terapia Individual de dos formas:
+    // 1. Columnas individuales (formularios nuevos con checkboxes separados)
+    let tieneTerapiaInd = _checkServicio(iTerapiaInd, 'Terapia Individual');
+
+    // 2. Columna consolidada (histórico 2025 con texto que contiene todos los servicios)
+    if (!tieneTerapiaInd && iServiciosConsolidados >= 0) {
+      const serviciosTexto = (f[iServiciosConsolidados] || '').toString().toLowerCase();
+      tieneTerapiaInd = serviciosTexto.includes('terapia individual');
+      if (tieneTerapiaInd) {
+        serviciosSeleccionados.push('Terapia Individual');
+      }
+    }
+
     _checkServicio(iRelajArte, 'Grupos Terapeuticos: RelajArte');
     _checkServicio(iTerapiaOcup, 'Grupos Psicoeducativos: Terapia Ocupacional');
     _checkServicio(iEscuelaPadres, 'Grupos Psicoeducativos: Escuela para Madres/Padres');
