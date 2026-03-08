@@ -528,15 +528,15 @@ function crearGestionCasos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Intervención de casos');
 
-  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creamos ID', 'Tipo', 'Motivo', '_uuid'];
+  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creamos ID', 'Tipo', 'Motivo', '_uuid', 'Hoja de Interés'];
 
-  sheet.getRange(1, 1, 1, 7).setValues([headers])
+  sheet.getRange(1, 1, 1, 8).setValues([headers])
     .setBackground('#f57c00')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 200, 120, 120, 120, 300, 100].forEach((w, i) => {
+  [120, 200, 120, 120, 120, 300, 100, 140].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -546,6 +546,12 @@ function crearGestionCasos() {
   } catch(e) {
     Logger.log('⚠️ No se pudo ocultar columna G: ' + e.message);
   }
+
+  // Validación para columna "Hoja de Interés" (columna H/8)
+  sheet.getRange('H2:H1000').setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['No', 'Sí'], true).setAllowInvalid(false).build()
+  );
 }
 
 function crearPersonasNoAsistidas() {
@@ -1108,23 +1114,52 @@ function alEditar(e) {
   // CASO 7: Referencias — Ya no tiene columna "Enviar a Lista de Espera"
   // Removido según solicitud del usuario
 
-  // CASO 8: Derivaciones Institucionales — columna L (12) = "Sí"
-  if (hoja === 'Derivaciones Institucionales' && columna === 12) {
-    Logger.log('✅ Detectada edición en Derivaciones Institucionales, columna L (12)');
-    if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
-      Logger.log('▶️ EJECUTANDO enviarDerivacionInstitucionalAListaEspera...');
-      try {
-        enviarDerivacionInstitucionalAListaEspera(sheet, fila);
-        Logger.log('✅ enviarDerivacionInstitucionalAListaEspera completado');
-        actualizarReportes();
-      } catch (error) {
-        Logger.log('❌ ERROR en enviarDerivacionInstitucionalAListaEspera: ' + error.toString());
-      }
-    }
-  }
+  // CASO 8: Derivaciones Institucionales — Ya no tiene columna "Enviar a Lista de Espera"
+  // Removido según solicitud del usuario
 
   // CASO 9: Intervención de casos — Ya no tiene columna "Enviar a Lista de Espera"
   // Removido según solicitud del usuario
+
+  // =====================================================================
+  // FORMATO AUTOMÁTICO: COLUMNA "HOJA DE INTERÉS"
+  // Aplica colores automáticos cuando se cambia el valor
+  // =====================================================================
+
+  // Referencias de programas - Columna J (10)
+  if (hoja === 'Referencias de programas' && columna === COL_INTERES_REFERENCIAS) {
+    Logger.log('✅ Detectada edición en Referencias de programas, columna J - Hoja de Interés');
+    if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
+      e.range.setBackground('#d4edda'); // Verde suave
+      Logger.log('✅ Color verde aplicado (Sí)');
+    } else if (val === 'No' || val === 'no') {
+      e.range.setBackground('#f8d7da'); // Rojo suave
+      Logger.log('✅ Color rojo aplicado (No)');
+    }
+  }
+
+  // Derivaciones Institucionales - Columna L (12)
+  if (hoja === 'Derivaciones Institucionales' && columna === COL_INTERES_DERIVACIONES) {
+    Logger.log('✅ Detectada edición en Derivaciones Institucionales, columna L - Hoja de Interés');
+    if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
+      e.range.setBackground('#d4edda'); // Verde suave
+      Logger.log('✅ Color verde aplicado (Sí)');
+    } else if (val === 'No' || val === 'no') {
+      e.range.setBackground('#f8d7da'); // Rojo suave
+      Logger.log('✅ Color rojo aplicado (No)');
+    }
+  }
+
+  // Intervención de casos - Columna H (8)
+  if (hoja === 'Intervención de casos' && columna === COL_INTERES_INTERVENCION) {
+    Logger.log('✅ Detectada edición en Intervención de casos, columna H - Hoja de Interés');
+    if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
+      e.range.setBackground('#d4edda'); // Verde suave
+      Logger.log('✅ Color verde aplicado (Sí)');
+    } else if (val === 'No' || val === 'no') {
+      e.range.setBackground('#f8d7da'); // Rojo suave
+      Logger.log('✅ Color rojo aplicado (No)');
+    }
+  }
 }
 
 /**
@@ -7238,8 +7273,8 @@ function enviarInteresAListaEspera(sheet, fila) {
 
 var URL_REFERENCIAS = 'https://kf.kobotoolbox.org/api/v2/assets/afuD8C8AzoLfd4o5ksTWUw/export-settings/es52swrnjWcz8NnhY5Wyng3/data.csv';
 
-/** Columna de "Enviar" en Referencias (1-based) */
-var COL_ENVIAR_REFERENCIAS = 10;
+/** Columna de "Hoja de Interés" en Referencias (1-based) */
+var COL_INTERES_REFERENCIAS = 10;
 
 /**
  * Crea la hoja "Referencias de programas" con estructura fija.
@@ -7255,18 +7290,24 @@ function crearHojaReferencias() {
   const headers = [
     'Fecha', 'Programa que refiere', 'Persona que refiere',
     'Nombre Completo', 'Teléfono', 'Dirección',
-    'Servicio', 'Motivo de referencia', '_uuid'
+    'Servicio', 'Motivo de referencia', '_uuid', 'Hoja de Interés'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground('#00695c').setFontColor('white')
     .setFontWeight('bold').setHorizontalAlignment('center').setWrap(true);
 
-  [110, 200, 200, 200, 130, 200, 200, 250, 0].forEach((w, i) => {
+  [110, 200, 200, 200, 130, 200, 200, 250, 0, 140].forEach((w, i) => {
     if (w === 0) { sheet.hideColumns(i + 1); } // ocultar _uuid
     else sheet.setColumnWidth(i + 1, w);
   });
   sheet.setFrozenRows(1);
+
+  // Validación para columna "Hoja de Interés" (columna J/10)
+  sheet.getRange('J2:J1000').setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['No', 'Sí'], true).setAllowInvalid(false).build()
+  );
 
   Logger.log('✅ Hoja Referencias creada');
   return sheet;
@@ -7377,13 +7418,14 @@ function importarReferencias() {
         iDireccion >= 0 ? f[iDireccion] : '',          // F: Dirección
         'Terapia Individual',                          // G: Servicio (siempre Terapia Individual por filtro)
         iMotivo >= 0    ? f[iMotivo]    : '',          // H: Motivo
-        uuid                                            // I: _uuid
+        uuid,                                           // I: _uuid
+        'No'                                            // J: Hoja de Interés (valor por defecto)
       ]);
       if (uuid) uuidsSet.add(uuid);
     }
 
     if (filasNuevas.length > 0) {
-      sheet.getRange(sheet.getLastRow() + 1, 1, filasNuevas.length, 9).setValues(filasNuevas);
+      sheet.getRange(sheet.getLastRow() + 1, 1, filasNuevas.length, 10).setValues(filasNuevas);
     }
 
     const msg = filasNuevas.length > 0
@@ -7438,8 +7480,8 @@ function importarReferencias() {
 
 var URL_DERIVACIONES = 'https://kf.kobotoolbox.org/api/v2/assets/aPAe8WZjdW8Pp3bxLVkPtc/export-settings/esxMhVxGG8yjgoaFV9FxKjA/data.csv';
 
-/** Columna de "Enviar" en Derivaciones Institucionales (1-based) */
-var COL_ENVIAR_DERIVACIONES = 12;
+/** Columna de "Hoja de Interés" en Derivaciones Institucionales (1-based) */
+var COL_INTERES_DERIVACIONES = 12;
 
 /**
  * Crea la hoja "Derivaciones Institucionales" con estructura fija.
@@ -7456,22 +7498,23 @@ function crearHojaDerivacionesInstitucionales() {
     'Fecha', 'Nombre de quien deriva', 'Tel. quien deriva',
     'Organización', 'Nombre Completo', 'Edad',
     'Teléfono', 'Dirección', 'Motivo de derivación',
-    'Servicio al que deriva', '_uuid', 'Enviar a Lista de Espera'
+    'Servicio al que deriva', '_uuid', 'Hoja de Interés'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground('#4a148c').setFontColor('white')
     .setFontWeight('bold').setHorizontalAlignment('center').setWrap(true);
 
-  [110, 200, 130, 200, 200, 60, 130, 180, 250, 200, 0, 170].forEach((w, i) => {
+  [110, 200, 130, 200, 200, 60, 130, 180, 250, 200, 0, 140].forEach((w, i) => {
     if (w === 0) { sheet.hideColumns(i + 1); }
     else sheet.setColumnWidth(i + 1, w);
   });
   sheet.setFrozenRows(1);
 
+  // Validación para columna "Hoja de Interés" (columna L/12)
   sheet.getRange('L2:L1000').setDataValidation(
     SpreadsheetApp.newDataValidation()
-      .requireValueInList(['Sí', 'No'], true).setAllowInvalid(false).build()
+      .requireValueInList(['No', 'Sí'], true).setAllowInvalid(false).build()
   );
 
   Logger.log('✅ Hoja Derivaciones Institucionales creada');
@@ -7549,7 +7592,7 @@ function importarDerivacionesInstitucionales() {
         iMotivo >= 0        ? f[iMotivo]             : '', // I: Motivo
         iServicio >= 0      ? f[iServicio]           : '', // J: Servicio
         uuid,                                               // K: _uuid
-        ''                                                  // L: Enviar (usuario)
+        'No'                                                // L: Hoja de Interés (valor por defecto)
       ]);
       if (uuid) uuidsSet.add(uuid);
     }
@@ -7571,34 +7614,35 @@ function importarDerivacionesInstitucionales() {
 }
 
 /**
- * Envía un registro de Derivaciones Institucionales a Lista de Espera.
- * Estructura: A=Fecha B=NomDeriva C=TelDeriva D=Org E=Nombre F=Edad G=Tel H=Dir I=Motivo J=Servicio K=UUID L=Enviar
- * Se llama desde alEditar cuando columna L (12) = "Sí".
+ * [DESHABILITADA] Envía un registro de Derivaciones Institucionales a Lista de Espera.
+ * Columna "Enviar a Lista de Espera" removida según solicitud del usuario.
+ * Ahora la columna L es "Hoja de Interés" con formato de colores automático.
  */
-function enviarDerivacionInstitucionalAListaEspera(sheet, fila) {
-  Logger.log('🔄 enviarDerivacionInstitucionalAListaEspera — fila ' + fila);
-  const datos = sheet.getRange(fila, 1, 1, COL_ENVIAR_DERIVACIONES - 1).getValues()[0];
-  // [0]=Fecha [1]=NomDeriva [2]=TelDeriva [3]=Org [4]=Nombre [5]=Edad
-  // [6]=Tel [7]=Dir [8]=Motivo [9]=Servicio [10]=UUID
-  return _agregarAListaEspera(sheet, fila, COL_ENVIAR_DERIVACIONES, {
-    nombre:      datos[4],    // E: Nombre Completo
-    creamosID:   '',          // no disponible
-    genero:      '',
-    edad:        datos[5],    // F: Edad
-    malestar:    datos[8],    // I: Motivo de derivación
-    telefono:    datos[6],    // G: Teléfono del participante
-    derivacion:  'Derivación Institucional',
-    quienDeriva: datos[1],    // B: Nombre de quien deriva
-    programa:    datos[3],    // D: Nombre de organización
-    servicio:    datos[9]     // J: Servicio al que deriva
-  });
-}
+// function enviarDerivacionInstitucionalAListaEspera(sheet, fila) {
+//   Logger.log('🔄 enviarDerivacionInstitucionalAListaEspera — fila ' + fila);
+//   const datos = sheet.getRange(fila, 1, 1, COL_INTERES_DERIVACIONES - 1).getValues()[0];
+//   // [0]=Fecha [1]=NomDeriva [2]=TelDeriva [3]=Org [4]=Nombre [5]=Edad
+//   // [6]=Tel [7]=Dir [8]=Motivo [9]=Servicio [10]=UUID
+//   return _agregarAListaEspera(sheet, fila, COL_INTERES_DERIVACIONES, {
+//     nombre:      datos[4],    // E: Nombre Completo
+//     creamosID:   '',          // no disponible
+//     genero:      '',
+//     edad:        datos[5],    // F: Edad
+//     malestar:    datos[8],    // I: Motivo de derivación
+//     telefono:    datos[6],    // G: Teléfono del participante
+//     derivacion:  'Derivación Institucional',
+//     quienDeriva: datos[1],    // B: Nombre de quien deriva
+//     programa:    datos[3],    // D: Nombre de organización
+//     servicio:    datos[9]     // J: Servicio al que deriva
+//   });
+// }
 
 /**
- * Envía un registro de Intervención de casos a Lista de Espera.
+ * [DESHABILITADA] Envía un registro de Intervención de casos a Lista de Espera.
+ * Columna "Enviar a Lista de Espera" removida según solicitud del usuario.
  * Columnas de Intervención de casos:
  *   A: Fecha | B: Participante | C: Terapeuta | D: Creamos ID
- *   E: Tipo  | F: Motivo       | G: _uuid (oculto) | H: Enviar a Lista de Espera
+ *   E: Tipo  | F: Motivo       | G: _uuid (oculto) | H: Hoja de Interés
  */
 /**
  * [DESHABILITADA] Envía un registro de Intervención de Casos a Lista de Espera.
@@ -7631,10 +7675,13 @@ function enviarDerivacionInstitucionalAListaEspera(sheet, fila) {
 //
 // Columnas usadas de la hoja "Intervención de casos":
 //   A: Fecha | B: Participante | C: Terapeuta (manual) | D: Creamos ID
-//   E: Tipo  | F: Motivo       | G: _uuid (oculto, dedup)
+//   E: Tipo  | F: Motivo       | G: _uuid (oculto, dedup) | H: Hoja de Interés
 // =====================================================================
 
 var URL_INTERVENCION_CASOS = 'https://kf.kobotoolbox.org/api/v2/assets/avnPVj8iEwvfwUkySWcMAJ/export-settings/esiNV5nenKxfDh9wNmZD6kC/data.csv';
+
+/** Columna de "Hoja de Interés" en Intervención de casos (1-based) */
+var COL_INTERES_INTERVENCION = 8;
 
 /**
  * Importa desde KoboToolbox los registros de intervención de casos.
@@ -7716,13 +7763,14 @@ function importarIntervencionesCasos() {
         iCreamosID >= 0 ? (f[iCreamosID] || '').trim() : '',         // D: Creamos ID
         iTipo      >= 0 ? (f[iTipo]      || '').trim() : '',         // E: Tipo
         iMotivo    >= 0 ? (f[iMotivo]    || '').trim() : '',         // F: Motivo
-        uuid                                                          // G: _uuid (oculto)
+        uuid,                                                         // G: _uuid (oculto)
+        'No'                                                          // H: Hoja de Interés (valor por defecto)
       ]);
       if (uuid) uuidsSet.add(uuid);
     }
 
     if (filasNuevas.length > 0) {
-      sheet.getRange(sheet.getLastRow() + 1, 1, filasNuevas.length, 7).setValues(filasNuevas);
+      sheet.getRange(sheet.getLastRow() + 1, 1, filasNuevas.length, 8).setValues(filasNuevas);
     }
 
     const msg = filasNuevas.length > 0
