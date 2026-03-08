@@ -1,3 +1,26 @@
+// =====================================================================
+// VARIABLES GLOBALES
+// =====================================================================
+
+/** Columna de "Enviar" en Hoja de interés (1-based) - columna 13 (M) */
+var COL_ENVIAR_INTERES = 13;
+
+/** Columna de "Hoja de Interés" en Referencias de programas (1-based) - columna 10 (J) */
+var COL_INTERES_REFERENCIAS = 10;
+
+/** Columna de "Hoja de Interés" en Derivaciones Institucionales (1-based) - columna 12 (L) */
+var COL_INTERES_DERIVACIONES = 12;
+
+/** Columna de "Hoja de Interés" en Intervención de casos (1-based) - columna 8 (H) */
+var COL_INTERES_INTERVENCION = 8;
+
+/** URLs de formularios KoboToolbox */
+var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esvntaAqU9GDq9aAkoKjPpY/data.csv';  // histórico 2024-2026
+var URL_FORMULARIO_INTERES_2026 = 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/esd2gxqN87HPuQDypxFqUNi/data.csv';  // formulario activo 2026
+
+// =====================================================================
+// FUNCIONES PRINCIPALES
+// =====================================================================
 
 function onOpen() {
   try {
@@ -907,19 +930,27 @@ function configurarFormatos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const terapias = ss.getSheetByName('Terapias Individual');
 
+  // Formatos condicionales para columna F (Estado)
+  // Coincide con los valores de validación: 'En proceso', 'Proceso culminado', 'retirxs'
   const procesoRule = SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo('En proceso')
     .setBackground('#d1ecf1')
-    .setRanges([terapias.getRange('G2:G200')])
+    .setRanges([terapias.getRange('F2:F200')])
     .build();
 
-  const finalizadoRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo('Finalizado')
-    .setBackground('#fff3cd')
-    .setRanges([terapias.getRange('G2:G200')])
+  const culminadoRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo('Proceso culminado')
+    .setBackground('#d4edda')
+    .setRanges([terapias.getRange('F2:F200')])
     .build();
 
-  terapias.setConditionalFormatRules([procesoRule, finalizadoRule]);
+  const retirxsRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo('retirxs')
+    .setBackground('#f8d7da')
+    .setRanges([terapias.getRange('F2:F200')])
+    .build();
+
+  terapias.setConditionalFormatRules([procesoRule, culminadoRule, retirxsRule]);
 }
 
 function crearEjemplos() {
@@ -1169,6 +1200,13 @@ function asignarTerapeuta(sheetOrigen, fila, terapeuta) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   try {
+    // Validar que sheetOrigen es válido
+    if (!sheetOrigen || typeof sheetOrigen.getRange !== 'function') {
+      Logger.log('❌ ERROR: sheetOrigen no es válido');
+      ss.toast('❌ Error interno: Hoja de origen no válida', 'Error', 5);
+      return;
+    }
+
     // Leer datos básicos
     const nombre = sheetOrigen.getRange(fila, 3).getValue(); // Columna C
 
@@ -1341,7 +1379,7 @@ function procesarNoVinoConLlamadas(nombre, creemosId, genero, edad, malestar, te
     if (nuevasLlamadas >= 5) {
       // QUINTA LLAMADA: Enviar a Personas no asistidas con todas las notas
       Logger.log('5ª llamada alcanzada - Enviando a Personas no asistidas: ' + nombre);
-      enviarAPersonasNoAsitidasConNotas(nombre, creemosId, genero, edad, malestar, terapeuta, telefono, todasLasNotas, sheetOrigen, fila);
+      enviarAPersonasNoAsistidasConNotas(nombre, creemosId, genero, edad, malestar, terapeuta, telefono, todasLasNotas, sheetOrigen, fila);
     } else {
       // AÚN NO ES LA 5ª LLAMADA: Mantener en Lista de Espera
       Logger.log('Llamada ' + nuevasLlamadas + ' registrada - Manteniendo en Lista de Espera');
@@ -1372,10 +1410,17 @@ function procesarNoVinoConLlamadas(nombre, creemosId, genero, edad, malestar, te
 /**
  * Envía a Personas no asistidas incluyendo todas las notas de las 5 llamadas
  */
-function enviarAPersonasNoAsitidasConNotas(nombre, creemosId, genero, edad, malestar, terapeuta, telefono, notas, sheetOrigen, fila) {
+function enviarAPersonasNoAsistidasConNotas(nombre, creemosId, genero, edad, malestar, terapeuta, telefono, notas, sheetOrigen, fila) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const noAsistidas = ss.getSheetByName('Personas no asistidas');
+
+    // Validar que la hoja existe
+    if (!noAsistidas) {
+      Logger.log('❌ ERROR: Hoja "Personas no asistidas" no existe');
+      ss.toast('❌ Error: La hoja "Personas no asistidas" no existe', 'Error', 5);
+      return;
+    }
 
     Logger.log('Enviando a Personas no asistidas con notas de 5 llamadas...');
 
@@ -1423,7 +1468,7 @@ function enviarAPersonasNoAsitidasConNotas(nombre, creemosId, genero, edad, male
     );
     Logger.log('✅ Proceso de 5 llamadas completado');
   } catch (error) {
-    Logger.log('❌ ERROR en enviarAPersonasNoAsitidasConNotas: ' + error.toString());
+    Logger.log('❌ ERROR en enviarAPersonasNoAsistidasConNotas: ' + error.toString());
     SpreadsheetApp.getActiveSpreadsheet().toast('❌ Error: ' + error.message, 'Error', 5);
   }
 }
@@ -1443,6 +1488,13 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const nuevos = ss.getSheetByName('Nuevos Ingresos');
     const terapias = ss.getSheetByName('Terapias Individual');
+
+    // Validar que las hojas existen
+    if (!nuevos || !terapias) {
+      Logger.log('❌ ERROR: Hojas "Nuevos Ingresos" o "Terapias Individual" no existen');
+      ss.toast('❌ Error: Falta alguna hoja necesaria', 'Error', 5);
+      return;
+    }
 
     Logger.log('Iniciando envío a Nuevos Ingresos y Terapias...');
 
@@ -6275,11 +6327,7 @@ function _calcularEdadDesdeNacimiento(valor) {
 // Los programas seleccionados se listan en la columna K separados por comas.
 // =====================================================================
 
-var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esvntaAqU9GDq9aAkoKjPpY/data.csv';  // histórico 2024-2026
-var URL_FORMULARIO_INTERES_2026 = 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/esd2gxqN87HPuQDypxFqUNi/data.csv';  // formulario activo 2026
-
-/** Columna de "Enviar" en Hoja de interés (1-based) - columna 13 (M) */
-var COL_ENVIAR_INTERES = 13;
+// Variables movidas al inicio del archivo
 
 /**
  * Crea la hoja "Hoja de interés" con estructura simplificada (13 columnas).
@@ -7273,8 +7321,7 @@ function enviarInteresAListaEspera(sheet, fila) {
 
 var URL_REFERENCIAS = 'https://kf.kobotoolbox.org/api/v2/assets/afuD8C8AzoLfd4o5ksTWUw/export-settings/es52swrnjWcz8NnhY5Wyng3/data.csv';
 
-/** Columna de "Hoja de Interés" en Referencias (1-based) */
-var COL_INTERES_REFERENCIAS = 10;
+// Variable COL_INTERES_REFERENCIAS movida al inicio del archivo
 
 /**
  * Crea la hoja "Referencias de programas" con estructura fija.
@@ -7480,8 +7527,7 @@ function importarReferencias() {
 
 var URL_DERIVACIONES = 'https://kf.kobotoolbox.org/api/v2/assets/aPAe8WZjdW8Pp3bxLVkPtc/export-settings/esxMhVxGG8yjgoaFV9FxKjA/data.csv';
 
-/** Columna de "Hoja de Interés" en Derivaciones Institucionales (1-based) */
-var COL_INTERES_DERIVACIONES = 12;
+// Variable COL_INTERES_DERIVACIONES movida al inicio del archivo
 
 /**
  * Crea la hoja "Derivaciones Institucionales" con estructura fija.
@@ -7680,8 +7726,7 @@ function importarDerivacionesInstitucionales() {
 
 var URL_INTERVENCION_CASOS = 'https://kf.kobotoolbox.org/api/v2/assets/avnPVj8iEwvfwUkySWcMAJ/export-settings/esiNV5nenKxfDh9wNmZD6kC/data.csv';
 
-/** Columna de "Hoja de Interés" en Intervención de casos (1-based) */
-var COL_INTERES_INTERVENCION = 8;
+// Variable COL_INTERES_INTERVENCION movida al inicio del archivo
 
 /**
  * Importa desde KoboToolbox los registros de intervención de casos.
