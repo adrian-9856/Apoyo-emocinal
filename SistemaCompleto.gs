@@ -975,18 +975,20 @@ function alEditar(e) {
   const valor = e.range.getValue();
 
   // PROTECCIÓN CONTRA EJECUCIONES MÚLTIPLES (Google Sheets bug - dispara 2 veces)
-  // Usar PropertiesService para rastrear ejecuciones recientes
+  // Usar CacheService para rastrear ejecuciones recientes
   const cache = CacheService.getDocumentCache();
-  const cacheKey = hoja + '_' + fila + '_' + columna + '_' + valor;
+  // Clave SIN valor para prevenir disparos cuando se revierte un cambio
+  const cacheKey = hoja + '_' + fila + '_' + columna;
   const yaEjecutado = cache.get(cacheKey);
 
   if (yaEjecutado) {
     Logger.log('⚠️ Esta edición ya fue procesada recientemente, ignorando duplicado');
+    Logger.log('   Clave: ' + cacheKey);
     return;
   }
 
-  // Marcar como ejecutado por 5 segundos
-  cache.put(cacheKey, 'true', 5);
+  // Marcar como ejecutado por 15 segundos (tiempo suficiente para responder diálogos)
+  cache.put(cacheKey, 'true', 15);
 
   // LOG: Registrar TODA edición
   Logger.log('═══════════════════════════════════════');
@@ -1264,6 +1266,18 @@ function asignarTerapeuta(sheetOrigen, fila, terapeuta) {
 function procesarConfirmacionAsistencia(sheetOrigen, fila, confirmacion) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
+  // PROTECCIÓN ADICIONAL: Verificar si ya se está procesando esta fila
+  const cache = CacheService.getDocumentCache();
+  const lockKey = 'procesando_confirmacion_' + sheetOrigen.getName() + '_' + fila;
+
+  if (cache.get(lockKey)) {
+    Logger.log('⚠️ Ya se está procesando confirmación para esta fila, ignorando duplicado');
+    return;
+  }
+
+  // Marcar como en proceso por 30 segundos
+  cache.put(lockKey, 'true', 30);
+
   try {
     // Verificar si esta fila ya fue procesada (por color de fondo)
     const bgColor = sheetOrigen.getRange(fila, 1).getBackground().toLowerCase();
@@ -1323,6 +1337,10 @@ function procesarConfirmacionAsistencia(sheetOrigen, fila, confirmacion) {
   } catch (error) {
     Logger.log('❌ ERROR en procesarConfirmacionAsistencia: ' + error.toString());
     ss.toast('❌ Error: ' + error.message, 'Error', 5);
+  } finally {
+    // SIEMPRE liberar el lock al terminar
+    cache.remove(lockKey);
+    Logger.log('✅ Lock liberado para confirmación en fila ' + fila);
   }
 }
 
@@ -1711,12 +1729,25 @@ function registrarAsistenciaSesion(sheet, fila, numSesion, valorAnterior) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
+  // PROTECCIÓN ADICIONAL: Verificar si ya se está procesando esta fila
+  const cache = CacheService.getDocumentCache();
+  const lockKey = 'procesando_sesion_' + sheet.getName() + '_' + fila;
+
+  if (cache.get(lockKey)) {
+    Logger.log('⚠️ Ya se está procesando asistencia para esta fila, ignorando duplicado');
+    return;
+  }
+
+  // Marcar como en proceso por 20 segundos
+  cache.put(lockKey, 'true', 20);
+
   // Obtener datos del participante
   const participante = sheet.getRange(fila, 2).getValue(); // Columna B: Participante
   const terapeuta = sheet.getRange(fila, 1).getValue();    // Columna A: Terapeuta
 
   if (!participante || participante.toString().trim() === '') {
     Logger.log('⚠️ No hay participante en esta fila, ignorando');
+    cache.remove(lockKey); // Liberar el lock
     return;
   }
 
@@ -1736,50 +1767,56 @@ function registrarAsistenciaSesion(sheet, fila, numSesion, valorAnterior) {
     ui.ButtonSet.YES_NO
   );
 
-  if (respuesta === ui.Button.YES) {
-    // Vino a la sesión - mantener el nuevo número de sesión e incrementar asistencias
-    Logger.log('✅ Participante asistió a la sesión ' + numSesion);
-    Logger.log('✅ Número de sesión se mantiene en: ' + numSesion);
+  try {
+    if (respuesta === ui.Button.YES) {
+      // Vino a la sesión - mantener el nuevo número de sesión e incrementar asistencias
+      Logger.log('✅ Participante asistió a la sesión ' + numSesion);
+      Logger.log('✅ Número de sesión se mantiene en: ' + numSesion);
 
-    // Incrementar contador de asistencias (Columna J: Asistencias)
-    const asistenciasActuales = sheet.getRange(fila, 10).getValue() || 0;
-    const nuevasAsistencias = parseInt(asistenciasActuales) + 1;
-    sheet.getRange(fila, 10).setValue(nuevasAsistencias);
+      // Incrementar contador de asistencias (Columna J: Asistencias)
+      const asistenciasActuales = sheet.getRange(fila, 10).getValue() || 0;
+      const nuevasAsistencias = parseInt(asistenciasActuales) + 1;
+      sheet.getRange(fila, 10).setValue(nuevasAsistencias);
 
-    Logger.log('📊 Asistencias actualizadas: ' + asistenciasActuales + ' → ' + nuevasAsistencias);
+      Logger.log('📊 Asistencias actualizadas: ' + asistenciasActuales + ' → ' + nuevasAsistencias);
 
-    ss.toast('✅ Asistencia registrada\n\n' + nombre + ' asistio a la sesion ' + numSesion + '\nTotal asistencias: ' + nuevasAsistencias, 'Vino', 3);
+      ss.toast('✅ Asistencia registrada\n\n' + nombre + ' asistio a la sesion ' + numSesion + '\nTotal asistencias: ' + nuevasAsistencias, 'Vino', 3);
 
-  } else if (respuesta === ui.Button.NO) {
-    // No vino - REVERTIR número de sesión al anterior e incrementar inasistencias
-    Logger.log('⚠️ Participante NO asistió a la sesión');
+    } else if (respuesta === ui.Button.NO) {
+      // No vino - REVERTIR número de sesión al anterior e incrementar inasistencias
+      Logger.log('⚠️ Participante NO asistió a la sesión');
 
-    // Revertir el número de sesión al valor anterior
-    const sesionAnterior = valorAnterior || (parseInt(numSesion) - 1);
-    sheet.getRange(fila, 5).setValue(sesionAnterior); // Columna E: No. Sesión
-    Logger.log('📊 Número de sesión revertido: ' + numSesion + ' → ' + sesionAnterior);
+      // Revertir el número de sesión al valor anterior
+      const sesionAnterior = valorAnterior || (parseInt(numSesion) - 1);
+      sheet.getRange(fila, 5).setValue(sesionAnterior); // Columna E: No. Sesión
+      Logger.log('📊 Número de sesión revertido: ' + numSesion + ' → ' + sesionAnterior);
 
-    // Incrementar contador de inasistencias
-    const inasistenciasActuales = sheet.getRange(fila, 9).getValue() || 0; // Columna I: Inasistencias
-    const nuevasInasistencias = parseInt(inasistenciasActuales) + 1;
-    sheet.getRange(fila, 9).setValue(nuevasInasistencias); // Columna I
+      // Incrementar contador de inasistencias
+      const inasistenciasActuales = sheet.getRange(fila, 9).getValue() || 0; // Columna I: Inasistencias
+      const nuevasInasistencias = parseInt(inasistenciasActuales) + 1;
+      sheet.getRange(fila, 9).setValue(nuevasInasistencias); // Columna I
 
-    Logger.log('📊 Inasistencias actualizadas: ' + inasistenciasActuales + ' → ' + nuevasInasistencias);
+      Logger.log('📊 Inasistencias actualizadas: ' + inasistenciasActuales + ' → ' + nuevasInasistencias);
 
-    ss.toast(
-      'INASISTENCIA REGISTRADA\n\n' +
-      nombre + ' NO asistio\n\n' +
-      'Numero de sesion revertido: ' + numSesion + ' → ' + sesionAnterior + '\n' +
-      'Total inasistencias: ' + nuevasInasistencias,
-      'No vino',
-      5
-    );
-  } else {
-    // Usuario canceló - revertir el cambio
-    Logger.log('⚠️ Usuario canceló el registro de asistencia');
-    const sesionAnterior = valorAnterior || (parseInt(numSesion) - 1);
-    sheet.getRange(fila, 5).setValue(sesionAnterior); // Revertir cambio
-    Logger.log('📊 Número de sesión revertido por cancelación: ' + numSesion + ' → ' + sesionAnterior);
+      ss.toast(
+        'INASISTENCIA REGISTRADA\n\n' +
+        nombre + ' NO asistio\n\n' +
+        'Numero de sesion revertido: ' + numSesion + ' → ' + sesionAnterior + '\n' +
+        'Total inasistencias: ' + nuevasInasistencias,
+        'No vino',
+        5
+      );
+    } else {
+      // Usuario canceló - revertir el cambio
+      Logger.log('⚠️ Usuario canceló el registro de asistencia');
+      const sesionAnterior = valorAnterior || (parseInt(numSesion) - 1);
+      sheet.getRange(fila, 5).setValue(sesionAnterior); // Revertir cambio
+      Logger.log('📊 Número de sesión revertido por cancelación: ' + numSesion + ' → ' + sesionAnterior);
+    }
+  } finally {
+    // SIEMPRE liberar el lock al terminar
+    cache.remove(lockKey);
+    Logger.log('✅ Lock liberado para fila ' + fila);
   }
 }
 
@@ -1859,7 +1896,20 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
-  const datos = sheetOrigen.getRange(fila, 1, 1, 9).getValues()[0];
+  // PROTECCIÓN ADICIONAL: Verificar si ya se está procesando esta fila
+  const cache = CacheService.getDocumentCache();
+  const lockKey = 'procesando_finalizacion_' + sheetOrigen.getName() + '_' + fila;
+
+  if (cache.get(lockKey)) {
+    Logger.log('⚠️ Ya se está procesando finalización para esta fila, ignorando duplicado');
+    return;
+  }
+
+  // Marcar como en proceso por 30 segundos (puede tardar más por los diálogos)
+  cache.put(lockKey, 'true', 30);
+
+  try {
+    const datos = sheetOrigen.getRange(fila, 1, 1, 9).getValues()[0];
   const terapeuta = datos[0];       // A: Terapeuta
   const participante = datos[1];    // B: Participante
   const creemosId = datos[2];       // C: Creamos ID
@@ -1990,6 +2040,15 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
   } else {
     Logger.log('❌ Error al copiar a la hoja');
     ss.toast('❌ Error al copiar a la hoja de ' + tipoFinal, 'Error', 5);
+  }
+
+  } catch (error) {
+    Logger.log('❌ ERROR en procesarFinalizacionTerapia: ' + error.toString());
+    ss.toast('❌ Error: ' + error.message, 'Error', 5);
+  } finally {
+    // SIEMPRE liberar el lock al terminar
+    cache.remove(lockKey);
+    Logger.log('✅ Lock liberado para fila ' + fila);
   }
 }
 
