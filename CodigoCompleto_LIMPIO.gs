@@ -365,9 +365,9 @@ function configurarValidaciones() {
     .build();
   nuevos.getRange("H2:H200").setDataValidation(tipoRule);
 
-  // Sesión (1-20) - En Asignaciones
+  // Sesión (0-20) - En Asignaciones
   const sesionNumbers = [];
-  for (let i = 1; i <= 20; i++) {
+  for (let i = 0; i <= 20; i++) {
     sesionNumbers.push(i.toString());
   }
   const sesionRule = SpreadsheetApp.newDataValidation()

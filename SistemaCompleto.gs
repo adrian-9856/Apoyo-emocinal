@@ -819,7 +819,7 @@ function configurarValidaciones() {
 
   // Validaciones de número de sesión - Terapias columna E
   const sesiones = [];
-  for (let i = 1; i <= 20; i++) {
+  for (let i = 0; i <= 20; i++) {
     sesiones.push(i.toString());
   }
   const sesionRule = SpreadsheetApp.newDataValidation()
@@ -3938,7 +3938,7 @@ function repararTerapias() {
 
     // No. Sesión (E)
     const sesiones = [];
-    for (let i = 1; i <= 20; i++) {
+    for (let i = 0; i <= 20; i++) {
       sesiones.push(i.toString());
     }
     const sesionRule = SpreadsheetApp.newDataValidation()
