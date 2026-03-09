@@ -1567,7 +1567,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
       nombre,             // B: Participante
       creemosId || '',    // C: Creamos ID
       genero || '',       // D: Género
-      1,                  // E: No. Sesión
+      0,                  // E: No. Sesión
       'En proceso',       // F: Estado
       '',                 // G: Motivo Finalización
       0,                  // H: Sesiones Mes Anterior
@@ -1685,7 +1685,7 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
     nombreLimpio,       // B: Participante
     creemosId || '',    // C: Creamos ID
     genero || '',       // D: Género
-    1,                  // E: No. Sesión
+    0,                  // E: No. Sesión
     'En proceso',       // F: Estado
     '',                 // G: Motivo Finalización
     0,                  // H: Sesiones Mes Anterior
