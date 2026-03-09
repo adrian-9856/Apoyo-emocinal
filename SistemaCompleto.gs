@@ -1729,9 +1729,9 @@ function registrarAsistenciaSesion(sheet, fila, numSesion, valorAnterior) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
-  // PROTECCIÓN ADICIONAL: Verificar si ya se está procesando esta fila
+  // PROTECCIÓN ADICIONAL: Verificar si ya se está procesando esta fila con este número de sesión
   const cache = CacheService.getDocumentCache();
-  const lockKey = 'procesando_sesion_' + sheet.getName() + '_' + fila;
+  const lockKey = 'procesando_sesion_' + sheet.getName() + '_' + fila + '_' + numSesion;
 
   if (cache.get(lockKey)) {
     Logger.log('⚠️ Ya se está procesando asistencia para esta fila, ignorando duplicado');
