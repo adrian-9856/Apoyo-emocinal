@@ -1099,35 +1099,18 @@ function alEditar(e) {
     }
   }
 
-  // CASO 5: Formulario de Bienestar - DESHABILITADO POR PETICIÓN DEL USUARIO
-  // El usuario prefiere enviar MANUALMENTE desde el menú, NO automáticamente
-  // Si necesitas habilitar el envío automático, descomenta el código abajo
-
-  /*
+  // CASO 5: Formulario de Bienestar - Hoja de Interés (solo marca color)
+  // Funciona igual que Referencias, Derivaciones e Intervención de casos
   if (hoja === 'C_03_Formulario de Bienestar (2026)' && columna === 5) {
-    Logger.log('✅ Detectada edición en Bienestar, columna E (Enviar a Lista)');
-    Logger.log('   Valor ingresado: "' + val + '"');
-
+    Logger.log('✅ Detectada edición en Bienestar, columna E - Hoja de Interés');
     if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
-      Logger.log('✅ Usuario seleccionó "Sí" - Enviando a Lista de Espera');
-      Logger.log('▶️ EJECUTANDO enviarBienestarAListaEspera...');
-
-      try {
-        enviarBienestarAListaEspera(sheet, fila);
-        Logger.log('✅ enviarBienestarAListaEspera completado');
-
-        // Marcar la fila con color verde para indicar que fue enviada
-        sheet.getRange(fila, 1, 1, 5).setBackground('#d4edda');
-        Logger.log('✅ Fila marcada en verde (enviada)');
-
-        actualizarReportes();
-        Logger.log('✅ Reportes actualizados');
-      } catch (error) {
-        Logger.log('❌ ERROR en enviarBienestarAListaEspera: ' + error.toString());
-      }
+      e.range.setBackground('#d4edda'); // Verde suave
+      Logger.log('✅ Color verde aplicado (Sí)');
+    } else if (val === 'No' || val === 'no') {
+      e.range.setBackground('#f8d7da'); // Rojo suave
+      Logger.log('✅ Color rojo aplicado (No)');
     }
   }
-  */
 
   // CASO 6: Hoja de interés — columna O (15) = "Sí"
   if (hoja === 'Hoja de interés' && columna === COL_ENVIAR_INTERES) {
@@ -4403,7 +4386,7 @@ function importarDatosAutomaticoSilencioso() {
     const esHojaNueva = ultimaFila === 0;
 
     if (esHojaNueva) {
-      const encabezadosCortos = ['Creamos ID', 'activar_protocolo_suicidio', '¿Te gustaría que nuestro equipo de Apoyo Emocional se pusiera en contacto contigo para informarte sobre sus servicios?', 'Nota', 'Enviar a Lista de Espera'];
+      const encabezadosCortos = ['Creamos ID', 'activar_protocolo_suicidio', '¿Te gustaría que nuestro equipo de Apoyo Emocional se pusiera en contacto contigo para informarte sobre sus servicios?', 'Nota', 'Hoja de Interés'];
       sheet.getRange(1, 1, 1, 5).setValues([encabezadosCortos])
         .setBackground('#d9534f').setFontColor('white').setFontWeight('bold')
         .setHorizontalAlignment('center').setWrap(true);
