@@ -1589,9 +1589,10 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
       'En proceso',       // F: Estado
       '',                 // G: Motivo Finalización
       0,                  // H: Sesiones Mes Anterior
-      0                   // I: Inasistencias
+      0,                  // I: Inasistencias
+      0                   // J: Asistencias
     ];
-    terapias.getRange(nuevaFilaTerapias, 1, 1, 9).setValues([registroTerapias]);
+    terapias.getRange(nuevaFilaTerapias, 1, 1, 10).setValues([registroTerapias]);
     Logger.log('✅ Agregado a Terapias en fila: ' + nuevaFilaTerapias);
 
     // Marcar fila en verde en Lista de Espera (procesada — Vino)
@@ -1707,10 +1708,11 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
     'En proceso',       // F: Estado
     '',                 // G: Motivo Finalización
     0,                  // H: Sesiones Mes Anterior
-    0                   // I: Inasistencias
+    0,                  // I: Inasistencias
+    0                   // J: Asistencias
   ];
 
-  terapias.getRange(nuevaFila, 1, 1, 9).setValues([registro]);
+  terapias.getRange(nuevaFila, 1, 1, 10).setValues([registro]);
 
   // Marcar como procesado
   sheetOrigen.getRange(fila, 1, 1, 7).setBackground('#d4edda');
