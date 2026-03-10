@@ -58,6 +58,7 @@ function onOpen() {
       .addItem('🔧 Reparar Fórmulas Reporte', 'actualizarFormulasReporte')
       .addItem('🔍 Diagnóstico CSV Hoja de interés', 'diagnosticarFormularioInteres')
       .addItem('📋 Mostrar todas las columnas CSV', 'mostrarColumnasCSVInteres')
+      .addItem('📋 Mostrar columnas CSV Histórico', 'mostrarColumnasCSVHistorico')
       .addItem('🔬 Ver valores Terapia Individual', 'mostrarValoresTerapiaIndividual')
       .addItem('🔍 Diagnóstico CSV Referencias y Derivaciones', 'diagnosticarReferenciasYDerivaciones')
       .addItem('📦 Migrar datos antiguos a Hoja de interés', 'migrarDatosAntiguosInteres')
@@ -6454,7 +6455,26 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
   const iNombres   = _buscarCol(hCSV, ['inicio/nombre', 'nombre(s)', 'nombres']);
   const iApellidos = _buscarCol(hCSV, ['inicio/apellido', 'apellido(s)', 'apellidos']);
   const iGenero    = _buscarCol(hCSV, ['inicio/género', 'inicio/genero', 'género', 'genero', 'sexo']);
-  const iEdad      = _buscarCol(hCSV, ['inicio/edad', 'edad', 'inicio/¿cuántos años tienes', '¿cuántos años tienes', 'años', 'age']);
+  const iEdad      = _buscarCol(hCSV, [
+    'inicio/edad',
+    'edad',
+    'inicio/¿cuántos años tienes',
+    '¿cuántos años tienes',
+    'cuantos años tienes',
+    'años',
+    'anos',
+    'age',
+    'inicio/fecha de nacimiento',
+    'fecha de nacimiento',
+    'fecha_nacimiento',
+    'nacimiento',
+    'birth',
+    'date of birth',
+    'dob',
+    'tu edad',
+    'su edad',
+    'edad actual'
+  ]);
   const iTelefono  = _buscarCol(hCSV, ['inicio/número de teléfono', 'inicio/numero de telefono', 'teléfono', 'telefono', 'número de teléfono', 'numero de telefono', 'tel', 'phone']);
   const iZona      = _buscarCol(hCSV, ['inicio/zona', 'zona']);
   const iUUID      = _buscarCol(hCSV, ['_uuid', 'uuid']);
@@ -6516,6 +6536,19 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
   ]);
 
   Logger.log('📍 ' + fuente + ' (Histórico): Total columnas CSV: ' + hCSV.length);
+
+  // Log de columnas básicas detectadas
+  Logger.log('📍 Columnas básicas detectadas:');
+  Logger.log('   - Fecha: ' + (iFecha >= 0 ? '"' + hCSV[iFecha] + '"' : '❌ NO ENCONTRADA'));
+  Logger.log('   - Creamos ID: ' + (iCreamosID >= 0 ? '"' + hCSV[iCreamosID] + '"' : '❌ NO ENCONTRADA'));
+  Logger.log('   - Nombres: ' + (iNombres >= 0 ? '"' + hCSV[iNombres] + '"' : '❌ NO ENCONTRADA'));
+  Logger.log('   - Apellidos: ' + (iApellidos >= 0 ? '"' + hCSV[iApellidos] + '"' : '❌ NO ENCONTRADA'));
+  Logger.log('   - Género: ' + (iGenero >= 0 ? '"' + hCSV[iGenero] + '"' : '❌ NO ENCONTRADA'));
+  Logger.log('   - Edad: ' + (iEdad >= 0 ? '"' + hCSV[iEdad] + '"' : '❌ NO ENCONTRADA'));
+  Logger.log('   - Teléfono: ' + (iTelefono >= 0 ? '"' + hCSV[iTelefono] + '"' : '❌ NO ENCONTRADA'));
+  Logger.log('   - Zona: ' + (iZona >= 0 ? '"' + hCSV[iZona] + '"' : '❌ NO ENCONTRADA'));
+  Logger.log('   - UUID: ' + (iUUID >= 0 ? '"' + hCSV[iUUID] + '"' : '❌ NO ENCONTRADA'));
+
   Logger.log('📍 Servicios detectados:');
   Logger.log('   - Terapia Individual: ' + (iTerapiaInd >= 0 ? hCSV[iTerapiaInd] : '❌ NO ENCONTRADA'));
   Logger.log('   - RelajArte: ' + (iRelajArte >= 0 ? hCSV[iRelajArte] : '❌ NO ENCONTRADA'));
@@ -6524,6 +6557,20 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
   Logger.log('   - Autopercepción: ' + (iAutopercepcion >= 0 ? hCSV[iAutopercepcion] : '❌ NO ENCONTRADA'));
   Logger.log('   - Gestión Casos: ' + (iGestionCasos >= 0 ? hCSV[iGestionCasos] : '❌ NO ENCONTRADA'));
   Logger.log('   - Apoyo Emocional: ' + (iApoyoEmocional >= 0 ? hCSV[iApoyoEmocional] : '❌ NO ENCONTRADA'));
+
+  // Si no se encontró Edad, mostrar columnas que podrían ser edad
+  if (iEdad < 0) {
+    Logger.log('⚠️ COLUMNA EDAD NO ENCONTRADA. Columnas disponibles que podrían contener edad:');
+    hCSV.forEach((col, idx) => {
+      const colLower = col.toLowerCase();
+      if (colLower.includes('edad') || colLower.includes('año') || colLower.includes('nacimiento') ||
+          colLower.includes('age') || colLower.includes('birth') || colLower.includes('fecha') ||
+          colLower.includes('cumple')) {
+        Logger.log('   [' + idx + '] "' + col + '"');
+      }
+    });
+    Logger.log('💡 Sugerencia: Revisa los nombres exactos de las columnas y actualiza la búsqueda en la función _extraerFilasInteresHistorico');
+  }
 
   // Si no se encontraron servicios, mostrar columnas relevantes
   if (iTerapiaInd < 0 && iApoyoEmocional < 0) {
@@ -7033,7 +7080,11 @@ function diagnosticarFormularioInteres() {
         const hCSV = filas[0];
         const iCreamosID  = _buscarCol(hCSV, ['creamos id', 'creamos_id', 'creamos']);
         const iNombres    = _buscarCol(hCSV, ['inicio/nombre', 'nombre(s)', 'nombres']);
-        const iEdad       = _buscarCol(hCSV, ['inicio/edad', 'edad', 'inicio/¿cuántos años tienes', '¿cuántos años tienes', 'años', 'age']);
+        const iEdad       = _buscarCol(hCSV, [
+          'inicio/edad', 'edad', 'inicio/¿cuántos años tienes', '¿cuántos años tienes', 'cuantos años tienes',
+          'años', 'anos', 'age', 'inicio/fecha de nacimiento', 'fecha de nacimiento', 'fecha_nacimiento',
+          'nacimiento', 'birth', 'date of birth', 'dob', 'tu edad', 'su edad', 'edad actual'
+        ]);
         const iTelefono   = _buscarCol(hCSV, ['inicio/número de teléfono', 'inicio/numero de telefono', 'teléfono', 'telefono', 'número de teléfono', 'numero de telefono', 'tel', 'phone']);
         const iTerapiaInd = _buscarCol(hCSV, ['/terapia individual', 'terapia_individual', 'interesa(n)?/terapia']);
         const iUUID       = _buscarCol(hCSV, ['_uuid', 'uuid']);
@@ -7044,6 +7095,15 @@ function diagnosticarFormularioInteres() {
         info += '  Teléfono:         ' + (iTelefono   >= 0 ? '"' + hCSV[iTelefono]   + '"' : '❌ NO ENCONTRADA') + '\n';
         info += '  Terapia Indiv.:   ' + (iTerapiaInd >= 0 ? '"' + hCSV[iTerapiaInd] + '"' : '⚠️ col no encontrada → importa todos') + '\n';
         info += '  _uuid:            ' + (iUUID       >= 0 ? '"' + hCSV[iUUID]       + '"' : '⚠️ no encontrado') + '\n';
+
+        // Si la edad no se encontró, mostrar las primeras 20 columnas para ayudar a identificar el problema
+        if (iEdad < 0) {
+          info += '\n  ⚠️ COLUMNAS DISPONIBLES (primeras 20):\n';
+          for (let i = 0; i < Math.min(hCSV.length, 20); i++) {
+            info += '     [' + i + '] "' + hCSV[i] + '"\n';
+          }
+          info += '  💡 Revisa qué columna contiene la edad y actualiza la búsqueda\n';
+        }
 
         let conTerapia = 0; let sinTerapia = 0;
         filas.slice(1).forEach(f => {
@@ -7116,6 +7176,75 @@ function mostrarColumnasCSVInteres() {
 
     Logger.log(info);
     ui.alert('📋 Columnas CSV', info, ui.ButtonSet.OK);
+
+  } catch (e) {
+    ui.alert('❌ Error', 'Error: ' + e.message, ui.ButtonSet.OK);
+    Logger.log('❌ Error: ' + e.message);
+  }
+}
+
+/**
+ * Muestra TODAS las columnas del CSV Histórico (2024-2026)
+ * para identificar los nombres exactos de las columnas.
+ */
+function mostrarColumnasCSVHistorico() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    ss.toast('📥 Descargando CSV Histórico...', 'Diagnóstico', 5);
+
+    const resp = UrlFetchApp.fetch(URL_FORMULARIO_INTERES_HIST, { muteHttpExceptions: true, followRedirects: true });
+
+    if (resp.getResponseCode() !== 200) {
+      ui.alert('❌ Error', 'HTTP ' + resp.getResponseCode() + ' - URL inválida o caducada', ui.ButtonSet.OK);
+      return;
+    }
+
+    const csvTexto = resp.getContentText();
+    const filas = _parsearCSV(csvTexto);
+
+    if (filas.length === 0) {
+      ui.alert('❌ Error', 'CSV vacío o sin encabezados', ui.ButtonSet.OK);
+      return;
+    }
+
+    const headers = filas[0];
+
+    let info = '📋 COLUMNAS DEL CSV HISTÓRICO (2024-2026)\n';
+    info += 'Total de columnas: ' + headers.length + '\n';
+    info += 'Total de registros: ' + (filas.length - 1) + '\n';
+    info += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+    // Mostrar todas las columnas con índice
+    headers.forEach((col, idx) => {
+      info += '[' + idx + '] ' + col + '\n';
+    });
+
+    info += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    info += 'Columnas que contienen "edad", "año" o "nacimiento":\n\n';
+
+    let edadCols = [];
+    headers.forEach((col, idx) => {
+      const colLower = col.toLowerCase();
+      if (colLower.includes('edad') || colLower.includes('año') || colLower.includes('nacimiento') ||
+          colLower.includes('age') || colLower.includes('birth')) {
+        edadCols.push('[' + idx + '] ' + col);
+      }
+    });
+
+    if (edadCols.length > 0) {
+      info += edadCols.join('\n') + '\n';
+    } else {
+      info += '❌ No se encontraron columnas relacionadas con edad\n';
+    }
+
+    info += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    info += '💡 Usa esta información para actualizar la búsqueda de edad\n';
+    info += 'en la función _extraerFilasInteresHistorico\n';
+
+    Logger.log(info);
+    ui.alert('📋 Columnas CSV Histórico', info, ui.ButtonSet.OK);
 
   } catch (e) {
     ui.alert('❌ Error', 'Error: ' + e.message, ui.ButtonSet.OK);
