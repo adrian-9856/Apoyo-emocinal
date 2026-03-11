@@ -842,12 +842,17 @@ function onEdit(e) {
     enviarAHojaGrupoAE(sheet, row, value);
   }
 
-  // Lógica de Evolución/Notas en Grupos (Checkboxes de asistencia)
-  // Las sesiones ocupan 2 columnas cada una (Checkbox + Evolución). 
-  // Empiezan en la columna 6 (S1), 8 (S2), etc.
+  // ✅ CORRECCIÓN: Ya NO se llama automáticamente a gestionarAsistenciaYEvolucionAE
+  // Esto permite que:
+  // 1. Los checkboxes funcionen normalmente sin preguntas
+  // 2. Puedas escribir evoluciones directamente en las celdas
+  // 3. Usar la función masiva desde el menú cuando lo necesites
+
+  /* CÓDIGO ANTERIOR COMENTADO - Ya no se ejecuta automáticamente
   if (sheet.getName().includes('(2026)') && col >= 6 && (col % 2 === 0)) {
     gestionarAsistenciaYEvolucionAE(e);
   }
+  */
 }
 
 /**
@@ -1081,10 +1086,21 @@ function enviarAHojaGrupoAE(sheetSrc, row, targetName) {
   // Se envía: Año (2026), ID (col 1), Nombre (col 2), Tel (col 5)
   sheetDest.getRange(nextRow, 1, 1, 4).setValues([[2026, dataRow[1], dataRow[2], dataRow[5]]]);
 
+  // ✅ CORRECCIÓN: Insertar checkboxes SOLO en columnas de ASISTENCIA (no en evolución)
   if (colAsistencia > 0 && numSesiones > 0) {
-    sheetDest.getRange(nextRow, 6, 1, numSesiones).insertCheckboxes()
-      .setHorizontalAlignment('center').setVerticalAlignment('middle');
-    const formula = '=IF(C' + nextRow + '<>"", COUNTIF(F' + nextRow + ':' + encodeColNameAE(5 + numSesiones) + nextRow + ', TRUE)/' + numSesiones + ', "")';
+    // Insertar checkboxes solo en columnas impares (6, 8, 10, 12...) = Asistencia
+    for (let s = 0; s < numSesiones; s++) {
+      const colAsis = 6 + (s * 2); // Columnas 6, 8, 10, 12...
+      sheetDest.getRange(nextRow, colAsis, 1, 1).insertCheckboxes()
+        .setHorizontalAlignment('center').setVerticalAlignment('middle');
+    }
+
+    // Fórmula de porcentaje de asistencia
+    let checkCols = [];
+    for (let s = 0; s < numSesiones; s++) {
+      checkCols.push(encodeColNameAE(6 + (s * 2)) + nextRow);
+    }
+    const formula = '=IF(C' + nextRow + '<>"", COUNTIF({' + checkCols.join(';') + '}, TRUE)/' + numSesiones + ', "")';
     sheetDest.getRange(nextRow, colAsistencia).setFormula(formula).setNumberFormat('0%');
   }
 
