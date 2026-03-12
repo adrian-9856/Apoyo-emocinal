@@ -1332,7 +1332,7 @@ function procesarNoVinoConLlamadas(nombre, creemosId, genero, edad, malestar, te
         '📞 Llamada ' + nuevasLlamadas + ' de 5 registrada\n\n' +
         '👤 ' + nombre + '\n' +
         '📝 Nota: ' + notaLlamada + '\n\n' +
-        'Quedó en Lista de Espera.\n' +
+        'Quedó en Hoja de interés.\n' +
         'Asignar nuevamente cuando conteste.',
         'Llamada Registrada',
         8
@@ -6317,11 +6317,11 @@ function crearHojaFormularioInteres() {
 
   const sheet = ss.insertSheet('Hoja de interés');
   const headers = [
-    // Columnas básicas (A-L) + 3 nuevas (M-O)
+    // Columnas básicas (A-L) + 4 nuevas (M-P)
     'Fecha', 'Creamos ID', 'Ya Participante', 'Nombre(s)', 'Apellido(s)',
     'Género', 'Edad', 'Teléfono', 'Zona', 'Otra Zona',
     'Programas Interés', '_uuid',
-    'Terapeuta Asignado', 'Asistió a Cita', 'Número de llamadas realizadas'
+    'Terapeuta Asignado', 'Asistió a Cita', 'Número de llamadas realizadas', '_notas_llamadas'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -6334,7 +6334,8 @@ function crearHojaFormularioInteres() {
     80, 50, 110, 100, 100,  // F-J: Género, Edad, Tel, Zona, Otra Zona
     250,  // K: Programas Interés
     0,  // L: _uuid (oculto)
-    150, 120, 150  // M-O: Terapeuta Asignado, Asistió a Cita, Llamadas
+    150, 120, 150,  // M-O: Terapeuta Asignado, Asistió a Cita, Llamadas
+    0  // P: _notas_llamadas (oculto)
   ];
   anchos.forEach((w, i) => {
     if (w > 0) sheet.setColumnWidth(i + 1, w);
@@ -6344,6 +6345,13 @@ function crearHojaFormularioInteres() {
 
   // Ocultar columna _uuid (L, columna 12)
   sheet.hideColumns(12);
+
+  // Ocultar columna _notas_llamadas (P, columna 16)
+  try {
+    sheet.hideColumns(16);
+  } catch(e) {
+    Logger.log('⚠️ No se pudo ocultar columna P: ' + e.message);
+  }
 
   // Dropdown "Terapeuta Asignado" (columna M = 13)
   sheet.getRange('M2:M1000').setDataValidation(
@@ -6364,7 +6372,7 @@ function crearHojaFormularioInteres() {
       .setAllowInvalid(true).build()
   );
 
-  Logger.log('✅ Hoja Hoja de interés creada (15 columnas - con Terapeuta, Asistió y Llamadas)');
+  Logger.log('✅ Hoja Hoja de interés creada (16 columnas - con Terapeuta, Asistió, Llamadas y notas ocultas)');
   return sheet;
 }
 
@@ -6595,11 +6603,11 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
       Logger.log('   - Programas consolidados: "' + programas + '"');
     }
 
-    // Crear fila con 15 columnas (12 básicas + 3 nuevas: Terapeuta, Asistió, Llamadas)
+    // Crear fila con 16 columnas (12 básicas + 4 nuevas: Terapeuta, Asistió, Llamadas, Notas)
     resultado.filas.push([
       fecha, creamosID, '', nombres, apellidos, genero, edad, telefono, zona, '', programas,
       uuid,             // L: _uuid
-      '', '', ''        // M-O: Terapeuta Asignado, Asistió a Cita, Llamadas (vacíos)
+      '', '', '', ''    // M-P: Terapeuta Asignado, Asistió a Cita, Llamadas, Notas (vacíos)
     ]);
 
     // Actualizar sets
@@ -6774,13 +6782,13 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
       Logger.log('   - Programas consolidados: "' + programas + '"');
     }
 
-    // Crear fila con 15 columnas (12 básicas + 3 nuevas: Terapeuta, Asistió, Llamadas)
+    // Crear fila con 16 columnas (12 básicas + 4 nuevas: Terapeuta, Asistió, Llamadas, Notas)
     resultado.filas.push([
       fecha, creamosID, yaParticipante, nombres, apellidos,          // A-E
       genero, edad, telefono, zona, otraZona,                        // F-J
       programas,                                                     // K
       uuid,                                                          // L: _uuid
-      '', '', ''                                                     // M-O: Terapeuta Asignado, Asistió a Cita, Llamadas (vacíos)
+      '', '', '', ''                                                 // M-P: Terapeuta Asignado, Asistió a Cita, Llamadas, Notas (vacíos)
     ]);
 
     // Actualizar sets
@@ -6858,10 +6866,10 @@ function importarFormularioInteres() {
       }
     }
 
-    // Escribir en lote (estructura con 15 columnas: 12 básicas + 3 nuevas)
+    // Escribir en lote (estructura con 16 columnas: 12 básicas + 4 nuevas)
     if (todasFilasNuevas.length > 0) {
       const dest = sheet.getLastRow() + 1;
-      sheet.getRange(dest, 1, todasFilasNuevas.length, 15).setValues(todasFilasNuevas);
+      sheet.getRange(dest, 1, todasFilasNuevas.length, 16).setValues(todasFilasNuevas);
     }
 
     const msg = todasFilasNuevas.length > 0
