@@ -5,6 +5,15 @@
 /** Columna de "Enviar" en Hoja de interés (1-based) - columna 13 (M) */
 var COL_ENVIAR_INTERES = 13;
 
+/** Columna de "Terapeuta Asignado" en Hoja de interés (1-based) - columna 14 (N) */
+var COL_TERAPEUTA_INTERES = 14;
+
+/** Columna de "Asistió a Cita" en Hoja de interés (1-based) - columna 15 (O) */
+var COL_ASISTIO_INTERES = 15;
+
+/** Columna de "Número de llamadas realizadas" en Hoja de interés (1-based) - columna 16 (P) */
+var COL_LLAMADAS_INTERES = 16;
+
 /** Columna de "Hoja de Interés" en Referencias de programas (1-based) - columna 10 (J) */
 var COL_INTERES_REFERENCIAS = 10;
 
@@ -1017,9 +1026,9 @@ function alEditar(e) {
     return;
   }
 
-  // CASO 1: Lista de Espera - Asignación de Terapeuta (columna M = 13)
-  if (hoja === 'Lista de Espera' && columna === 13) {
-    Logger.log('✅ Detectada edición en Lista de Espera, columna M (13) - Terapeuta Asignado');
+  // CASO 1: Hoja de interés - Asignación de Terapeuta (columna N = 14)
+  if (hoja === 'Hoja de interés' && columna === COL_TERAPEUTA_INTERES) {
+    Logger.log('✅ Detectada edición en Hoja de interés, columna N (' + COL_TERAPEUTA_INTERES + ') - Terapeuta Asignado');
     Logger.log('   Valor ingresado: "' + val + '"');
 
     if (['Gerber', 'Melissa', 'Diana', 'Karina'].indexOf(val) !== -1) {
@@ -1040,9 +1049,9 @@ function alEditar(e) {
     }
   }
 
-  // CASO 2: Lista de Espera - Confirmación de Asistencia (columna N = 14)
-  if (hoja === 'Lista de Espera' && columna === 14) {
-    Logger.log('✅ Detectada edición en Lista de Espera, columna N (14) - Asistió a Cita');
+  // CASO 2: Hoja de interés - Confirmación de Asistencia (columna O = 15)
+  if (hoja === 'Hoja de interés' && columna === COL_ASISTIO_INTERES) {
+    Logger.log('✅ Detectada edición en Hoja de interés, columna O (' + COL_ASISTIO_INTERES + ') - Asistió a Cita');
     Logger.log('   Valor ingresado: "' + val + '"');
 
     if (val === 'Vino' || val === 'No vino') {
@@ -1114,20 +1123,21 @@ function alEditar(e) {
     }
   }
 
-  // CASO 6: Hoja de interés — columna O (15) = "Sí"
-  if (hoja === 'Hoja de interés' && columna === COL_ENVIAR_INTERES) {
-    Logger.log('✅ Detectada edición en Hoja de interés, columna O (' + COL_ENVIAR_INTERES + ')');
-    if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
-      Logger.log('▶️ EJECUTANDO enviarInteresAListaEspera...');
-      try {
-        enviarInteresAListaEspera(sheet, fila);
-        Logger.log('✅ enviarInteresAListaEspera completado');
-        actualizarReportes();
-      } catch (error) {
-        Logger.log('❌ ERROR en enviarInteresAListaEspera: ' + error.toString());
-      }
-    }
-  }
+  // CASO 6: Hoja de interés — columna M (13) = "Sí" (Enviar a Lista de Espera - YA NO SE USA)
+  // Esta funcionalidad está DESACTIVADA porque ya no se usa Lista de Espera
+  // if (hoja === 'Hoja de interés' && columna === COL_ENVIAR_INTERES) {
+  //   Logger.log('✅ Detectada edición en Hoja de interés, columna M (' + COL_ENVIAR_INTERES + ')');
+  //   if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
+  //     Logger.log('▶️ EJECUTANDO enviarInteresAListaEspera...');
+  //     try {
+  //       enviarInteresAListaEspera(sheet, fila);
+  //       Logger.log('✅ enviarInteresAListaEspera completado');
+  //       actualizarReportes();
+  //     } catch (error) {
+  //       Logger.log('❌ ERROR en enviarInteresAListaEspera: ' + error.toString());
+  //     }
+  //   }
+  // }
 
   // CASO 7: Referencias — Ya no tiene columna "Enviar a Lista de Espera"
   // Removido según solicitud del usuario
@@ -6392,10 +6402,11 @@ function crearHojaFormularioInteres() {
 
   const sheet = ss.insertSheet('Hoja de interés');
   const headers = [
-    // Columnas básicas (A-M)
+    // Columnas básicas (A-M) + 3 nuevas (N-P)
     'Fecha', 'Creamos ID', 'Ya Participante', 'Nombre(s)', 'Apellido(s)',
     'Género', 'Edad', 'Teléfono', 'Zona', 'Otra Zona',
-    'Programas Interés', '_uuid', 'Enviar a Lista de Espera'
+    'Programas Interés', '_uuid', 'Enviar a Lista de Espera',
+    'Terapeuta Asignado', 'Asistió a Cita', 'Número de llamadas realizadas'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -6407,7 +6418,8 @@ function crearHojaFormularioInteres() {
     110, 100, 80, 120, 120,  // A-E: Fecha, Creamos ID, Ya Participante, Nombre, Apellido
     80, 50, 110, 100, 100,  // F-J: Género, Edad, Tel, Zona, Otra Zona
     250,  // K: Programas Interés
-    0, 150  // L-M: _uuid (oculto), Enviar
+    0, 150,  // L-M: _uuid (oculto), Enviar
+    150, 120, 150  // N-P: Terapeuta Asignado, Asistió a Cita, Llamadas
   ];
   anchos.forEach((w, i) => {
     if (w > 0) sheet.setColumnWidth(i + 1, w);
@@ -6424,6 +6436,18 @@ function crearHojaFormularioInteres() {
       .requireValueInList(['Sí', 'No'], true).setAllowInvalid(false).build()
   );
 
+  // Dropdown "Terapeuta Asignado" (columna N = 14)
+  sheet.getRange('N2:N1000').setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Gerber', 'Melissa', 'Diana', 'Karina'], true).setAllowInvalid(false).build()
+  );
+
+  // Dropdown "Asistió a Cita" (columna O = 15)
+  sheet.getRange('O2:O1000').setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Vino', 'No vino', 'Pendiente'], true).setAllowInvalid(false).build()
+  );
+
   // Dropdown de Género en columna F (permite valores importados no normalizados)
   sheet.getRange('F2:F1000').setDataValidation(
     SpreadsheetApp.newDataValidation()
@@ -6431,7 +6455,7 @@ function crearHojaFormularioInteres() {
       .setAllowInvalid(true).build()
   );
 
-  Logger.log('✅ Hoja Hoja de interés creada (13 columnas - estructura simplificada)');
+  Logger.log('✅ Hoja Hoja de interés creada (16 columnas - con Terapeuta, Asistió y Llamadas)');
   return sheet;
 }
 
@@ -6662,10 +6686,11 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
       Logger.log('   - Programas consolidados: "' + programas + '"');
     }
 
-    // Crear fila con 13 columnas (estructura simplificada)
+    // Crear fila con 16 columnas (13 anteriores + 3 nuevas: Terapeuta, Asistió, Llamadas)
     resultado.filas.push([
       fecha, creamosID, '', nombres, apellidos, genero, edad, telefono, zona, '', programas,
-      uuid, ''
+      uuid, '',         // L-M: _uuid, Enviar
+      '', '', ''        // N-P: Terapeuta Asignado, Asistió a Cita, Llamadas (vacíos)
     ]);
 
     // Actualizar sets
@@ -6840,12 +6865,13 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
       Logger.log('   - Programas consolidados: "' + programas + '"');
     }
 
-    // Crear fila con 13 columnas (estructura simplificada)
+    // Crear fila con 16 columnas (13 anteriores + 3 nuevas: Terapeuta, Asistió, Llamadas)
     resultado.filas.push([
       fecha, creamosID, yaParticipante, nombres, apellidos,          // A-E
       genero, edad, telefono, zona, otraZona,                        // F-J
       programas,                                                     // K
-      uuid, ''                                                       // L-M: _uuid, Enviar
+      uuid, '',                                                      // L-M: _uuid, Enviar
+      '', '', ''                                                     // N-P: Terapeuta Asignado, Asistió a Cita, Llamadas (vacíos)
     ]);
 
     // Actualizar sets
@@ -6876,7 +6902,7 @@ function importarFormularioInteres() {
     // Construir sets de dedup con datos ya existentes en la hoja
     // Col B (índice 1) = Creamos ID | Col L (índice 11) = _uuid | Col D+E (índice 3+4) = Nombres+Apellidos
     const existentes = sheet.getLastRow() > 1
-      ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues()
+      ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 16).getValues()
       : [];
     const uuidsSet   = new Set(existentes.map(r => (r[11] || '').toString().trim()).filter(Boolean)); // col L = _uuid
     const creamosSet = new Set(existentes.map(r => (r[1]  || '').toString().trim()).filter(Boolean)); // col B = Creamos ID
@@ -6923,10 +6949,10 @@ function importarFormularioInteres() {
       }
     }
 
-    // Escribir en lote (estructura simplificada: 13 columnas)
+    // Escribir en lote (estructura con 16 columnas: 13 originales + 3 nuevas)
     if (todasFilasNuevas.length > 0) {
       const dest = sheet.getLastRow() + 1;
-      sheet.getRange(dest, 1, todasFilasNuevas.length, 13).setValues(todasFilasNuevas);
+      sheet.getRange(dest, 1, todasFilasNuevas.length, 16).setValues(todasFilasNuevas);
     }
 
     const msg = todasFilasNuevas.length > 0
