@@ -695,49 +695,43 @@ function configurarValidaciones() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const nuevos = ss.getSheetByName('Nuevos Ingresos');
   const terapias = ss.getSheetByName('Terapias Individual');
-  const espera = ss.getSheetByName('Lista de Espera');
+  const hojaInteres = ss.getSheetByName('Hoja de interés');
   const intervencion = ss.getSheetByName('Intervención de casos');
   const retirxs = ss.getSheetByName('Retiradx');
 
   // LIMPIAR TODAS las validaciones existentes primero
   // clearDataValidations() debe llamarse sobre un rango, no sobre la hoja
-  nuevos.getRange('A1:Z200').clearDataValidations();
-  espera.getRange('A1:Z200').clearDataValidations();
-  terapias.getRange('A1:Z200').clearDataValidations();
-  if (intervencion) {
-    intervencion.getRange('A1:Z200').clearDataValidations();
-  }
-  if (retirxs) {
-    retirxs.getRange('A1:Z200').clearDataValidations();
-  }
+  if (nuevos) nuevos.getRange('A1:Z1000').clearDataValidations();
+  if (hojaInteres) hojaInteres.getRange('A1:Z1000').clearDataValidations();
+  if (terapias) terapias.getRange('A1:Z1000').clearDataValidations();
+  if (intervencion) intervencion.getRange('A1:Z1000').clearDataValidations();
+  if (retirxs) retirxs.getRange('A1:Z1000').clearDataValidations();
 
   // Validaciones de género
-  // SOLO en hojas donde el usuario EDITA manualmente
-  // NO en Nuevos Ingresos - se llena automáticamente
+  // En Terapias Individual (columna E)
   const generoRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Hombre', 'Mujer', 'Trans hombre', 'No binario', 'Otro'])
     .setAllowInvalid(false)
     .build();
-  espera.getRange('E2:E200').setDataValidation(generoRule);
-  terapias.getRange('E2:E200').setDataValidation(generoRule); // Ahora en columna E
+  if (terapias) terapias.getRange('E2:E1000').setDataValidation(generoRule);
 
   // Género en Hoja de interés (col F) — allowInvalid=true para no romper datos importados
-  const hojaInteres = ss.getSheetByName('Hoja de interés');
   if (hojaInteres) {
     const generoInteresRule = SpreadsheetApp.newDataValidation()
       .requireValueInList(['Hombre', 'Mujer', 'Trans hombre', 'No binario', 'Otro'])
       .setAllowInvalid(true).build();
-    hojaInteres.getRange('F2:F1000').setDataValidation(generoInteresRule); // Columna F en Hoja de interés
+    hojaInteres.getRange('F2:F1000').setDataValidation(generoInteresRule);
   }
-
-  // Edad en Lista de Espera es ahora texto libre (sin validación)
 
   // Validaciones de terapeuta
   const terapeutaRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Gerber', 'Melissa', 'Diana', 'Karina'])
     .setAllowInvalid(false)
     .build();
-  terapias.getRange('A2:A200').setDataValidation(terapeutaRule);
+  if (terapias) terapias.getRange('A2:A1000').setDataValidation(terapeutaRule);
+
+  // Terapeuta en Hoja de interés (columna M = 13)
+  if (hojaInteres) hojaInteres.getRange('M2:M1000').setDataValidation(terapeutaRule);
 
   // Validaciones de Malestar Inicial - Terapias columna D
   const malestarRule = SpreadsheetApp.newDataValidation()
@@ -762,7 +756,7 @@ function configurarValidaciones() {
     ])
     .setAllowInvalid(true) // Allow invalid para no romper datos existentes
     .build();
-  terapias.getRange('D2:D200').setDataValidation(malestarRule);
+  if (terapias) terapias.getRange('D2:D1000').setDataValidation(malestarRule);
 
   // Validaciones de número de sesión - Terapias columna F
   const sesiones = [];
@@ -773,24 +767,21 @@ function configurarValidaciones() {
     .requireValueInList(sesiones)
     .setAllowInvalid(false)
     .build();
-  terapias.getRange('F2:F200').setDataValidation(sesionRule);
+  if (terapias) terapias.getRange('F2:F1000').setDataValidation(sesionRule);
 
   // Validaciones de estado - Terapias columna G
   const estadoRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['En proceso', 'Proceso culminado', 'retirxs'])
     .setAllowInvalid(false)
     .build();
-  terapias.getRange('G2:G200').setDataValidation(estadoRule);
+  if (terapias) terapias.getRange('G2:G1000').setDataValidation(estadoRule);
 
-  // Validaciones de terapeuta - en Lista de Espera columna M (13)
-  espera.getRange('M2:M200').setDataValidation(terapeutaRule);
-
-  // Validaciones de asistencia - en Lista de Espera columna N (14)
+  // Validaciones de asistencia - en Hoja de interés columna N (14)
   const asistenciaRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Vino', 'No vino', 'Pendiente'])
     .setAllowInvalid(false)
     .build();
-  espera.getRange('N2:N200').setDataValidation(asistenciaRule);
+  if (hojaInteres) hojaInteres.getRange('N2:N1000').setDataValidation(asistenciaRule);
 
   // Validaciones de Tipo de Intervención - en Intervención de casos columna E
   if (intervencion) {
@@ -854,13 +845,12 @@ function configurarValidaciones() {
   // NUEVOS INGRESOS:
   //   - SIN validaciones (se llena automáticamente desde código)
   //
-  // LISTA DE ESPERA:
-  //   - Género (E)
-  //   - Edad (F) - texto libre, sin validación
+  // HOJA DE INTERÉS:
+  //   - Género (F) - allow invalid para datos importados
   //   - Terapeuta Asignado (M)
   //   - Asistió a Cita (N)
   //
-  // TERAPIAS:
+  // TERAPIAS INDIVIDUAL:
   //   - Terapeuta (A)
   //   - Malestar Inicial (D) - 17 opciones
   //   - Género (E)
@@ -870,6 +860,9 @@ function configurarValidaciones() {
   // INTERVENCION DE CASOS:
   //   - Tipo (E) - desplegable: Referencia programas, Derivación institucional, Paps, Crisis suicida
   //   - Motivo (F) - texto libre, sin validación
+  //
+  // RETIRADX:
+  //   - Motivo de retiro (F) - 21 opciones
   //
   // =====================================================================
 }
@@ -3507,7 +3500,7 @@ function repararValidaciones() {
     ss.toast('🔧 Reparando sistema...', 'Reparación', 2);
 
     // 1. Limpiar TODAS las validaciones de datos de todas las hojas
-    const hojas = ['Lista de Espera', 'Nuevos Ingresos', 'Terapias Individual',
+    const hojas = ['Hoja de interés', 'Nuevos Ingresos', 'Terapias Individual',
                    'Procesos Culminados', 'Retiradx', 'Intervención de casos',
                    'Personas no asistidas'];
 
