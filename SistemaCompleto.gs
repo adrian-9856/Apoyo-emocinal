@@ -509,7 +509,7 @@ function crearTerapias() {
 
   // 11 columnas - Orden actualizado con Malestar Inicial
   const headers = [
-    'Terapeuta', 'Creemos ID', 'Participante', 'Malestar Inicial',
+    'Terapeuta', 'Creamos ID', 'Participante', 'Malestar Inicial',
     'Género', 'No. Sesión', 'Estado', 'Motivo Finalización', 'Sesiones Mes Anterior', 'Inasistencias', 'Asistencias'
   ];
 
@@ -528,8 +528,8 @@ function crearProcesosCulminados() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Procesos Culminados');
 
-  // Sin columna Participante - solo Creemos ID como referencia
-  const headers = ['Fecha', 'Creemos ID', 'Terapeuta', 'Total Sesiones', 'Motivo'];
+  // Sin columna Participante - solo Creamos ID como referencia
+  const headers = ['Fecha', 'Creamos ID', 'Terapeuta', 'Total Sesiones', 'Motivo'];
 
   sheet.getRange(1, 1, 1, 5).setValues([headers])
     .setBackground('#388e3c')
@@ -546,8 +546,8 @@ function crearDeserciones() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Retiradx');
 
-  // Sin columna Participante - solo Creemos ID como referencia
-  const headers = ['Fecha', 'Creemos ID', 'Terapeuta', 'Sesiones', 'Motivo'];
+  // Sin columna Participante - solo Creamos ID como referencia
+  const headers = ['Fecha', 'Creamos ID', 'Terapeuta', 'Sesiones', 'Motivo'];
 
   sheet.getRange(1, 1, 1, 5).setValues([headers])
     .setBackground('#d32f2f')
@@ -594,8 +594,8 @@ function crearPersonasNoAsistidas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Personas no asistidas');
 
-  // Sin columna Nombre Completo - solo Creemos ID como referencia
-  const headers = ['Fecha', 'Creemos ID', 'Género', 'Edad', 'Malestar Principal', 'Terapeuta Asignado', 'Teléfono', 'Notas de llamadas'];
+  // Sin columna Nombre Completo - solo Creamos ID como referencia
+  const headers = ['Fecha', 'Creamos ID', 'Género', 'Edad', 'Malestar Principal', 'Terapeuta Asignado', 'Teléfono', 'Notas de llamadas'];
 
   sheet.getRange(1, 1, 1, 8).setValues([headers])
     .setBackground('#ff6f00')
@@ -1473,7 +1473,7 @@ function enviarAPersonasNoAsistidasConNotas(creemosId, genero, edad, malestar, t
 
     Logger.log('Enviando a Personas no asistidas con notas de 5 llamadas...');
 
-    // Verificar duplicados en Personas no asistidas (por Creemos ID)
+    // Verificar duplicados en Personas no asistidas (por Creamos ID)
     const datosNoAsistidas = noAsistidas.getDataRange().getValues();
     for (let i = 1; i < datosNoAsistidas.length; i++) {
       if (datosNoAsistidas[i][1] && datosNoAsistidas[i][1].toString().trim() === creemosId.toString().trim()) {
@@ -1612,7 +1612,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
 
     const registroTerapias = [
       terapeuta,          // A: Terapeuta
-      creemosId || '',    // B: Creemos ID
+      creemosId || '',    // B: Creamos ID
       nombre,             // C: Participante
       malestar || '',     // D: Malestar Inicial
       genero || '',       // E: Género
@@ -1648,10 +1648,10 @@ function enviarAPersonasNoAsistidas(creemosId, genero, edad, malestar, terapeuta
 
     Logger.log('Iniciando envío a Personas no asistidas...');
 
-    // Verificar duplicados en Personas no asistidas (por Creemos ID)
+    // Verificar duplicados en Personas no asistidas (por Creamos ID)
     const datosNoAsistidas = noAsistidas.getDataRange().getValues();
     for (let i = 1; i < datosNoAsistidas.length; i++) {
-      if (datosNoAsistidas[i][1] && datosNoAsistidas[i][1].toString().trim() === creemosId.toString().trim()) { // Columna B (índice 1): Creemos ID
+      if (datosNoAsistidas[i][1] && datosNoAsistidas[i][1].toString().trim() === creemosId.toString().trim()) { // Columna B (índice 1): Creamos ID
         Logger.log('⚠️ Duplicado detectado en Personas no asistidas: ' + creemosId);
         // No borrar — marcar rojo en Hoja de interés
         sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#f8d7da');
@@ -1732,7 +1732,7 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
 
   const registro = [
     terapeuta,          // A: Terapeuta
-    creemosId || '',    // B: Creemos ID
+    creemosId || '',    // B: Creamos ID
     nombreLimpio,       // C: Participante
     malestar || '',     // D: Malestar Inicial
     genero || '',       // E: Género
@@ -1945,7 +1945,7 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
   try {
     const datos = sheetOrigen.getRange(fila, 1, 1, 11).getValues()[0];
   const terapeuta = datos[0];       // A: Terapeuta
-  const creemosId = datos[1];       // B: Creemos ID
+  const creemosId = datos[1];       // B: Creamos ID
   const participante = datos[2];    // C: Participante
   const malestar = datos[3];        // D: Malestar Inicial
   const genero = datos[4];          // E: Género
@@ -2028,7 +2028,7 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
     ok = copiarACulminados(terapeuta, creemosId, numSesion, motivo);
   } else if (tipoFinal === 'retirxs') {
     Logger.log('📂 Copiando a Retiradx...');
-    Logger.log('   Creemos ID: ' + creemosId);
+    Logger.log('   Creamos ID: ' + creemosId);
     Logger.log('   Terapeuta: ' + terapeuta);
     Logger.log('   Motivo: ' + motivo);
     ok = copiarADeserciones(terapeuta, creemosId, numSesion, motivo);
@@ -2704,7 +2704,7 @@ function copiarACulminados(terapeuta, creemosId, sesiones, motivo) {
     // VERIFICAR SI YA EXISTE para evitar duplicados
     const datos = sheet.getDataRange().getValues();
     for (let i = 1; i < datos.length; i++) {
-      const idExistente = datos[i][1]; // Columna B: Creemos ID
+      const idExistente = datos[i][1]; // Columna B: Creamos ID
       if (idExistente && idExistente.toString().trim() === creemosId.toString().trim()) {
         Logger.log('⚠️ Participante ya existe en Procesos Culminados: ' + creemosId);
         ss.toast(
@@ -2723,7 +2723,7 @@ function copiarACulminados(terapeuta, creemosId, sesiones, motivo) {
     const maxFilas = 200;
 
     for (let i = 2; i <= maxFilas; i++) {
-      const idExistente = sheet.getRange(i, 2).getValue(); // Columna B: Creemos ID
+      const idExistente = sheet.getRange(i, 2).getValue(); // Columna B: Creamos ID
       if (!idExistente || idExistente.toString().trim() === '') {
         nuevaFila = i;
         break;
@@ -2766,7 +2766,7 @@ function copiarADeserciones(terapeuta, creemosId, sesiones, motivo) {
     // VERIFICAR SI YA EXISTE para evitar duplicados
     const datos = sheet.getDataRange().getValues();
     for (let i = 1; i < datos.length; i++) {
-      const idExistente = datos[i][1]; // Columna B: Creemos ID
+      const idExistente = datos[i][1]; // Columna B: Creamos ID
       if (idExistente && idExistente.toString().trim() === creemosId.toString().trim()) {
         Logger.log('⚠️ Participante ya existe en Retiradx: ' + creemosId);
         ss.toast(
@@ -2785,7 +2785,7 @@ function copiarADeserciones(terapeuta, creemosId, sesiones, motivo) {
     const maxFilas = 200;
 
     for (let i = 2; i <= maxFilas; i++) {
-      const idExistente = sheet.getRange(i, 2).getValue(); // Columna B: Creemos ID
+      const idExistente = sheet.getRange(i, 2).getValue(); // Columna B: Creamos ID
       if (!idExistente || idExistente.toString().trim() === '') {
         nuevaFila = i;
         break;
@@ -2798,7 +2798,7 @@ function copiarADeserciones(terapeuta, creemosId, sesiones, motivo) {
 
     Logger.log('📝 Datos a guardar:');
     Logger.log('   Fecha: ' + new Date());
-    Logger.log('   Creemos ID: ' + (creemosId || ''));
+    Logger.log('   Creamos ID: ' + (creemosId || ''));
     Logger.log('   Terapeuta: ' + terapeuta);
     Logger.log('   Sesiones: ' + (parseInt(sesiones) || 1));
     Logger.log('   Motivo: ' + motivo);
