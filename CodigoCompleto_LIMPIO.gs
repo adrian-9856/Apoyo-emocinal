@@ -201,24 +201,24 @@ function crearHojaAsignaciones() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet("Asignaciones y Terapias");
 
-  // SIMPLIFICADO - 8 columnas (sin dropdowns de Terapeuta y Tipo)
+  // 9 columnas - Orden actualizado con Malestar Inicial
   const headers = [
-    "Terapeuta", "Participante", "Creemos ID", "Género",
-    "Tipo Terapia", "No. Sesión", "Estado",
+    "Terapeuta", "Creemos ID", "Participante", "Malestar Inicial",
+    "Género", "Tipo Terapia", "No. Sesión", "Estado",
     "Motivo Finalización"
   ];
 
-  sheet.getRange(1, 1, 1, 8).setValues([headers]);
+  sheet.getRange(1, 1, 1, 9).setValues([headers]);
 
   // Formato
-  sheet.getRange(1, 1, 1, 8)
+  sheet.getRange(1, 1, 1, 9)
     .setBackground("#2e7d32")
     .setFontColor("white")
     .setFontWeight("bold")
     .setHorizontalAlignment("center");
 
   // Anchos
-  const widths = [120, 200, 120, 80, 120, 80, 120, 300];
+  const widths = [120, 120, 200, 250, 80, 120, 80, 120, 300];
   widths.forEach((width, i) => {
     sheet.setColumnWidth(i + 1, width);
   });
@@ -306,10 +306,10 @@ function crearHojaReporte() {
     ["Pendientes asignar", '=CONTAR.SI.CONJUNTO(\'Nuevos Ingresos\'!K:K;"";\'Nuevos Ingresos\'!C:C;"<>")'],
     [""],
     ["👩‍⚕️ CASOS ACTIVOS"],
-    ["Gerber", '=CONTAR.SI.CONJUNTO(\'Asignaciones y Terapias\'!A:A;"Gerber";\'Asignaciones y Terapias\'!G:G;"En proceso")'],
-    ["Melissa", '=CONTAR.SI.CONJUNTO(\'Asignaciones y Terapias\'!A:A;"Melissa";\'Asignaciones y Terapias\'!G:G;"En proceso")'],
-    ["Diana", '=CONTAR.SI.CONJUNTO(\'Asignaciones y Terapias\'!A:A;"Diana";\'Asignaciones y Terapias\'!G:G;"En proceso")'],
-    ["Karina", '=CONTAR.SI.CONJUNTO(\'Asignaciones y Terapias\'!A:A;"Karina";\'Asignaciones y Terapias\'!G:G;"En proceso")'],
+    ["Gerber", '=CONTAR.SI.CONJUNTO(\'Asignaciones y Terapias\'!A:A;"Gerber";\'Asignaciones y Terapias\'!H:H;"En proceso")'],
+    ["Melissa", '=CONTAR.SI.CONJUNTO(\'Asignaciones y Terapias\'!A:A;"Melissa";\'Asignaciones y Terapias\'!H:H;"En proceso")'],
+    ["Diana", '=CONTAR.SI.CONJUNTO(\'Asignaciones y Terapias\'!A:A;"Diana";\'Asignaciones y Terapias\'!H:H;"En proceso")'],
+    ["Karina", '=CONTAR.SI.CONJUNTO(\'Asignaciones y Terapias\'!A:A;"Karina";\'Asignaciones y Terapias\'!H:H;"En proceso")'],
     ["Total activos", "=B9+B10+B11+B12"],
     [""],
     ["🎉 CULMINADOS"],
@@ -365,7 +365,7 @@ function configurarValidaciones() {
     .build();
   nuevos.getRange("H2:H200").setDataValidation(tipoRule);
 
-  // Sesión (0-20) - En Asignaciones
+  // Sesión (0-20) - En Asignaciones (columna G)
   const sesionNumbers = [];
   for (let i = 0; i <= 20; i++) {
     sesionNumbers.push(i.toString());
@@ -374,14 +374,14 @@ function configurarValidaciones() {
     .requireValueInList(sesionNumbers)
     .setAllowInvalid(false)
     .build();
-  asignaciones.getRange("F2:F200").setDataValidation(sesionRule);
+  asignaciones.getRange("G2:G200").setDataValidation(sesionRule);
 
-  // Estado - En Asignaciones (columna G)
+  // Estado - En Asignaciones (columna H)
   const estadoRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(["En proceso", "Finalizado"])
     .setAllowInvalid(false)
     .build();
-  asignaciones.getRange("G2:G200").setDataValidation(estadoRule);
+  asignaciones.getRange("H2:H200").setDataValidation(estadoRule);
 
   // Hoja de Interés - Lista Espera (columna L) - No editable por fórmula
   // La validación se aplicará solo si el usuario cambia manualmente
@@ -397,17 +397,17 @@ function configurarFormatos() {
   const asignaciones = ss.getSheetByName("Asignaciones y Terapias");
   const listaEspera = ss.getSheetByName("Lista de Espera");
 
-  // Formatos para Asignaciones
+  // Formatos para Asignaciones - columna H (Estado)
   const procesoRule = SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo("En proceso")
     .setBackground("#d1ecf1")
-    .setRanges([asignaciones.getRange("G2:G200")])
+    .setRanges([asignaciones.getRange("H2:H200")])
     .build();
 
   const finalizadoRule = SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo("Finalizado")
     .setBackground("#fff3cd")
-    .setRanges([asignaciones.getRange("G2:G200")])
+    .setRanges([asignaciones.getRange("H2:H200")])
     .build();
 
   asignaciones.setConditionalFormatRules([procesoRule, finalizadoRule]);
@@ -477,8 +477,8 @@ function onEditSistema(e) {
       }
     }
 
-    // AUTOMATIZACIÓN 3: Finalizar (columna 7)
-    if (nombreHoja === "Asignaciones y Terapias" && columna === 7) {
+    // AUTOMATIZACIÓN 3: Finalizar (columna 8 - Estado)
+    if (nombreHoja === "Asignaciones y Terapias" && columna === 8) {
       if (valorLimpio === "Finalizado") {
         procesarFinalizacion(sheet, fila);
       }
@@ -566,37 +566,39 @@ function procesarAsignacion(sheetOrigen, fila, terapeuta) {
     const nombre = datos[2];          // C
     const creemosId = datos[3];       // D
     const genero = datos[4];          // E
+    const malestar = datos[6];        // G - Malestar Principal
     const tipoAtencion = datos[7];    // H
 
     if (!nombre || nombre.toString().trim() === "") return false;
 
     const nombreLimpio = nombre.toString().trim();
 
-    // Verificar duplicado
+    // Verificar duplicado - ahora Participante está en columna C (índice 2)
     const datosAsignaciones = asignaciones.getDataRange().getValues();
     for (let i = 1; i < datosAsignaciones.length; i++) {
-      if (datosAsignaciones[i][1] && datosAsignaciones[i][1].toString().trim() === nombreLimpio) {
+      if (datosAsignaciones[i][2] && datosAsignaciones[i][2].toString().trim() === nombreLimpio) {
         sheetOrigen.getRange(fila, 1, 1, 11).setBackground("#d4edda");
         ss.toast(nombreLimpio + " ya asignado", "Ya Procesado", 2);
         return true;
       }
     }
 
-    // Crear asignación (8 columnas SIMPLIFICADAS)
+    // Crear asignación (9 columnas con nuevo orden)
     const nuevaFila = asignaciones.getLastRow() + 1;
 
     const nuevaAsignacion = [
       terapeuta,                    // A - Terapeuta
-      nombreLimpio,                 // B - Participante
-      creemosId || "",              // C - Creemos ID
-      genero || "",                 // D - Género
-      tipoAtencion || "Individual", // E - Tipo Terapia
-      "1",                          // F - No. Sesión
-      "En proceso",                 // G - Estado
-      ""                            // H - Motivo (vacío)
+      creemosId || "",              // B - Creemos ID
+      nombreLimpio,                 // C - Participante
+      malestar || "",               // D - Malestar Inicial
+      genero || "",                 // E - Género
+      tipoAtencion || "Individual", // F - Tipo Terapia
+      "1",                          // G - No. Sesión
+      "En proceso",                 // H - Estado
+      ""                            // I - Motivo (vacío)
     ];
 
-    asignaciones.getRange(nuevaFila, 1, 1, 8).setValues([nuevaAsignacion]);
+    asignaciones.getRange(nuevaFila, 1, 1, 9).setValues([nuevaAsignacion]);
 
     sheetOrigen.getRange(fila, 1, 1, 11).setBackground("#d4edda");
 
@@ -618,14 +620,15 @@ function procesarFinalizacion(sheetOrigen, fila) {
     if (!sheetOrigen || typeof sheetOrigen.getRange !== 'function') return false;
     if (!fila || fila < 2) return false;
 
-    // Obtener datos (8 columnas)
-    const datos = sheetOrigen.getRange(fila, 1, 1, 8).getValues()[0];
-    const terapeuta = datos[0];      // A
-    const participante = datos[1];   // B
-    const creemosId = datos[2];      // C
-    const genero = datos[3];         // D
-    const tipoTerapia = datos[4];    // E
-    const numSesion = datos[5];      // F
+    // Obtener datos (9 columnas con nuevo orden)
+    const datos = sheetOrigen.getRange(fila, 1, 1, 9).getValues()[0];
+    const terapeuta = datos[0];      // A - Terapeuta
+    const creemosId = datos[1];      // B - Creemos ID
+    const participante = datos[2];   // C - Participante
+    const malestar = datos[3];       // D - Malestar Inicial
+    const genero = datos[4];         // E - Género
+    const tipoTerapia = datos[5];    // F - Tipo Terapia
+    const numSesion = datos[6];      // G - No. Sesión
 
     if (!participante || participante.toString().trim() === "") return false;
 
@@ -639,7 +642,7 @@ function procesarFinalizacion(sheetOrigen, fila) {
     );
 
     if (tipoResponse.getSelectedButton() !== ui.Button.OK) {
-      sheetOrigen.getRange(fila, 7).setValue("En proceso");
+      sheetOrigen.getRange(fila, 8).setValue("En proceso");
       return false;
     }
 
@@ -654,7 +657,7 @@ function procesarFinalizacion(sheetOrigen, fila) {
       tipoFinalizacion = "Gestión de casos";
     } else {
       ui.alert("Debe ingresar 1, 2 o 3");
-      sheetOrigen.getRange(fila, 7).setValue("En proceso");
+      sheetOrigen.getRange(fila, 8).setValue("En proceso");
       return false;
     }
 
@@ -666,7 +669,7 @@ function procesarFinalizacion(sheetOrigen, fila) {
     );
 
     if (motivoResponse.getSelectedButton() !== ui.Button.OK) {
-      sheetOrigen.getRange(fila, 7).setValue("En proceso");
+      sheetOrigen.getRange(fila, 8).setValue("En proceso");
       return false;
     }
 
@@ -674,12 +677,12 @@ function procesarFinalizacion(sheetOrigen, fila) {
 
     if (!motivo || motivo === "") {
       ui.alert("Debe ingresar un motivo");
-      sheetOrigen.getRange(fila, 7).setValue("En proceso");
+      sheetOrigen.getRange(fila, 8).setValue("En proceso");
       return false;
     }
 
     // Actualizar motivo
-    sheetOrigen.getRange(fila, 8).setValue(motivo);
+    sheetOrigen.getRange(fila, 9).setValue(motivo);
 
     // Enviar email
     enviarEmail(nombreLimpio, terapeuta, tipoFinalizacion, motivo, numSesion);
@@ -703,7 +706,7 @@ function procesarFinalizacion(sheetOrigen, fila) {
         "Gestión de casos": "#fff3cd"
       };
 
-      sheetOrigen.getRange(fila, 1, 1, 8).setBackground(colores[tipoFinalizacion]);
+      sheetOrigen.getRange(fila, 1, 1, 9).setBackground(colores[tipoFinalizacion]);
 
       ss.toast(
         "✅ " + nombreLimpio + "\n" + tipoFinalizacion + "\nSesiones: " + numSesion,
