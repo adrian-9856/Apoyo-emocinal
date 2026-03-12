@@ -528,15 +528,16 @@ function crearProcesosCulminados() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Procesos Culminados');
 
-  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creamos ID', 'Total Sesiones', 'Motivo'];
+  // Sin columna Participante - solo Creemos ID como referencia
+  const headers = ['Fecha', 'Creemos ID', 'Terapeuta', 'Total Sesiones', 'Motivo'];
 
-  sheet.getRange(1, 1, 1, 6).setValues([headers])
+  sheet.getRange(1, 1, 1, 5).setValues([headers])
     .setBackground('#388e3c')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 200, 120, 120, 100, 300].forEach((w, i) => {
+  [120, 120, 120, 100, 300].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -545,15 +546,16 @@ function crearDeserciones() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Retiradx');
 
-  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creamos ID', 'Sesiones', 'Motivo'];
+  // Sin columna Participante - solo Creemos ID como referencia
+  const headers = ['Fecha', 'Creemos ID', 'Terapeuta', 'Sesiones', 'Motivo'];
 
-  sheet.getRange(1, 1, 1, 6).setValues([headers])
+  sheet.getRange(1, 1, 1, 5).setValues([headers])
     .setBackground('#d32f2f')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 200, 120, 120, 100, 300].forEach((w, i) => {
+  [120, 120, 120, 100, 300].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -592,15 +594,16 @@ function crearPersonasNoAsistidas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Personas no asistidas');
 
-  const headers = ['Fecha', 'Nombre Completo', 'Creamos ID', 'Género', 'Edad', 'Malestar Principal', 'Terapeuta Asignado', 'Teléfono', 'Notas de llamadas'];
+  // Sin columna Nombre Completo - solo Creemos ID como referencia
+  const headers = ['Fecha', 'Creemos ID', 'Género', 'Edad', 'Malestar Principal', 'Terapeuta Asignado', 'Teléfono', 'Notas de llamadas'];
 
-  sheet.getRange(1, 1, 1, 9).setValues([headers])
+  sheet.getRange(1, 1, 1, 8).setValues([headers])
     .setBackground('#ff6f00')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 200, 120, 100, 100, 250, 150, 200, 300].forEach((w, i) => {
+  [120, 120, 100, 100, 250, 150, 200, 300].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -808,15 +811,15 @@ function configurarValidaciones() {
     .setAllowInvalid(false)
     .build();
   espera.getRange('E2:E200').setDataValidation(generoRule);
-  terapias.getRange('D2:D200').setDataValidation(generoRule);
+  terapias.getRange('E2:E200').setDataValidation(generoRule); // Ahora en columna E
 
-  // Género en Hoja de interés (col D) — allowInvalid=true para no romper datos importados
+  // Género en Hoja de interés (col F) — allowInvalid=true para no romper datos importados
   const hojaInteres = ss.getSheetByName('Hoja de interés');
   if (hojaInteres) {
     const generoInteresRule = SpreadsheetApp.newDataValidation()
       .requireValueInList(['Hombre', 'Mujer', 'Trans hombre', 'No binario', 'Otro'])
       .setAllowInvalid(true).build();
-    hojaInteres.getRange('D2:D1000').setDataValidation(generoInteresRule);
+    hojaInteres.getRange('F2:F1000').setDataValidation(generoInteresRule); // Columna F en Hoja de interés
   }
 
   // Edad en Lista de Espera es ahora texto libre (sin validación)
@@ -828,7 +831,32 @@ function configurarValidaciones() {
     .build();
   terapias.getRange('A2:A200').setDataValidation(terapeutaRule);
 
-  // Validaciones de número de sesión - Terapias columna E
+  // Validaciones de Malestar Inicial - Terapias columna D
+  const malestarRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList([
+      'Duelo',
+      'Sintomatología depresiva',
+      'Sintomatología de ansiedad',
+      'Dinámica familiar disfuncional',
+      'Sintomatología o Trastorno de Personalidad',
+      'Requerimiento legal',
+      'Violencia de género',
+      'Separación de pareja',
+      'Dificultad en las relaciones interpersonales',
+      'Estrés',
+      'Consumo problemático de sustancias',
+      'Intento o ideación suicida',
+      'Sintomatología de TEA o TEPT',
+      'Problemas de la conducta alimentaria',
+      'Dificultad en la gestión emocional',
+      'Violencia intrafamiliar',
+      'Conducta adictiva'
+    ])
+    .setAllowInvalid(true) // Allow invalid para no romper datos existentes
+    .build();
+  terapias.getRange('D2:D200').setDataValidation(malestarRule);
+
+  // Validaciones de número de sesión - Terapias columna F
   const sesiones = [];
   for (let i = 0; i <= 20; i++) {
     sesiones.push(i.toString());
@@ -926,9 +954,10 @@ function configurarValidaciones() {
   //
   // TERAPIAS:
   //   - Terapeuta (A)
-  //   - Género (D)
-  //   - No. Sesión (E)
-  //   - Estado (F)
+  //   - Malestar Inicial (D) - 17 opciones
+  //   - Género (E)
+  //   - No. Sesión (F)
+  //   - Estado (G)
   //
   // INTERVENCION DE CASOS:
   //   - Tipo (E) - desplegable: Referencia programas, Derivación institucional, Paps, Crisis suicida
@@ -1204,42 +1233,46 @@ function asignarTerapeuta(sheetOrigen, fila, terapeuta) {
       return;
     }
 
-    // Leer datos básicos
-    const nombre = sheetOrigen.getRange(fila, 3).getValue(); // Columna C
+    // Leer datos básicos de Hoja de interés: D (Nombre) + E (Apellido)
+    const nombres = sheetOrigen.getRange(fila, 4).getValue();   // Columna D: Nombre(s)
+    const apellidos = sheetOrigen.getRange(fila, 5).getValue(); // Columna E: Apellido(s)
 
-    if (!nombre || nombre.toString().trim() === '') {
+    const nombreCompleto = [nombres, apellidos]
+      .filter(v => v && v.toString().trim() !== '')
+      .join(' ')
+      .trim();
+
+    if (!nombreCompleto) {
       ss.toast('⚠️ Debe ingresar un nombre primero', 'Error', 3);
-      sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar terapeuta (columna M)
+      sheetOrigen.getRange(fila, COL_TERAPEUTA_INTERES).clearContent(); // Limpiar terapeuta (columna N)
       return;
     }
 
-    const nombreLimpio = nombre.toString().trim();
-
-    Logger.log('Asignando ' + nombreLimpio + ' a ' + terapeuta);
+    Logger.log('Asignando ' + nombreCompleto + ' a ' + terapeuta);
 
     // 1. Enviar email al terapeuta
-    const emailEnviado = enviarEmailAsignacionTerapeuta(terapeuta, nombreLimpio, fila);
+    const emailEnviado = enviarEmailAsignacionTerapeuta(terapeuta, nombreCompleto, fila);
 
     // 2. Notificar al usuario
     if (emailEnviado) {
       ss.toast(
         '✅ CASO ASIGNADO\n\n' +
-        '👤 Participante: ' + nombreLimpio + '\n' +
+        '👤 Participante: ' + nombreCompleto + '\n' +
         '👨‍⚕️ Terapeuta: ' + terapeuta + '\n\n' +
         '📧 Email enviado exitosamente al terapeuta\n\n' +
-        'El terapeuta debe confirmar asistencia en columna N.',
+        'El terapeuta debe confirmar asistencia en columna O.',
         'Email Enviado',
         6
       );
     } else {
       ss.toast(
         '⚠️ CASO ASIGNADO (SIN EMAIL)\n\n' +
-        '👤 Participante: ' + nombreLimpio + '\n' +
+        '👤 Participante: ' + nombreCompleto + '\n' +
         '👨‍⚕️ Terapeuta: ' + terapeuta + '\n\n' +
         '❌ No se envió email (no configurado)\n\n' +
         'CONFIGURAR EMAILS:\n' +
         'Menú → 🏥 Apoyo Emocional → 📧 Configurar Emails Terapeutas\n\n' +
-        'El terapeuta debe confirmar asistencia manualmente en columna N.',
+        'El terapeuta debe confirmar asistencia manualmente en columna O.',
         'Sin Email Configurado',
         10
       );
@@ -1251,7 +1284,7 @@ function asignarTerapeuta(sheetOrigen, fila, terapeuta) {
   } catch (error) {
     Logger.log('❌ ERROR en asignarTerapeuta: ' + error.toString());
     ss.toast('❌ Error: ' + error.message, 'Error', 5);
-    sheetOrigen.getRange(fila, 13).clearContent(); // Limpiar terapeuta (columna M)
+    sheetOrigen.getRange(fila, COL_TERAPEUTA_INTERES).clearContent(); // Limpiar terapeuta (columna N)
   }
 }
 
@@ -1285,49 +1318,52 @@ function procesarConfirmacionAsistencia(sheetOrigen, fila, confirmacion) {
       return;
     }
 
-    // Leer todos los datos necesarios (C-M = 11 columnas)
-    const datos = sheetOrigen.getRange(fila, 3, 1, 11).getValues()[0];
-    const nombre = datos[0];         // C
-    const creemosId = datos[1];      // D
-    const genero = datos[2];         // E
-    const edad = datos[3];           // F: Edad
-    const malestar = datos[4];       // G
-    const telefono = datos[5];       // H: Teléfono
-    const derivacion = datos[6];     // I: Derivación o Referencia
-    const quienDeriva = datos[7];    // J: Nombre de quien deriva o refiere
-    const programaOrganizacion = datos[8]; // K: Programa de Creamos / Organización
-    const servicioSolicita = datos[9]; // L: Servicio que solicita
-    const terapeuta = datos[10];     // M: Terapeuta Asignado
+    // Leer todos los datos necesarios de Hoja de interés (B-N)
+    const creemosId = sheetOrigen.getRange(fila, 2).getValue();   // B: Creamos ID
+    const nombres = sheetOrigen.getRange(fila, 4).getValue();     // D: Nombre(s)
+    const apellidos = sheetOrigen.getRange(fila, 5).getValue();   // E: Apellido(s)
+    const genero = sheetOrigen.getRange(fila, 6).getValue();      // F: Género
+    const edad = sheetOrigen.getRange(fila, 7).getValue();        // G: Edad
+    const telefono = sheetOrigen.getRange(fila, 8).getValue();    // H: Teléfono
+    const programas = sheetOrigen.getRange(fila, 11).getValue();  // K: Programas Interés
+    const terapeuta = sheetOrigen.getRange(fila, COL_TERAPEUTA_INTERES).getValue(); // N: Terapeuta
 
-    if (!nombre || nombre.toString().trim() === '') {
+    // Construir nombre completo
+    const nombreCompleto = [nombres, apellidos]
+      .filter(v => v && v.toString().trim() !== '')
+      .join(' ')
+      .trim();
+
+    if (!nombreCompleto) {
       ss.toast('⚠️ Error: No hay nombre en esta fila', 'Error', 3);
       return;
     }
 
     if (!terapeuta || terapeuta.toString().trim() === '') {
       // Limpiar la celda de confirmación para no dejar "Vino"/"No vino" sin procesar
-      sheetOrigen.getRange(fila, 14).clearContent();
+      sheetOrigen.getRange(fila, COL_ASISTIO_INTERES).clearContent();
       ss.toast(
         '⚠️ No hay terapeuta asignado en esta fila.\n\n' +
-        'Primero asigna un terapeuta en columna M,\nluego selecciona "Vino" o "No vino".',
+        'Primero asigna un terapeuta en columna N,\nluego selecciona "Vino" o "No vino".',
         'Falta Terapeuta', 5
       );
       return;
     }
 
-    const nombreLimpio = nombre.toString().trim();
     const terapeutaNombre = terapeuta.toString().trim();
+    // Usar "Apoyo Emocional" como malestar genérico (viene de Hoja de interés)
+    const malestar = 'Apoyo Emocional';
 
-    Logger.log('Procesando confirmación: ' + nombreLimpio + ' - ' + confirmacion);
+    Logger.log('Procesando confirmación: ' + nombreCompleto + ' - ' + confirmacion);
 
     if (confirmacion === 'Vino') {
       // SI VINO: enviar a AMBOS - Nuevos Ingresos (documentación) Y Terapias
-      Logger.log('Enviando a Nuevos Ingresos y Terapias Individual: ' + nombreLimpio);
-      enviarANuevosIngresosYTerapias(nombreLimpio, creemosId, genero, edad, malestar, terapeutaNombre, sheetOrigen, fila);
+      Logger.log('Enviando a Nuevos Ingresos y Terapias Individual: ' + nombreCompleto);
+      enviarANuevosIngresosYTerapias(nombreCompleto, creemosId, genero, edad, malestar, terapeutaNombre, sheetOrigen, fila);
     } else if (confirmacion === 'No vino') {
       // NO VINO: Sistema de 5 llamadas antes de enviar a Personas no asistidas
       Logger.log('Procesando "No vino" - Sistema de 5 llamadas');
-      procesarNoVinoConLlamadas(nombreLimpio, creemosId, genero, edad, malestar, terapeutaNombre, telefono, sheetOrigen, fila);
+      procesarNoVinoConLlamadas(nombreCompleto, creemosId, genero, edad, malestar, terapeutaNombre, telefono, sheetOrigen, fila);
     }
   } catch (error) {
     Logger.log('❌ ERROR en procesarConfirmacionAsistencia: ' + error.toString());
@@ -1391,8 +1427,8 @@ function procesarNoVinoConLlamadas(nombre, creemosId, genero, edad, malestar, te
 
     if (nuevasLlamadas >= 5) {
       // QUINTA LLAMADA: Enviar a Personas no asistidas con todas las notas
-      Logger.log('5ª llamada alcanzada - Enviando a Personas no asistidas: ' + nombre);
-      enviarAPersonasNoAsistidasConNotas(nombre, creemosId, genero, edad, malestar, terapeuta, telefono, todasLasNotas, sheetOrigen, fila);
+      Logger.log('5ª llamada alcanzada - Enviando a Personas no asistidas: ' + creemosId);
+      enviarAPersonasNoAsistidasConNotas(creemosId, genero, edad, malestar, terapeuta, telefono, todasLasNotas, sheetOrigen, fila);
     } else {
       // AÚN NO ES LA 5ª LLAMADA: Mantener en Lista de Espera
       Logger.log('Llamada ' + nuevasLlamadas + ' registrada - Manteniendo en Lista de Espera');
@@ -1423,7 +1459,7 @@ function procesarNoVinoConLlamadas(nombre, creemosId, genero, edad, malestar, te
 /**
  * Envía a Personas no asistidas incluyendo todas las notas de las 5 llamadas
  */
-function enviarAPersonasNoAsistidasConNotas(nombre, creemosId, genero, edad, malestar, terapeuta, telefono, notas, sheetOrigen, fila) {
+function enviarAPersonasNoAsistidasConNotas(creemosId, genero, edad, malestar, terapeuta, telefono, notas, sheetOrigen, fila) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const noAsistidas = ss.getSheetByName('Personas no asistidas');
@@ -1437,43 +1473,42 @@ function enviarAPersonasNoAsistidasConNotas(nombre, creemosId, genero, edad, mal
 
     Logger.log('Enviando a Personas no asistidas con notas de 5 llamadas...');
 
-    // Verificar duplicados en Personas no asistidas
+    // Verificar duplicados en Personas no asistidas (por Creemos ID)
     const datosNoAsistidas = noAsistidas.getDataRange().getValues();
     for (let i = 1; i < datosNoAsistidas.length; i++) {
-      if (datosNoAsistidas[i][1] && datosNoAsistidas[i][1].toString().trim() === nombre.toString().trim()) {
-        Logger.log('⚠️ Duplicado detectado en Personas no asistidas: ' + nombre);
+      if (datosNoAsistidas[i][1] && datosNoAsistidas[i][1].toString().trim() === creemosId.toString().trim()) {
+        Logger.log('⚠️ Duplicado detectado en Personas no asistidas: ' + creemosId);
         sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#f8d7da');
-        ss.toast('✅ ' + nombre + ' ya está en Personas no asistidas.', 'Ya Registrado', 4);
+        ss.toast('✅ ID ' + creemosId + ' ya está en Personas no asistidas.', 'Ya Registrado', 4);
         return;
       }
     }
 
-    // Agregar a Personas no asistidas con las notas
+    // Agregar a Personas no asistidas con las notas (8 columnas sin nombre)
     const nuevaFila = noAsistidas.getLastRow() + 1;
 
     const registro = [
       new Date(),
-      nombre,
       creemosId || '',
       genero || '',
       edad || '',
       malestar || '',
       terapeuta,
       telefono || '',
-      notas  // Columna I: Notas de las 5 llamadas
+      notas  // Columna H: Notas de las 5 llamadas
     ];
 
-    noAsistidas.getRange(nuevaFila, 1, 1, 9).setValues([registro]);
+    noAsistidas.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
     Logger.log('✅ Agregado a Personas no asistidas en fila: ' + nuevaFila);
 
-    // Marcar fila en rojo en Lista de Espera (5 llamadas completadas - No vino)
+    // Marcar fila en rojo en Hoja de interés (5 llamadas completadas - No vino)
     sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#f8d7da');
-    Logger.log('✅ Fila ' + fila + ' marcada en rojo en Lista de Espera (5 llamadas - No vino)');
+    Logger.log('✅ Fila ' + fila + ' marcada en rojo en Hoja de interés (5 llamadas - No vino)');
 
     SpreadsheetApp.flush();
     ss.toast(
       '🔴 5 LLAMADAS COMPLETADAS\n\n' +
-      '👤 ' + nombre + '\n' +
+      '🆔 ' + creemosId + '\n' +
       '→ Enviado a Personas no asistidas\n\n' +
       '📝 Con notas de todas las llamadas',
       'No Asistió - 5 Llamadas',
@@ -1606,21 +1641,21 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
   }
 }
 
-function enviarAPersonasNoAsistidas(nombre, creemosId, genero, edad, malestar, terapeuta, telefono, sheetOrigen, fila) {
+function enviarAPersonasNoAsistidas(creemosId, genero, edad, malestar, terapeuta, telefono, sheetOrigen, fila) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const noAsistidas = ss.getSheetByName('Personas no asistidas');
 
     Logger.log('Iniciando envío a Personas no asistidas...');
 
-    // Verificar duplicados en Personas no asistidas
+    // Verificar duplicados en Personas no asistidas (por Creemos ID)
     const datosNoAsistidas = noAsistidas.getDataRange().getValues();
     for (let i = 1; i < datosNoAsistidas.length; i++) {
-      if (datosNoAsistidas[i][1] && datosNoAsistidas[i][1].toString().trim() === nombre.toString().trim()) { // Columna B (índice 1): Nombre
-        Logger.log('⚠️ Duplicado detectado en Personas no asistidas: ' + nombre);
-        // No borrar — marcar rojo en Lista de Espera
+      if (datosNoAsistidas[i][1] && datosNoAsistidas[i][1].toString().trim() === creemosId.toString().trim()) { // Columna B (índice 1): Creemos ID
+        Logger.log('⚠️ Duplicado detectado en Personas no asistidas: ' + creemosId);
+        // No borrar — marcar rojo en Hoja de interés
         sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#f8d7da');
-        ss.toast('✅ ' + nombre + ' ya está en Personas no asistidas.', 'Ya Registrado', 4);
+        ss.toast('✅ ID ' + creemosId + ' ya está en Personas no asistidas.', 'Ya Registrado', 4);
         return;
       }
     }
@@ -1630,25 +1665,24 @@ function enviarAPersonasNoAsistidas(nombre, creemosId, genero, edad, malestar, t
 
     const registro = [
       new Date(),
-      nombre,
       creemosId || '',
       genero || '',
       edad || '',
       malestar || '',
       terapeuta,
       telefono || '',
-      ''  // Columna I: Notas de llamadas (vacío si no hay sistema de 5 llamadas)
+      ''  // Columna H: Notas de llamadas (vacío si no hay sistema de 5 llamadas)
     ];
 
-    noAsistidas.getRange(nuevaFila, 1, 1, 9).setValues([registro]);
+    noAsistidas.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
     Logger.log('✅ Agregado a Personas no asistidas en fila: ' + nuevaFila);
 
-    // Marcar fila en rojo en Lista de Espera (procesada — No vino)
+    // Marcar fila en rojo en Hoja de interés (procesada — No vino)
     sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#f8d7da');
-    Logger.log('✅ Fila ' + fila + ' marcada en rojo en Lista de Espera (No vino - procesada)');
+    Logger.log('✅ Fila ' + fila + ' marcada en rojo en Hoja de interés (No vino - procesada)');
 
     SpreadsheetApp.flush();
-    ss.toast('⚠️ ' + nombre + '\n→ Personas no asistidas (NO VINO)\n\n🔴 Fila roja en Lista de Espera', 'No Asistió', 5);
+    ss.toast('⚠️ ID ' + creemosId + '\n→ Personas no asistidas (NO VINO)\n\n🔴 Fila roja en Hoja de interés', 'No Asistió', 5);
     Logger.log('✅ Proceso de no asistencia completado');
   } catch (error) {
     Logger.log('❌ ERROR en enviarAPersonasNoAsistidas: ' + error.toString());
@@ -1991,13 +2025,13 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
   let ok = false;
   if (tipoFinal === 'Proceso culminado') {
     Logger.log('📂 Copiando a Procesos Culminados...');
-    ok = copiarACulminados(nombre, terapeuta, creemosId, numSesion, motivo);
+    ok = copiarACulminados(terapeuta, creemosId, numSesion, motivo);
   } else if (tipoFinal === 'retirxs') {
     Logger.log('📂 Copiando a Retiradx...');
-    Logger.log('   Participante: ' + nombre);
+    Logger.log('   Creemos ID: ' + creemosId);
     Logger.log('   Terapeuta: ' + terapeuta);
     Logger.log('   Motivo: ' + motivo);
-    ok = copiarADeserciones(nombre, terapeuta, creemosId, numSesion, motivo);
+    ok = copiarADeserciones(terapeuta, creemosId, numSesion, motivo);
   }
 
   if (ok) {
@@ -2657,7 +2691,7 @@ function enviarEmailFinalizacion(participante, terapeuta, tipo, motivo, sesiones
   }
 }
 
-function copiarACulminados(participante, terapeuta, creemosId, sesiones, motivo) {
+function copiarACulminados(terapeuta, creemosId, sesiones, motivo) {
   // LOCK para prevenir inserciones concurrentes
   const lock = LockService.getDocumentLock();
   try {
@@ -2670,12 +2704,12 @@ function copiarACulminados(participante, terapeuta, creemosId, sesiones, motivo)
     // VERIFICAR SI YA EXISTE para evitar duplicados
     const datos = sheet.getDataRange().getValues();
     for (let i = 1; i < datos.length; i++) {
-      const nombreExistente = datos[i][1]; // Columna B: Participante
-      if (nombreExistente && nombreExistente.toString().trim() === participante.toString().trim()) {
-        Logger.log('⚠️ Participante ya existe en Procesos Culminados: ' + participante);
+      const idExistente = datos[i][1]; // Columna B: Creemos ID
+      if (idExistente && idExistente.toString().trim() === creemosId.toString().trim()) {
+        Logger.log('⚠️ Participante ya existe en Procesos Culminados: ' + creemosId);
         ss.toast(
           '⚠️ DUPLICADO DETECTADO\n\n' +
-          participante + ' ya está en Procesos Culminados.\n\n' +
+          'ID ' + creemosId + ' ya está en Procesos Culminados.\n\n' +
           'No se agregará nuevamente.',
           'Ya Existe',
           4
@@ -2689,17 +2723,17 @@ function copiarACulminados(participante, terapeuta, creemosId, sesiones, motivo)
     const maxFilas = 200;
 
     for (let i = 2; i <= maxFilas; i++) {
-      const participanteExistente = sheet.getRange(i, 2).getValue(); // Columna B: Participante
-      if (!participanteExistente || participanteExistente.toString().trim() === '') {
+      const idExistente = sheet.getRange(i, 2).getValue(); // Columna B: Creemos ID
+      if (!idExistente || idExistente.toString().trim() === '') {
         nuevaFila = i;
         break;
       }
     }
 
-    const datosNuevos = [new Date(), participante, terapeuta, creemosId || '', parseInt(sesiones) || 1, motivo];
+    const datosNuevos = [new Date(), creemosId || '', terapeuta, parseInt(sesiones) || 1, motivo];
 
-    sheet.getRange(nuevaFila, 1, 1, 6).setValues([datosNuevos]);
-    Logger.log('✅ Agregado a Procesos Culminados: ' + participante + ' en fila ' + nuevaFila);
+    sheet.getRange(nuevaFila, 1, 1, 5).setValues([datosNuevos]);
+    Logger.log('✅ Agregado a Procesos Culminados: ' + creemosId + ' en fila ' + nuevaFila);
     return true;
   } catch (error) {
     Logger.log('❌ Error culminados: ' + error.message);
@@ -2710,7 +2744,7 @@ function copiarACulminados(participante, terapeuta, creemosId, sesiones, motivo)
   }
 }
 
-function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo) {
+function copiarADeserciones(terapeuta, creemosId, sesiones, motivo) {
   // LOCK para prevenir inserciones concurrentes
   const lock = LockService.getDocumentLock();
   try {
@@ -2732,12 +2766,12 @@ function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo
     // VERIFICAR SI YA EXISTE para evitar duplicados
     const datos = sheet.getDataRange().getValues();
     for (let i = 1; i < datos.length; i++) {
-      const nombreExistente = datos[i][1]; // Columna B: Participante
-      if (nombreExistente && nombreExistente.toString().trim() === participante.toString().trim()) {
-        Logger.log('⚠️ Participante ya existe en Retiradx: ' + participante);
+      const idExistente = datos[i][1]; // Columna B: Creemos ID
+      if (idExistente && idExistente.toString().trim() === creemosId.toString().trim()) {
+        Logger.log('⚠️ Participante ya existe en Retiradx: ' + creemosId);
         ss.toast(
           '⚠️ DUPLICADO DETECTADO\n\n' +
-          participante + ' ya está en Retiradx.\n\n' +
+          'ID ' + creemosId + ' ya está en Retiradx.\n\n' +
           'No se agregará nuevamente.',
           'Ya Existe',
           4
@@ -2751,8 +2785,8 @@ function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo
     const maxFilas = 200;
 
     for (let i = 2; i <= maxFilas; i++) {
-      const participanteExistente = sheet.getRange(i, 2).getValue(); // Columna B: Participante
-      if (!participanteExistente || participanteExistente.toString().trim() === '') {
+      const idExistente = sheet.getRange(i, 2).getValue(); // Columna B: Creemos ID
+      if (!idExistente || idExistente.toString().trim() === '') {
         nuevaFila = i;
         break;
       }
@@ -2760,17 +2794,16 @@ function copiarADeserciones(participante, terapeuta, creemosId, sesiones, motivo
 
     Logger.log('📍 Nueva fila para retiro: ' + nuevaFila);
 
-    const datosNuevos = [new Date(), participante, terapeuta, creemosId || '', parseInt(sesiones) || 1, motivo];
+    const datosNuevos = [new Date(), creemosId || '', terapeuta, parseInt(sesiones) || 1, motivo];
 
     Logger.log('📝 Datos a guardar:');
     Logger.log('   Fecha: ' + new Date());
-    Logger.log('   Participante: ' + participante);
+    Logger.log('   Creemos ID: ' + (creemosId || ''));
     Logger.log('   Terapeuta: ' + terapeuta);
-    Logger.log('   Creamos ID: ' + (creemosId || ''));
     Logger.log('   Sesiones: ' + (parseInt(sesiones) || 1));
     Logger.log('   Motivo: ' + motivo);
 
-    sheet.getRange(nuevaFila, 1, 1, 6).setValues([datosNuevos]);
+    sheet.getRange(nuevaFila, 1, 1, 5).setValues([datosNuevos]);
     Logger.log('✅ Datos guardados en fila ' + nuevaFila + ' de hoja Retiradx');
 
     return true;
