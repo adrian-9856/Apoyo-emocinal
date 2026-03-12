@@ -2,17 +2,14 @@
 // VARIABLES GLOBALES
 // =====================================================================
 
-/** Columna de "Enviar" en Hoja de interés (1-based) - columna 13 (M) */
-var COL_ENVIAR_INTERES = 13;
+/** Columna de "Terapeuta Asignado" en Hoja de interés (1-based) - columna 13 (M) */
+var COL_TERAPEUTA_INTERES = 13;
 
-/** Columna de "Terapeuta Asignado" en Hoja de interés (1-based) - columna 14 (N) */
-var COL_TERAPEUTA_INTERES = 14;
+/** Columna de "Asistió a Cita" en Hoja de interés (1-based) - columna 14 (N) */
+var COL_ASISTIO_INTERES = 14;
 
-/** Columna de "Asistió a Cita" en Hoja de interés (1-based) - columna 15 (O) */
-var COL_ASISTIO_INTERES = 15;
-
-/** Columna de "Número de llamadas realizadas" en Hoja de interés (1-based) - columna 16 (P) */
-var COL_LLAMADAS_INTERES = 16;
+/** Columna de "Número de llamadas realizadas" en Hoja de interés (1-based) - columna 15 (O) */
+var COL_LLAMADAS_INTERES = 15;
 
 /** Columna de "Hoja de Interés" en Referencias de programas (1-based) - columna 10 (J) */
 var COL_INTERES_REFERENCIAS = 10;
@@ -182,9 +179,8 @@ function actualizarTodo() {
 
 /**
  * Ejecuta mantenimiento automático al abrir el documento
- * - Repara fórmulas de fecha y número en Lista de Espera
- * - Compacta la lista eliminando filas vacías
  * - Actualiza reportes
+ * - Rellena datos faltantes
  */
 function mantenimientoAutomatico() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -205,48 +201,7 @@ function mantenimientoAutomatico() {
     // Ocultar hoja maestra si está visible
     try { _ocultarHojaMaestra(); } catch(e) {}
 
-    // 1. Reparar fórmulas de Lista de Espera
-    const sheet = ss.getSheetByName('Lista de Espera');
-    if (sheet) {
-      // Crear fórmulas mejoradas para fecha y número
-      const formulas = [];
-      for (let i = 2; i <= 1000; i++) {
-        formulas.push([
-          '=IF(C' + i + '<>"",TODAY(),"")',  // Columna A: Fecha
-          '=IF(C' + i + '<>"",COUNTA($C$2:C' + i + '),"")'  // Columna B: Número secuencial
-        ]);
-      }
-
-      // Aplicar fórmulas silenciosamente
-      sheet.getRange('A2:B1000').setFormulas(formulas);
-      Logger.log('✅ Fórmulas de Lista de Espera reparadas');
-    }
-
-    // 2. Compactar Lista de Espera (eliminar filas vacías)
-    if (sheet) {
-      const ultimaFila = 1000;
-      const datos = sheet.getRange(2, 3, ultimaFila - 1, 12).getValues(); // C2:N1000
-
-      // Filtrar solo las filas que tienen nombre (columna C no vacía)
-      const datosCompactados = [];
-      datos.forEach(fila => {
-        const nombre = fila[0]; // Columna C
-        if (nombre && nombre.toString().trim() !== '') {
-          datosCompactados.push(fila);
-        }
-      });
-
-      if (datosCompactados.length > 0) {
-        // Limpiar todo el rango de datos
-        sheet.getRange(2, 3, ultimaFila - 1, 12).clearContent();
-
-        // Escribir los datos compactados desde la fila 2
-        sheet.getRange(2, 3, datosCompactados.length, 12).setValues(datosCompactados);
-        Logger.log('✅ Lista de Espera compactada: ' + datosCompactados.length + ' registros');
-      }
-    }
-
-    // 3. Rellenar datos faltantes desde hoja maestra (silencioso, no lanza si no existe)
+    // 1. Rellenar datos faltantes desde hoja maestra (silencioso, no lanza si no existe)
     try {
       rellenarDatosFaltantes();
     } catch (eFill) {
@@ -358,14 +313,14 @@ function verificarInstalacion() {
 
   let mensaje = '📋 VERIFICACIÓN DEL SISTEMA\n\n';
 
-  const hojasRequeridas = ['Lista de Espera', 'Nuevos Ingresos', 'Terapias Individual',
+  const hojasRequeridas = ['Nuevos Ingresos', 'Terapias Individual',
                            'Procesos Culminados', 'Retiradx', 'Intervención de casos',
                            'Personas no asistidas', 'Reporte', 'Reportes Mensuales'];
   let hojasOk = 0;
   hojasRequeridas.forEach(nombre => {
     if (ss.getSheetByName(nombre)) hojasOk++;
   });
-  mensaje += '✅ Hojas: ' + hojasOk + '/9\n';
+  mensaje += '✅ Hojas: ' + hojasOk + '/8\n';
 
   let triggerEditarOk = false;
   let triggerTiempoOk = false;
@@ -416,7 +371,6 @@ function crearHojas() {
   const primeraEditable = hojasRestantes.find(h => !HOJAS_PROTEGIDAS.includes(h.getName()));
   if (primeraEditable) primeraEditable.setName('Nuevos Ingresos');
 
-  crearListaEspera();
   crearNuevosIngresos();
   crearTerapias();
   crearProcesosCulminados();
@@ -425,52 +379,6 @@ function crearHojas() {
   crearPersonasNoAsistidas();
   crearReporte();
   crearReportesMensuales();
-}
-
-function crearListaEspera() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.insertSheet('Lista de Espera', 0);
-
-  const headers = [
-    'Fecha Solicitud', 'No.', 'Nombre Completo', 'Creamos ID', 'Género',
-    'Edad', 'Malestar Principal', 'Teléfono', 'Derivación o Referencia',
-    'Nombre de quien deriva o refiere', 'Programa de Creamos / Organización',
-    'Servicio que solicita', 'Terapeuta Asignado', 'Asistió a Cita', 'Número de llamadas realizadas'
-  ];
-
-  sheet.getRange(1, 1, 1, 15).setValues([headers])
-    .setBackground('#e91e63')
-    .setFontColor('white')
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center');
-
-  // Fórmulas para fecha y número automáticos (extendido a 1000 filas)
-  const formulas = [];
-  for (let i = 2; i <= 1000; i++) {
-    formulas.push([
-      '=IF(C' + i + '<>"",TODAY(),"")',  // Columna A: Fecha
-      '=IF(C' + i + '<>"",COUNTA($C$2:C' + i + '),"")'  // Columna B: Número secuencial
-    ]);
-  }
-
-  // Aplicar todas las fórmulas de una vez (más eficiente)
-  sheet.getRange('A2:B1000').setFormulas(formulas);
-
-  [110, 60, 200, 120, 100, 100, 250, 200, 180, 220, 220, 180, 150, 120, 150].forEach((w, i) => {
-    sheet.setColumnWidth(i + 1, w);
-  });
-
-  // Proteger columnas de fecha y número para que no se editen manualmente
-  sheet.getRange('A2:A1000').protect().setWarningOnly(true);
-  sheet.getRange('B2:B1000').protect().setWarningOnly(true);
-
-  // Agregar columna P (16) oculta para notas temporales de llamadas
-  sheet.getRange(1, 16).setValue('_notas_llamadas');
-  try {
-    sheet.hideColumns(16);
-  } catch(e) {
-    Logger.log('⚠️ No se pudo ocultar columna P: ' + e.message);
-  }
 }
 
 function crearNuevosIngresos() {
@@ -628,9 +536,9 @@ function crearReporte() {
     ['Personas que no asistieron a primera cita', '=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)', '=IFERROR(COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
     ['', '', '', ''],
 
-    // SECCIÓN 3: DERIVACIONES — cuenta desde Lista de Espera (col I = tipo de derivación)
+    // SECCIÓN 3: DERIVACIONES — cuenta desde hoja Derivaciones Institucionales
     ['DERIVACIONES INSTITUCIONALES', 'Total', 'Este mes', ''],
-    ['Total derivaciones institucionales', '=IFERROR(COUNTIF(\'Lista de Espera\'!I:I,"Derivación Institucional"),0)', '=IFERROR(COUNTIFS(\'Lista de Espera\'!I:I,"Derivación Institucional",\'Lista de Espera\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Lista de Espera\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
+    ['Total derivaciones institucionales', '=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
     ['', '', '', ''],
 
     // SECCIÓN 4: BIENESTAR (Formularios de KoboToolbox)
@@ -672,8 +580,8 @@ function crearReporte() {
     // SECCIÓN 10: CAPTACIÓN (formularios de ingreso)
     ['CAPTACIÓN', 'Total', 'Este mes', ''],
     ['Hoja de interés (Terapia Individual)', '=IFERROR(COUNTA(\'Hoja de interés\'!C:C)-1,0)', '=IFERROR(COUNTIFS(\'Hoja de interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Hoja de interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
-    ['Referencias de programas recibidas', '=IFERROR(COUNTIF(\'Lista de Espera\'!I:I,"Referencia de Programa"),0)', '=IFERROR(COUNTIFS(\'Lista de Espera\'!I:I,"Referencia de Programa",\'Lista de Espera\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Lista de Espera\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
-    ['Derivaciones institucionales recibidas', '=IFERROR(COUNTIF(\'Lista de Espera\'!I:I,"Derivación Institucional"),0)', '=IFERROR(COUNTIFS(\'Lista de Espera\'!I:I,"Derivación Institucional",\'Lista de Espera\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Lista de Espera\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '']
+    ['Referencias de programas recibidas', '=IFERROR(COUNTA(\'Referencias de programas\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Referencias de programas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias de programas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
+    ['Derivaciones institucionales recibidas', '=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '']
   ];
 
   // Escribir datos
@@ -1152,30 +1060,11 @@ function alEditar(e) {
     }
   }
 
-  // CASO 6: Hoja de interés — columna M (13) = "Sí" (Enviar a Lista de Espera - YA NO SE USA)
-  // Esta funcionalidad está DESACTIVADA porque ya no se usa Lista de Espera
-  // if (hoja === 'Hoja de interés' && columna === COL_ENVIAR_INTERES) {
-  //   Logger.log('✅ Detectada edición en Hoja de interés, columna M (' + COL_ENVIAR_INTERES + ')');
-  //   if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
-  //     Logger.log('▶️ EJECUTANDO enviarInteresAListaEspera...');
-  //     try {
-  //       enviarInteresAListaEspera(sheet, fila);
-  //       Logger.log('✅ enviarInteresAListaEspera completado');
-  //       actualizarReportes();
-  //     } catch (error) {
-  //       Logger.log('❌ ERROR en enviarInteresAListaEspera: ' + error.toString());
-  //     }
-  //   }
-  // }
+  // CASO 6: Hoja de interés — columna M (13) = Terapeuta Asignado
+  // Procesado en CASO 1 (líneas arriba)
 
-  // CASO 7: Referencias — Ya no tiene columna "Enviar a Lista de Espera"
-  // Removido según solicitud del usuario
-
-  // CASO 8: Derivaciones Institucionales — Ya no tiene columna "Enviar a Lista de Espera"
-  // Removido según solicitud del usuario
-
-  // CASO 9: Intervención de casos — Ya no tiene columna "Enviar a Lista de Espera"
-  // Removido según solicitud del usuario
+  // CASO 7: Hoja de interés — columna N (14) = Asistió a Cita
+  // Procesado en CASO 2 (líneas arriba)
 
   // =====================================================================
   // FORMATO AUTOMÁTICO: COLUMNA "HOJA DE INTERÉS"
@@ -1430,8 +1319,8 @@ function procesarNoVinoConLlamadas(nombre, creemosId, genero, edad, malestar, te
       Logger.log('5ª llamada alcanzada - Enviando a Personas no asistidas: ' + creemosId);
       enviarAPersonasNoAsistidasConNotas(creemosId, genero, edad, malestar, terapeuta, telefono, todasLasNotas, sheetOrigen, fila);
     } else {
-      // AÚN NO ES LA 5ª LLAMADA: Mantener en Lista de Espera
-      Logger.log('Llamada ' + nuevasLlamadas + ' registrada - Manteniendo en Lista de Espera');
+      // AÚN NO ES LA 5ª LLAMADA: Mantener en Hoja de interés
+      Logger.log('Llamada ' + nuevasLlamadas + ' registrada - Manteniendo en Hoja de interés');
 
       // Limpiar la selección de "No vino" para permitir nueva verificación
       sheetOrigen.getRange(fila, 14).clearContent();
@@ -1626,12 +1515,12 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
     terapias.getRange(nuevaFilaTerapias, 1, 1, 11).setValues([registroTerapias]);
     Logger.log('✅ Agregado a Terapias en fila: ' + nuevaFilaTerapias);
 
-    // Marcar fila en verde en Lista de Espera (procesada — Vino)
-    sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#d4edda');
-    Logger.log('✅ Fila ' + fila + ' marcada en verde en Lista de Espera (Vino - procesada)');
+    // Marcar fila en verde en Hoja de interés (procesada — Vino)
+    sheetOrigen.getRange(fila, 1, 1, 15).setBackground('#d4edda');
+    Logger.log('✅ Fila ' + fila + ' marcada en verde en Hoja de interés (Vino - procesada)');
 
     SpreadsheetApp.flush();
-    ss.toast('✅ ' + nombre + '\n→ Nuevos Ingresos\n→ Terapias Individual con ' + terapeuta + '\n\n🟢 Fila verde en Lista de Espera', 'Asignado', 5);
+    ss.toast('✅ ' + nombre + '\n→ Nuevos Ingresos\n→ Terapias Individual con ' + terapeuta + '\n\n🟢 Fila verde en Hoja de interés', 'Asignado', 5);
     Logger.log('✅ Proceso completado exitosamente');
   } catch (error) {
     Logger.log('❌ ERROR en enviarANuevosIngresosYTerapias Individual: ' + error.toString());
@@ -4029,8 +3918,9 @@ function repararTerapias() {
 }
 
 /**
- * Repara las fórmulas de fecha y número en Lista de Espera
- * Útil cuando las fórmulas no están funcionando correctamente
+ * [OBSOLETA] Esta función ya no se usa.
+ * La hoja "Lista de Espera" fue eliminada.
+ * @deprecated No usar - hoja Lista de Espera eliminada
  */
 function repararFormulasListaEspera() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -4114,10 +4004,9 @@ function actualizarFormulasReporte() {
     reporte.getRange('B8').setFormula('=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)');
     reporte.getRange('C8').setFormula('=IFERROR(COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
-    // Fila 11: Derivaciones institucionales — cuenta desde Lista de Espera (col I = tipo derivación)
-    // Más confiable: muestra aunque la hoja de importación esté vacía
-    reporte.getRange('B11').setFormula('=IFERROR(COUNTIF(\'Lista de Espera\'!I:I,"Derivación Institucional"),0)');
-    reporte.getRange('C11').setFormula('=IFERROR(COUNTIFS(\'Lista de Espera\'!I:I,"Derivación Institucional",\'Lista de Espera\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Lista de Espera\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    // Fila 11: Derivaciones institucionales — cuenta desde hoja Derivaciones Institucionales
+    reporte.getRange('B11').setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)');
+    reporte.getRange('C11').setFormula('=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
     // Fila 14: Formulario de Bienestar
     reporte.getRange('B14').setFormula('=IFERROR(COUNTA(\'C_03_Formulario de Bienestar (2026)\'!A:A)-1,0)');
@@ -4192,13 +4081,13 @@ function actualizarFormulasReporte() {
     reporte.getRange('B38').setFormula('=IFERROR(COUNTA(\'Hoja de interés\'!C:C)-1,0)');
     reporte.getRange('C38').setFormula('=IFERROR(COUNTIFS(\'Hoja de interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Hoja de interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
-    // Fila 39: Referencias — cuenta desde Lista de Espera col I = "Referencia de Programa"
-    reporte.getRange('B39').setFormula('=IFERROR(COUNTIF(\'Lista de Espera\'!I:I,"Referencia de Programa"),0)');
-    reporte.getRange('C39').setFormula('=IFERROR(COUNTIFS(\'Lista de Espera\'!I:I,"Referencia de Programa",\'Lista de Espera\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Lista de Espera\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    // Fila 39: Referencias — cuenta desde hoja Referencias de programas
+    reporte.getRange('B39').setFormula('=IFERROR(COUNTA(\'Referencias de programas\'!A:A)-1,0)');
+    reporte.getRange('C39').setFormula('=IFERROR(COUNTIFS(\'Referencias de programas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias de programas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
-    // Fila 40: Derivaciones Institucionales (igual que B11, desde Lista de Espera)
-    reporte.getRange('B40').setFormula('=IFERROR(COUNTIF(\'Lista de Espera\'!I:I,"Derivación Institucional"),0)');
-    reporte.getRange('C40').setFormula('=IFERROR(COUNTIFS(\'Lista de Espera\'!I:I,"Derivación Institucional",\'Lista de Espera\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Lista de Espera\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    // Fila 40: Derivaciones Institucionales (igual que B11)
+    reporte.getRange('B40').setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)');
+    reporte.getRange('C40').setFormula('=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
     ss.toast(
       '✅ FORMULAS ACTUALIZADAS\n\n' +
@@ -4301,8 +4190,9 @@ function diagnosticarReporte() {
 }
 
 /**
- * Compacta los datos de Lista de Espera eliminando filas vacías
- * Mueve todos los registros hacia arriba para que queden consecutivos desde la fila 2
+ * [OBSOLETA] Esta función ya no se usa.
+ * La hoja "Lista de Espera" fue eliminada.
+ * @deprecated No usar - hoja Lista de Espera eliminada
  */
 function compactarListaEspera() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -6205,17 +6095,9 @@ function _parsearCSV(csvData) {
 }
 
 /**
- * Agrega una fila a Lista de Espera y marca la fila origen de verde.
- * Solo envía los 14 campos de Lista de Espera; nada más.
- * Verifica duplicados por Creamos ID (col D) o Nombre (col C).
- *
- * @param {Sheet}  sheetOrigen  - Hoja de origen
- * @param {number} filaOrigen   - Número de fila a procesar
- * @param {number} numColsOrigen - Total de columnas de la hoja origen (para pintar)
- * @param {Object} campos       - Objeto con los 14 campos de Lista de Espera
- *   { nombre, creamosID, genero, edad, malestar, telefono,
- *     derivacion, quienDeriva, programa, servicio }
- * @returns {boolean}
+ * [OBSOLETA] Esta función ya no se usa.
+ * La hoja "Lista de Espera" fue eliminada.
+ * @deprecated No usar - hoja Lista de Espera eliminada
  */
 function _agregarAListaEspera(sheetOrigen, filaOrigen, numColsOrigen, campos) {
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
@@ -6435,10 +6317,10 @@ function crearHojaFormularioInteres() {
 
   const sheet = ss.insertSheet('Hoja de interés');
   const headers = [
-    // Columnas básicas (A-M) + 3 nuevas (N-P)
+    // Columnas básicas (A-L) + 3 nuevas (M-O)
     'Fecha', 'Creamos ID', 'Ya Participante', 'Nombre(s)', 'Apellido(s)',
     'Género', 'Edad', 'Teléfono', 'Zona', 'Otra Zona',
-    'Programas Interés', '_uuid', 'Enviar a Lista de Espera',
+    'Programas Interés', '_uuid',
     'Terapeuta Asignado', 'Asistió a Cita', 'Número de llamadas realizadas'
   ];
 
@@ -6451,8 +6333,8 @@ function crearHojaFormularioInteres() {
     110, 100, 80, 120, 120,  // A-E: Fecha, Creamos ID, Ya Participante, Nombre, Apellido
     80, 50, 110, 100, 100,  // F-J: Género, Edad, Tel, Zona, Otra Zona
     250,  // K: Programas Interés
-    0, 150,  // L-M: _uuid (oculto), Enviar
-    150, 120, 150  // N-P: Terapeuta Asignado, Asistió a Cita, Llamadas
+    0,  // L: _uuid (oculto)
+    150, 120, 150  // M-O: Terapeuta Asignado, Asistió a Cita, Llamadas
   ];
   anchos.forEach((w, i) => {
     if (w > 0) sheet.setColumnWidth(i + 1, w);
@@ -6463,20 +6345,14 @@ function crearHojaFormularioInteres() {
   // Ocultar columna _uuid (L, columna 12)
   sheet.hideColumns(12);
 
-  // Dropdown "Enviar a Lista de Espera" (columna M = 13)
+  // Dropdown "Terapeuta Asignado" (columna M = 13)
   sheet.getRange('M2:M1000').setDataValidation(
-    SpreadsheetApp.newDataValidation()
-      .requireValueInList(['Sí', 'No'], true).setAllowInvalid(false).build()
-  );
-
-  // Dropdown "Terapeuta Asignado" (columna N = 14)
-  sheet.getRange('N2:N1000').setDataValidation(
     SpreadsheetApp.newDataValidation()
       .requireValueInList(['Gerber', 'Melissa', 'Diana', 'Karina'], true).setAllowInvalid(false).build()
   );
 
-  // Dropdown "Asistió a Cita" (columna O = 15)
-  sheet.getRange('O2:O1000').setDataValidation(
+  // Dropdown "Asistió a Cita" (columna N = 14)
+  sheet.getRange('N2:N1000').setDataValidation(
     SpreadsheetApp.newDataValidation()
       .requireValueInList(['Vino', 'No vino', 'Pendiente'], true).setAllowInvalid(false).build()
   );
@@ -6488,7 +6364,7 @@ function crearHojaFormularioInteres() {
       .setAllowInvalid(true).build()
   );
 
-  Logger.log('✅ Hoja Hoja de interés creada (16 columnas - con Terapeuta, Asistió y Llamadas)');
+  Logger.log('✅ Hoja Hoja de interés creada (15 columnas - con Terapeuta, Asistió y Llamadas)');
   return sheet;
 }
 
@@ -6719,11 +6595,11 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
       Logger.log('   - Programas consolidados: "' + programas + '"');
     }
 
-    // Crear fila con 16 columnas (13 anteriores + 3 nuevas: Terapeuta, Asistió, Llamadas)
+    // Crear fila con 15 columnas (12 básicas + 3 nuevas: Terapeuta, Asistió, Llamadas)
     resultado.filas.push([
       fecha, creamosID, '', nombres, apellidos, genero, edad, telefono, zona, '', programas,
-      uuid, '',         // L-M: _uuid, Enviar
-      '', '', ''        // N-P: Terapeuta Asignado, Asistió a Cita, Llamadas (vacíos)
+      uuid,             // L: _uuid
+      '', '', ''        // M-O: Terapeuta Asignado, Asistió a Cita, Llamadas (vacíos)
     ]);
 
     // Actualizar sets
@@ -6898,13 +6774,13 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
       Logger.log('   - Programas consolidados: "' + programas + '"');
     }
 
-    // Crear fila con 16 columnas (13 anteriores + 3 nuevas: Terapeuta, Asistió, Llamadas)
+    // Crear fila con 15 columnas (12 básicas + 3 nuevas: Terapeuta, Asistió, Llamadas)
     resultado.filas.push([
       fecha, creamosID, yaParticipante, nombres, apellidos,          // A-E
       genero, edad, telefono, zona, otraZona,                        // F-J
       programas,                                                     // K
-      uuid, '',                                                      // L-M: _uuid, Enviar
-      '', '', ''                                                     // N-P: Terapeuta Asignado, Asistió a Cita, Llamadas (vacíos)
+      uuid,                                                          // L: _uuid
+      '', '', ''                                                     // M-O: Terapeuta Asignado, Asistió a Cita, Llamadas (vacíos)
     ]);
 
     // Actualizar sets
@@ -6982,10 +6858,10 @@ function importarFormularioInteres() {
       }
     }
 
-    // Escribir en lote (estructura con 16 columnas: 13 originales + 3 nuevas)
+    // Escribir en lote (estructura con 15 columnas: 12 básicas + 3 nuevas)
     if (todasFilasNuevas.length > 0) {
       const dest = sheet.getLastRow() + 1;
-      sheet.getRange(dest, 1, todasFilasNuevas.length, 16).setValues(todasFilasNuevas);
+      sheet.getRange(dest, 1, todasFilasNuevas.length, 15).setValues(todasFilasNuevas);
     }
 
     const msg = todasFilasNuevas.length > 0
@@ -7509,12 +7385,10 @@ function diagnosticarReferenciasYDerivaciones() {
 }
 
 /**
- * Envía un registro de Hoja de interés a Lista de Espera.
- * Estructura simplificada (13 columnas):
- *   A=Fecha B=CreamosID C=YaParticipante D=Nombre(s) E=Apellido(s) F=Género
- *   G=Edad H=Teléfono I=Zona J=OtraZona K=ProgramasInterés
- *   L=_uuid M=Enviar(13)
- * Se llama desde alEditar cuando columna M (13) = "Sí".
+ * [OBSOLETA] Esta función ya no se usa.
+ * La hoja "Lista de Espera" fue eliminada.
+ * Ahora se asigna terapeuta directamente en "Hoja de interés".
+ * @deprecated Use asignarTerapeuta() en su lugar
  */
 function enviarInteresAListaEspera(sheet, fila) {
   Logger.log('🔄 enviarInteresAListaEspera — fila ' + fila);
