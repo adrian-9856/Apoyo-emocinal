@@ -2,14 +2,17 @@
 // VARIABLES GLOBALES
 // =====================================================================
 
-/** Columna de "Terapeuta Asignado" en Hoja de interés (1-based) - columna 13 (M) */
-var COL_TERAPEUTA_INTERES = 13;
+/** Columna de "Malestar Inicial" en Hoja de interés (1-based) - columna 13 (M) */
+var COL_MALESTAR_INTERES = 13;
 
-/** Columna de "Asistió a Cita" en Hoja de interés (1-based) - columna 14 (N) */
-var COL_ASISTIO_INTERES = 14;
+/** Columna de "Terapeuta Asignado" en Hoja de interés (1-based) - columna 14 (N) */
+var COL_TERAPEUTA_INTERES = 14;
 
-/** Columna de "Número de llamadas realizadas" en Hoja de interés (1-based) - columna 15 (O) */
-var COL_LLAMADAS_INTERES = 15;
+/** Columna de "Asistió a Cita" en Hoja de interés (1-based) - columna 15 (O) */
+var COL_ASISTIO_INTERES = 15;
+
+/** Columna de "Número de llamadas realizadas" en Hoja de interés (1-based) - columna 16 (P) */
+var COL_LLAMADAS_INTERES = 16;
 
 /** Columna de "Hoja de Interés" en Referencias de programas (1-based) - columna 10 (J) */
 var COL_INTERES_REFERENCIAS = 10;
@@ -730,10 +733,7 @@ function configurarValidaciones() {
     .build();
   if (terapias) terapias.getRange('A2:A1000').setDataValidation(terapeutaRule);
 
-  // Terapeuta en Hoja de interés (columna M = 13)
-  if (hojaInteres) hojaInteres.getRange('M2:M1000').setDataValidation(terapeutaRule);
-
-  // Validaciones de Malestar Inicial - Terapias columna D
+  // Validaciones de Malestar Inicial
   const malestarRule = SpreadsheetApp.newDataValidation()
     .requireValueInList([
       'Duelo',
@@ -758,6 +758,12 @@ function configurarValidaciones() {
     .build();
   if (terapias) terapias.getRange('D2:D1000').setDataValidation(malestarRule);
 
+  // Malestar Inicial en Hoja de interés (columna M = 13)
+  if (hojaInteres) hojaInteres.getRange('M2:M1000').setDataValidation(malestarRule);
+
+  // Terapeuta en Hoja de interés (columna N = 14)
+  if (hojaInteres) hojaInteres.getRange('N2:N1000').setDataValidation(terapeutaRule);
+
   // Validaciones de número de sesión - Terapias columna F
   const sesiones = [];
   for (let i = 0; i <= 20; i++) {
@@ -776,12 +782,12 @@ function configurarValidaciones() {
     .build();
   if (terapias) terapias.getRange('G2:G1000').setDataValidation(estadoRule);
 
-  // Validaciones de asistencia - en Hoja de interés columna N (14)
+  // Validaciones de asistencia - en Hoja de interés columna O (15)
   const asistenciaRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Vino', 'No vino', 'Pendiente'])
     .setAllowInvalid(false)
     .build();
-  if (hojaInteres) hojaInteres.getRange('N2:N1000').setDataValidation(asistenciaRule);
+  if (hojaInteres) hojaInteres.getRange('O2:O1000').setDataValidation(asistenciaRule);
 
   // Validaciones de Tipo de Intervención - en Intervención de casos columna E
   if (intervencion) {
@@ -1161,7 +1167,7 @@ function asignarTerapeuta(sheetOrigen, fila, terapeuta) {
     }
 
     // 3. Marcar fila en amarillo (pendiente)
-    sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#fff3cd');
+    sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#fff3cd');
 
   } catch (error) {
     Logger.log('❌ ERROR en asignarTerapeuta: ' + error.toString());
@@ -1267,8 +1273,8 @@ function procesarNoVinoConLlamadas(nombre, creemosId, genero, edad, malestar, te
   const ui = SpreadsheetApp.getUi();
 
   try {
-    // Obtener número de llamadas actual (columna O = 15)
-    const llamadasActuales = sheetOrigen.getRange(fila, 15).getValue() || 0;
+    // Obtener número de llamadas actual (columna P = 16)
+    const llamadasActuales = sheetOrigen.getRange(fila, 16).getValue() || 0;
     const nuevasLlamadas = Number(llamadasActuales) + 1;
 
     Logger.log('Llamadas actuales: ' + llamadasActuales + ', nuevas llamadas: ' + nuevasLlamadas);
@@ -1283,29 +1289,29 @@ function procesarNoVinoConLlamadas(nombre, creemosId, genero, edad, malestar, te
 
     if (respuesta.getSelectedButton() !== ui.Button.OK) {
       // Si cancela, limpiar la selección de "No vino" y no hacer nada
-      sheetOrigen.getRange(fila, 14).clearContent();
+      sheetOrigen.getRange(fila, 15).clearContent();
       ss.toast('❌ Registro de llamada cancelado', 'Cancelado', 3);
       return;
     }
 
     const notaLlamada = respuesta.getResponseText().trim();
     if (!notaLlamada) {
-      sheetOrigen.getRange(fila, 14).clearContent();
+      sheetOrigen.getRange(fila, 15).clearContent();
       ss.toast('⚠️ Debe ingresar una nota para registrar la llamada', 'Nota requerida', 3);
       return;
     }
 
-    // Obtener notas anteriores (columna P = 16, temporal)
-    const notasAnteriores = sheetOrigen.getRange(fila, 16).getValue() || '';
+    // Obtener notas anteriores (columna Q = 17, oculta)
+    const notasAnteriores = sheetOrigen.getRange(fila, 17).getValue() || '';
     const todasLasNotas = notasAnteriores
       ? notasAnteriores + '\n' + 'Llamada ' + nuevasLlamadas + ': ' + notaLlamada
       : 'Llamada ' + nuevasLlamadas + ': ' + notaLlamada;
 
-    // Actualizar contador de llamadas (columna O = 15)
-    sheetOrigen.getRange(fila, 15).setValue(nuevasLlamadas);
+    // Actualizar contador de llamadas (columna P = 16)
+    sheetOrigen.getRange(fila, 16).setValue(nuevasLlamadas);
 
-    // Guardar todas las notas en columna P = 16 (temporal)
-    sheetOrigen.getRange(fila, 16).setValue(todasLasNotas);
+    // Guardar todas las notas en columna Q = 17 (oculta)
+    sheetOrigen.getRange(fila, 17).setValue(todasLasNotas);
 
     if (nuevasLlamadas >= 5) {
       // QUINTA LLAMADA: Enviar a Personas no asistidas con todas las notas
@@ -1316,10 +1322,10 @@ function procesarNoVinoConLlamadas(nombre, creemosId, genero, edad, malestar, te
       Logger.log('Llamada ' + nuevasLlamadas + ' registrada - Manteniendo en Hoja de interés');
 
       // Limpiar la selección de "No vino" para permitir nueva verificación
-      sheetOrigen.getRange(fila, 14).clearContent();
+      sheetOrigen.getRange(fila, 15).clearContent();
 
       // Marcar fila en amarillo (pendiente de seguimiento)
-      sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#fff3cd');
+      sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#fff3cd');
 
       ss.toast(
         '📞 Llamada ' + nuevasLlamadas + ' de 5 registrada\n\n' +
@@ -1360,7 +1366,7 @@ function enviarAPersonasNoAsistidasConNotas(creemosId, genero, edad, malestar, t
     for (let i = 1; i < datosNoAsistidas.length; i++) {
       if (datosNoAsistidas[i][1] && datosNoAsistidas[i][1].toString().trim() === creemosId.toString().trim()) {
         Logger.log('⚠️ Duplicado detectado en Personas no asistidas: ' + creemosId);
-        sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#f8d7da');
+        sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#f8d7da');
         ss.toast('✅ ID ' + creemosId + ' ya está en Personas no asistidas.', 'Ya Registrado', 4);
         return;
       }
@@ -1384,7 +1390,7 @@ function enviarAPersonasNoAsistidasConNotas(creemosId, genero, edad, malestar, t
     Logger.log('✅ Agregado a Personas no asistidas en fila: ' + nuevaFila);
 
     // Marcar fila en rojo en Hoja de interés (5 llamadas completadas - No vino)
-    sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#f8d7da');
+    sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#f8d7da');
     Logger.log('✅ Fila ' + fila + ' marcada en rojo en Hoja de interés (5 llamadas - No vino)');
 
     SpreadsheetApp.flush();
@@ -1439,7 +1445,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
           estadoTerapia && estadoTerapia.toString().trim() === 'En proceso') {
         Logger.log('Duplicado activo encontrado en Terapias Individual: ' + nombre);
         // No borrar — la fila se conserva en Lista de Espera con color verde
-        sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#d4edda');
+        sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#d4edda');
         ss.toast('✅ ' + nombre + ' ya está en Terapias Individual (En proceso).', 'Ya en Terapias', 4);
         return;
       }
@@ -1451,7 +1457,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
       if (datosNuevos[i][2] && datosNuevos[i][2].toString().trim() === nombre) { // Columna C (índice 2)
         Logger.log('⚠️ Duplicado encontrado en Nuevos Ingresos: ' + nombre);
         // No borrar — la fila se conserva en Lista de Espera con color verde
-        sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#d4edda');
+        sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#d4edda');
         ss.toast('✅ ' + nombre + ' ya está en Nuevos Ingresos.', 'Ya en Nuevos Ingresos', 4);
         return;
       }
@@ -1486,7 +1492,7 @@ function enviarANuevosIngresosYTerapias(nombre, creemosId, genero, edad, malesta
       if (datosFrescos[i][2] && datosFrescos[i][2].toString().trim() === nombre &&
           datosFrescos[i][6] && datosFrescos[i][6].toString().trim() === 'En proceso') {
         Logger.log('⚠️ Duplicado detectado en verificación final (race condition evitada): ' + nombre);
-        sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#d4edda');
+        sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#d4edda');
         ss.toast('✅ ' + nombre + ' ya está en Terapias Individual (duplicado prevenido).', 'Ya en Terapias', 4);
         return;
       }
@@ -1536,7 +1542,7 @@ function enviarAPersonasNoAsistidas(creemosId, genero, edad, malestar, terapeuta
       if (datosNoAsistidas[i][1] && datosNoAsistidas[i][1].toString().trim() === creemosId.toString().trim()) { // Columna B (índice 1): Creamos ID
         Logger.log('⚠️ Duplicado detectado en Personas no asistidas: ' + creemosId);
         // No borrar — marcar rojo en Hoja de interés
-        sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#f8d7da');
+        sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#f8d7da');
         ss.toast('✅ ID ' + creemosId + ' ya está en Personas no asistidas.', 'Ya Registrado', 4);
         return;
       }
@@ -1560,7 +1566,7 @@ function enviarAPersonasNoAsistidas(creemosId, genero, edad, malestar, terapeuta
     Logger.log('✅ Agregado a Personas no asistidas en fila: ' + nuevaFila);
 
     // Marcar fila en rojo en Hoja de interés (procesada — No vino)
-    sheetOrigen.getRange(fila, 1, 1, 16).setBackground('#f8d7da');
+    sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#f8d7da');
     Logger.log('✅ Fila ' + fila + ' marcada en rojo en Hoja de interés (No vino - procesada)');
 
     SpreadsheetApp.flush();
@@ -6310,11 +6316,11 @@ function crearHojaFormularioInteres() {
 
   const sheet = ss.insertSheet('Hoja de interés');
   const headers = [
-    // Columnas básicas (A-L) + 4 nuevas (M-P)
+    // Columnas básicas (A-L) + 5 nuevas (M-Q)
     'Fecha', 'Creamos ID', 'Ya Participante', 'Nombre(s)', 'Apellido(s)',
     'Género', 'Edad', 'Teléfono', 'Zona', 'Otra Zona',
     'Programas Interés', '_uuid',
-    'Terapeuta Asignado', 'Asistió a Cita', 'Número de llamadas realizadas', '_notas_llamadas'
+    'Malestar Inicial', 'Terapeuta Asignado', 'Asistió a Cita', 'Número de llamadas realizadas', '_notas_llamadas'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -6327,8 +6333,9 @@ function crearHojaFormularioInteres() {
     80, 50, 110, 100, 100,  // F-J: Género, Edad, Tel, Zona, Otra Zona
     250,  // K: Programas Interés
     0,  // L: _uuid (oculto)
-    150, 120, 150,  // M-O: Terapeuta Asignado, Asistió a Cita, Llamadas
-    0  // P: _notas_llamadas (oculto)
+    200,  // M: Malestar Inicial
+    150, 120, 150,  // N-P: Terapeuta Asignado, Asistió a Cita, Llamadas
+    0  // Q: _notas_llamadas (oculto)
   ];
   anchos.forEach((w, i) => {
     if (w > 0) sheet.setColumnWidth(i + 1, w);
@@ -6339,21 +6346,45 @@ function crearHojaFormularioInteres() {
   // Ocultar columna _uuid (L, columna 12)
   sheet.hideColumns(12);
 
-  // Ocultar columna _notas_llamadas (P, columna 16)
+  // Ocultar columna _notas_llamadas (Q, columna 17)
   try {
-    sheet.hideColumns(16);
+    sheet.hideColumns(17);
   } catch(e) {
-    Logger.log('⚠️ No se pudo ocultar columna P: ' + e.message);
+    Logger.log('⚠️ No se pudo ocultar columna Q: ' + e.message);
   }
 
-  // Dropdown "Terapeuta Asignado" (columna M = 13)
+  // Dropdown "Malestar Inicial" (columna M = 13)
   sheet.getRange('M2:M1000').setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList([
+        'Duelo',
+        'Sintomatología depresiva',
+        'Sintomatología de ansiedad',
+        'Dinámica familiar disfuncional',
+        'Sintomatología o Trastorno de Personalidad',
+        'Requerimiento legal',
+        'Violencia de género',
+        'Separación de pareja',
+        'Dificultad en las relaciones interpersonales',
+        'Estrés',
+        'Consumo problemático de sustancias',
+        'Intento o ideación suicida',
+        'Sintomatología de TEA o TEPT',
+        'Problemas de la conducta alimentaria',
+        'Dificultad en la gestión emocional',
+        'Violencia intrafamiliar',
+        'Conducta adictiva'
+      ], true).setAllowInvalid(true).build()
+  );
+
+  // Dropdown "Terapeuta Asignado" (columna N = 14)
+  sheet.getRange('N2:N1000').setDataValidation(
     SpreadsheetApp.newDataValidation()
       .requireValueInList(['Gerber', 'Melissa', 'Diana', 'Karina'], true).setAllowInvalid(false).build()
   );
 
-  // Dropdown "Asistió a Cita" (columna N = 14)
-  sheet.getRange('N2:N1000').setDataValidation(
+  // Dropdown "Asistió a Cita" (columna O = 15)
+  sheet.getRange('O2:O1000').setDataValidation(
     SpreadsheetApp.newDataValidation()
       .requireValueInList(['Vino', 'No vino', 'Pendiente'], true).setAllowInvalid(false).build()
   );
@@ -6365,7 +6396,7 @@ function crearHojaFormularioInteres() {
       .setAllowInvalid(true).build()
   );
 
-  Logger.log('✅ Hoja Hoja de interés creada (16 columnas - con Terapeuta, Asistió, Llamadas y notas ocultas)');
+  Logger.log('✅ Hoja Hoja de interés creada (17 columnas - con Malestar, Terapeuta, Asistió, Llamadas y notas ocultas)');
   return sheet;
 }
 
@@ -6596,11 +6627,11 @@ function _extraerFilasInteresHistorico(csvTexto, fuente, uuidsSet, creamosSet, n
       Logger.log('   - Programas consolidados: "' + programas + '"');
     }
 
-    // Crear fila con 16 columnas (12 básicas + 4 nuevas: Terapeuta, Asistió, Llamadas, Notas)
+    // Crear fila con 17 columnas (12 básicas + 5 nuevas: Malestar, Terapeuta, Asistió, Llamadas, Notas)
     resultado.filas.push([
       fecha, creamosID, '', nombres, apellidos, genero, edad, telefono, zona, '', programas,
       uuid,             // L: _uuid
-      '', '', '', ''    // M-P: Terapeuta Asignado, Asistió a Cita, Llamadas, Notas (vacíos)
+      '', '', '', '', ''  // M-Q: Malestar, Terapeuta Asignado, Asistió a Cita, Llamadas, Notas (vacíos)
     ]);
 
     // Actualizar sets
@@ -6775,13 +6806,13 @@ function _extraerFilasInteres2026(csvTexto, fuente, uuidsSet, creamosSet, nombre
       Logger.log('   - Programas consolidados: "' + programas + '"');
     }
 
-    // Crear fila con 16 columnas (12 básicas + 4 nuevas: Terapeuta, Asistió, Llamadas, Notas)
+    // Crear fila con 17 columnas (12 básicas + 5 nuevas: Malestar, Terapeuta, Asistió, Llamadas, Notas)
     resultado.filas.push([
       fecha, creamosID, yaParticipante, nombres, apellidos,          // A-E
       genero, edad, telefono, zona, otraZona,                        // F-J
       programas,                                                     // K
       uuid,                                                          // L: _uuid
-      '', '', '', ''                                                 // M-P: Terapeuta Asignado, Asistió a Cita, Llamadas, Notas (vacíos)
+      '', '', '', '', ''                                             // M-Q: Malestar, Terapeuta Asignado, Asistió a Cita, Llamadas, Notas (vacíos)
     ]);
 
     // Actualizar sets
@@ -6859,10 +6890,10 @@ function importarFormularioInteres() {
       }
     }
 
-    // Escribir en lote (estructura con 16 columnas: 12 básicas + 4 nuevas)
+    // Escribir en lote (estructura con 17 columnas: 12 básicas + 5 nuevas)
     if (todasFilasNuevas.length > 0) {
       const dest = sheet.getLastRow() + 1;
-      sheet.getRange(dest, 1, todasFilasNuevas.length, 16).setValues(todasFilasNuevas);
+      sheet.getRange(dest, 1, todasFilasNuevas.length, 17).setValues(todasFilasNuevas);
     }
 
     const msg = todasFilasNuevas.length > 0
