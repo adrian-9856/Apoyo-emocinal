@@ -8036,10 +8036,10 @@ function enviarAlertaSuicidioFlexible(registro, headers) {
 }
 
 /**
- * Wrapper simple para enviar desde Bienestar a Lista de Espera
- * Usado por el trigger alEditar()
- * @param {Sheet} sheetOrigen - La hoja de Bienestar
- * @param {number} fila - El número de fila a enviar
+ * [OBSOLETA] Esta función ya no se usa.
+ * La hoja "Lista de Espera" fue eliminada.
+ * Todas las llamadas a esta función están comentadas.
+ * @deprecated No usar - hoja Lista de Espera eliminada
  */
 function enviarBienestarAListaEspera(sheetOrigen, fila) {
   Logger.log('🔄 enviarBienestarAListaEspera iniciado para fila ' + fila);
@@ -8052,10 +8052,10 @@ function enviarBienestarAListaEspera(sheetOrigen, fila) {
 }
 
 /**
- * Versión flexible de enviarBienestarAListaEspera que detecta columnas dinámicamente
- * @param {Sheet} sheetOrigen - La hoja de Bienestar
- * @param {number} fila - El número de fila a enviar
- * @param {Array} headers - Array con los nombres de las columnas
+ * [OBSOLETA] Esta función ya no se usa.
+ * La hoja "Lista de Espera" fue eliminada.
+ * Todas las llamadas a esta función están comentadas.
+ * @deprecated No usar - hoja Lista de Espera eliminada
  */
 function enviarBienestarAListaEsperaFlexible(sheetOrigen, fila, headers) {
   Logger.log('🔄 Enviando a Lista de Espera (modo flexible)...');
