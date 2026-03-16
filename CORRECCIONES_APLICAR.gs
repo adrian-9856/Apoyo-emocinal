@@ -628,22 +628,63 @@ function crearNuevoGrupoAE() {
   const resFecha = ui.prompt('📅 Fecha de Inicio', 'Ingrese la fecha de la Primera Sesión (DD/MM/YYYY):', ui.ButtonSet.OK_CANCEL);
   if (resFecha.getSelectedButton() != ui.Button.OK) return;
   const fechaStr = resFecha.getResponseText().trim();
-  
+
   const partes = fechaStr.split('/');
   let fechaInicio = new Date();
   if (partes.length === 3) {
     fechaInicio = new Date(partes[2], partes[1] - 1, partes[0]);
   }
 
+  // ===== NUEVA FUNCIONALIDAD: Manejo de Asuetos/Feriados =====
+  const resAsuetos = ui.alert('🏖️ Asuetos/Feriados',
+    '¿Hay asuetos o días feriados donde NO se realizarán sesiones?\n\n' +
+    'Esto permite saltar esas fechas y no crear columnas innecesarias.',
+    ui.ButtonSet.YES_NO);
+
+  let fechasAsuetos = [];
+  if (resAsuetos == ui.Button.YES) {
+    const resListaAsuetos = ui.prompt('📅 Fechas de Asuetos',
+      'Ingrese las fechas de asuetos separadas por comas (DD/MM/YYYY):\n\n' +
+      'Ejemplo: 01/05/2026, 15/09/2026, 25/12/2026',
+      ui.ButtonSet.OK_CANCEL);
+
+    if (resListaAsuetos.getSelectedButton() == ui.Button.OK) {
+      const listaStr = resListaAsuetos.getResponseText().trim();
+      if (listaStr) {
+        const fechasStr = listaStr.split(',');
+        fechasStr.forEach(f => {
+          const fTrim = f.trim();
+          const pAsueto = fTrim.split('/');
+          if (pAsueto.length === 3) {
+            const fechaAsueto = new Date(pAsueto[2], pAsueto[1] - 1, pAsueto[0]);
+            fechasAsuetos.push(fechaAsueto.getTime()); // Guardar como timestamp para comparación
+          }
+        });
+      }
+    }
+  }
+
   const sheet = ss.insertSheet(grupoNombre);
   const numRows = sheet.getMaxRows() - 1;
   const headers = ['Año', 'Creamos ID', 'Nombre Completo', 'Teléfono', '% Asistencia'];
   const colSesionesOffset = headers.length; // Columna 5
-  
+
+  // ===== GENERACIÓN INTELIGENTE DE SESIONES (Saltando Asuetos) =====
+  let fechaActual = new Date(fechaInicio);
   for (let s = 1; s <= numSesiones; s++) {
-    let fechaSesion = new Date(fechaInicio);
-    fechaSesion.setDate(fechaInicio.getDate() + (s - 1) * 7); 
-    let labelFecha = Utilities.formatDate(fechaSesion, Session.getScriptTimeZone(), 'dd/MM');
+    // Si no es la primera sesión, avanzar 7 días
+    if (s > 1) {
+      fechaActual.setDate(fechaActual.getDate() + 7);
+
+      // Saltar asuetos: si la fecha cae en asueto, seguir sumando 7 días
+      let intentos = 0;
+      while (fechasAsuetos.includes(fechaActual.getTime()) && intentos < 52) {
+        fechaActual.setDate(fechaActual.getDate() + 7);
+        intentos++;
+      }
+    }
+
+    let labelFecha = Utilities.formatDate(fechaActual, Session.getScriptTimeZone(), 'dd/MM');
     headers.push('S' + s + ' (' + labelFecha + ')');
     headers.push('Evolución S' + s);
   }
