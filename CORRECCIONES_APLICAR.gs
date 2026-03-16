@@ -81,7 +81,8 @@ function onOpen() {
       .addItem('🆕 Crear Nuevo Grupo', 'crearNuevoGrupoAE')
       .addItem('📊 Ver Resumen de Grupos', 'verResumenGruposAE')
       .addItem('� Registrar Nota Masiva (Sesión)', 'mostrarDialogoNotaMasivaAE')
-      .addItem('�🔒 Cerrar/Finalizar Grupo', 'mostrarDialogoCerrarGrupoAE'))
+      .addItem('�🔒 Cerrar/Finalizar Grupo', 'mostrarDialogoCerrarGrupoAE')
+      .addItem('🗑️ Eliminar Grupo/Cohorte', 'mostrarDialogoEliminarGrupoAE'))
     .addSubMenu(ui.createMenu('📥 Importación Kobo')
       .addItem('🔄 Sincronizar Referencias (B2)', 'ejecutarImportacionAutomaticaAE')
       .addItem('🔄 Sincronizar Derivaciones Institucionales (B5)', 'sincronizarHojaInstitucionalAE')
@@ -685,7 +686,8 @@ function crearNuevoGrupoAE() {
        for (let s = 0; s < numSesiones; s++) {
          checkCols.push(encodeColNameAE(colSesionesOffset + 1 + (s * 2)) + r);
        }
-       const formula = '=IF(C' + r + '<>"", (COUNTIF({' + checkCols.join(';') + '}, TRUE)/' + numSesiones + '), "")';
+       // Mejorada: Solo cuenta sesiones REALIZADAS (TRUE o FALSE), ignora vacías (no realizadas)
+       const formula = '=IF(C' + r + '<>"", IFERROR(COUNTIF({' + checkCols.join(';') + '}, TRUE)/(COUNTIF({' + checkCols.join(';') + '}, TRUE)+COUNTIF({' + checkCols.join(';') + '}, FALSE)), ""), "")';
        sheet.getRange(r, 5).setFormula(formula).setNumberFormat('0%')
          .setHorizontalAlignment('center').setFontWeight('bold');
     }
@@ -819,6 +821,93 @@ function cerrarGrupoAE(nombreGrupo) {
 
   sheet.hideSheet();
   alertSafeAE('✅ Cohorte Finalizada', 'Se registraron todas las graduaciones y la hoja se ha ocultado para preservar el historial.');
+}
+
+/**
+ * Muestra un diálogo para eliminar un grupo/cohorte completamente
+ */
+function mostrarDialogoEliminarGrupoAE() {
+  const ui = SpreadsheetApp.getUi();
+  const prompt = ui.prompt('🗑️ Eliminar Grupo/Cohorte', 'Ingrese el nombre EXACTO del grupo a eliminar:\n\n⚠️ ADVERTENCIA: Esta acción es PERMANENTE y eliminará todos los datos del grupo.', ui.ButtonSet.OK_CANCEL);
+  if (prompt.getSelectedButton() == ui.Button.OK) {
+    eliminarGrupoCohorteAE(prompt.getResponseText().trim());
+  }
+}
+
+/**
+ * Elimina un grupo/cohorte completo del sistema
+ * - Elimina la hoja del grupo
+ * - Elimina la entrada en "Resumen de Grupos"
+ * - Confirma con el usuario antes de proceder
+ */
+function eliminarGrupoCohorteAE(nombreGrupo) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(nombreGrupo);
+
+  if (!sheet) {
+    alertSafeAE('❌ Error', 'No se encontró el grupo "' + nombreGrupo + '".\n\nVerifique que el nombre esté escrito EXACTAMENTE como aparece en la pestaña.');
+    return;
+  }
+
+  const ui = SpreadsheetApp.getUi();
+
+  // Doble confirmación para evitar eliminaciones accidentales
+  const confirm1 = ui.alert(
+    '⚠️ ADVERTENCIA - Eliminar Grupo',
+    '¿Está COMPLETAMENTE SEGURO de eliminar "' + nombreGrupo + '"?\n\n' +
+    '❌ Esta acción NO se puede deshacer\n' +
+    '❌ Se perderán TODOS los datos del grupo\n' +
+    '❌ No habrá forma de recuperar la información\n\n' +
+    '💡 Alternativa: Use "Cerrar/Finalizar Grupo" para archivar sin eliminar.',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirm1 != ui.Button.YES) {
+    toastSafeAE('❌ Operación cancelada');
+    return;
+  }
+
+  // Segunda confirmación
+  const confirm2 = ui.alert(
+    '🚨 ÚLTIMA CONFIRMACIÓN',
+    'Escriba "ELIMINAR" en el siguiente cuadro para confirmar la eliminación de "' + nombreGrupo + '"',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (confirm2 != ui.Button.OK) {
+    toastSafeAE('❌ Operación cancelada');
+    return;
+  }
+
+  const confirmText = ui.prompt('✍️ Confirmar Eliminación', 'Escriba exactamente: ELIMINAR', ui.ButtonSet.OK_CANCEL);
+
+  if (confirmText.getSelectedButton() != ui.Button.OK || confirmText.getResponseText().trim().toUpperCase() !== 'ELIMINAR') {
+    alertSafeAE('❌ Cancelado', 'La palabra de confirmación no coincide. Operación cancelada por seguridad.');
+    return;
+  }
+
+  // Proceder con la eliminación
+  try {
+    // 1. Eliminar entrada en Resumen de Grupos
+    const sheetResumen = ss.getSheetByName('Resumen de Grupos');
+    if (sheetResumen) {
+      const resumenData = sheetResumen.getDataRange().getValues();
+      for (let i = resumenData.length - 1; i >= 1; i--) {
+        if (resumenData[i][0] && resumenData[i][0].includes(nombreGrupo)) {
+          sheetResumen.deleteRow(i + 1);
+          break;
+        }
+      }
+    }
+
+    // 2. Eliminar la hoja del grupo
+    ss.deleteSheet(sheet);
+
+    alertSafeAE('✅ Grupo Eliminado', 'El grupo "' + nombreGrupo + '" ha sido eliminado permanentemente del sistema.');
+
+  } catch (error) {
+    alertSafeAE('❌ Error al Eliminar', 'Ocurrió un error al eliminar el grupo:\n\n' + error.message);
+  }
 }
 
 // =====================================================================
@@ -1095,12 +1184,13 @@ function enviarAHojaGrupoAE(sheetSrc, row, targetName) {
         .setHorizontalAlignment('center').setVerticalAlignment('middle');
     }
 
-    // Fórmula de porcentaje de asistencia
+    // Fórmula de porcentaje de asistencia (mejorada)
+    // Solo cuenta sesiones REALIZADAS (TRUE o FALSE), ignora vacías (no realizadas)
     let checkCols = [];
     for (let s = 0; s < numSesiones; s++) {
       checkCols.push(encodeColNameAE(6 + (s * 2)) + nextRow);
     }
-    const formula = '=IF(C' + nextRow + '<>"", COUNTIF({' + checkCols.join(';') + '}, TRUE)/' + numSesiones + ', "")';
+    const formula = '=IF(C' + nextRow + '<>"", IFERROR(COUNTIF({' + checkCols.join(';') + '}, TRUE)/(COUNTIF({' + checkCols.join(';') + '}, TRUE)+COUNTIF({' + checkCols.join(';') + '}, FALSE)), ""), "")';
     sheetDest.getRange(nextRow, colAsistencia).setFormula(formula).setNumberFormat('0%');
   }
 
