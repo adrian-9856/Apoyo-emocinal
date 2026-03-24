@@ -516,12 +516,12 @@ function crearReporte() {
     ['Formularios recibidos', '=IFERROR(COUNTA(\'C_03_Formulario de Bienestar (2026)\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Sí")+COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Si"),0)', ''],
     ['', '', '', ''],
 
-    // SECCIÓN 5: CASOS ACTIVOS
+    // SECCIÓN 5: CASOS ACTIVOS - Sesiones mes suma solo Asistencias (columna M)
     ['CASOS ACTIVOS POR TERAPEUTA', 'Casos activos', 'Sesiones mes', ''],
-    ['Gerber', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Gerber",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!H2:H500-\'Terapias Individual\'!K2:K500)),0)', ''],
-    ['Melissa', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Melissa",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!H2:H500-\'Terapias Individual\'!K2:K500)),0)', ''],
-    ['Diana', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Diana",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!H2:H500-\'Terapias Individual\'!K2:K500)),0)', ''],
-    ['Karina', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Karina",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!H2:H500-\'Terapias Individual\'!K2:K500)),0)', ''],
+    ['Gerber', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Gerber",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)', ''],
+    ['Melissa', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Melissa",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)', ''],
+    ['Diana', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Diana",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)', ''],
+    ['Karina', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Karina",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)', ''],
     ['TOTAL', '=IFERROR(SUM(B17:B20),0)', '=IFERROR(SUM(C17:C20),0)', ''],
     ['', '', '', ''],
 
@@ -3953,11 +3953,12 @@ function actualizarFormulasReporte() {
     reporte.getRange('B19').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Diana",\'Terapias Individual\'!I:I,"En proceso"),0)');
     reporte.getRange('B20').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Karina",\'Terapias Individual\'!I:I,"En proceso"),0)');
 
-    // Filas 17-20: Sesiones mes (columna C) = No.Sesión(H) - Sesiones Mes Anterior(K)
-    reporte.getRange('C17').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!H2:H500-\'Terapias Individual\'!K2:K500)),0)');
-    reporte.getRange('C18').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!H2:H500-\'Terapias Individual\'!K2:K500)),0)');
-    reporte.getRange('C19').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!H2:H500-\'Terapias Individual\'!K2:K500)),0)');
-    reporte.getRange('C20').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!H2:H500-\'Terapias Individual\'!K2:K500)),0)');
+    // Filas 17-20: Sesiones mes (columna C) = Suma de Asistencias (columna M)
+    // Solo cuenta las asistencias reales, no las inasistencias
+    reporte.getRange('C17').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)');
+    reporte.getRange('C18').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)');
+    reporte.getRange('C19').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)');
+    reporte.getRange('C20').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)');
 
     // Fila 21: TOTAL casos activos y sesiones
     reporte.getRange('B21').setFormula('=IFERROR(SUM(B17:B20),0)');
@@ -4024,11 +4025,13 @@ function actualizarFormulasReporte() {
 
     ss.toast(
       '✅ FORMULAS ACTUALIZADAS\n\n' +
-      'Todas las formulas del reporte han sido actualizadas\n' +
-      'con proteccion IFERROR y filtros correctos.\n\n' +
-      'Ahora deberia mostrar valores correctos.',
+      'Todas las formulas del reporte han sido actualizadas:\n' +
+      '• Sesiones mes = SOLO Asistencias reales\n' +
+      '• NO cuenta inasistencias\n' +
+      '• Protección IFERROR y filtros correctos\n\n' +
+      'El reporte ahora muestra valores correctos.',
       'Reporte Actualizado',
-      5
+      6
     );
 
     Logger.log('✅ Fórmulas del reporte actualizadas correctamente');
