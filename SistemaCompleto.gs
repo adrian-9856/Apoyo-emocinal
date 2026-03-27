@@ -78,6 +78,7 @@ function onOpen() {
     ui.createMenu('🏥 Apoyo Emocional')
       .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodo')
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
+      .addItem('📅 Guardar Reporte de Mes Anterior', 'guardarReporteMesEspecifico')
       .addSeparator()
       .addSubMenu(menuAvanzado)
       .addToUi();
@@ -3390,6 +3391,216 @@ function guardarReporteMensual() {
       'Error',
       5
     );
+  }
+}
+
+/**
+ * Guardar reporte de un mes específico (para cuando se genera después del cierre del mes)
+ * Permite generar el reporte de marzo aunque ya estemos en abril
+ * Calcula los datos directamente de las hojas fuente usando rangos de fecha del mes seleccionado
+ */
+function guardarReporteMesEspecifico() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    // Preguntar qué mes quieren reportar
+    const respuesta = ui.prompt(
+      '📅 Reporte de Mes Específico',
+      'Ingrese el mes y año del reporte (formato: MM/YYYY)\n\n' +
+      'Ejemplo: 03/2026 para marzo 2026\n\n' +
+      'NOTA: Use esto cuando necesite generar el reporte de un mes\n' +
+      'después de que ese mes ya terminó.',
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    if (respuesta.getSelectedButton() !== ui.Button.OK) return;
+
+    const texto = respuesta.getResponseText().trim();
+    const partes = texto.split('/');
+    if (partes.length !== 2 || isNaN(partes[0]) || isNaN(partes[1])) {
+      ui.alert('❌ Formato inválido. Use MM/YYYY (ejemplo: 03/2026)');
+      return;
+    }
+
+    const mes = parseInt(partes[0]);
+    const anio = parseInt(partes[1]);
+
+    if (mes < 1 || mes > 12 || anio < 2020 || anio > 2030) {
+      ui.alert('❌ Mes o año fuera de rango válido.');
+      return;
+    }
+
+    // Calcular primer y último día del mes seleccionado
+    const primerDia = new Date(anio, mes - 1, 1);
+    const ultimoDia = new Date(anio, mes, 0); // Último día del mes
+
+    const nombreMes = Utilities.formatDate(primerDia, Session.getScriptTimeZone(), 'MMMM yyyy');
+
+    // Verificar que no exista ya un reporte para ese mes
+    const mensuales = ss.getSheetByName('Reportes Mensuales');
+    if (!mensuales) {
+      ui.alert('❌ No se encontró la hoja "Reportes Mensuales"');
+      return;
+    }
+
+    const datosExistentes = mensuales.getDataRange().getValues();
+    for (let i = 1; i < datosExistentes.length; i++) {
+      if (datosExistentes[i][0] && datosExistentes[i][0].toString().toLowerCase() === nombreMes.toLowerCase()) {
+        const sobreescribir = ui.alert(
+          '⚠️ Ya existe reporte',
+          'Ya existe un reporte para "' + nombreMes + '".\n¿Desea sobreescribirlo?',
+          ui.ButtonSet.YES_NO
+        );
+        if (sobreescribir !== ui.Button.YES) return;
+        // Borrar la fila existente
+        mensuales.deleteRow(i + 1);
+        break;
+      }
+    }
+
+    // Confirmar antes de proceder
+    const confirmar = ui.alert(
+      '📊 Confirmar Reporte',
+      '¿Generar reporte para: ' + nombreMes + '?\n\n' +
+      'Esto va a:\n' +
+      '1. Calcular los datos de ' + nombreMes + ' directamente de las hojas\n' +
+      '2. Guardar el reporte en "Reportes Mensuales"\n' +
+      '3. Actualizar "Sesiones Mes Anterior" para empezar el nuevo mes\n\n' +
+      '⚠️ IMPORTANTE: Asegúrese de haber terminado de registrar\n' +
+      'TODOS los pacientes y sesiones de ' + nombreMes + ' antes de continuar.',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (confirmar !== ui.Button.YES) return;
+
+    ss.toast('⏳ Calculando reporte de ' + nombreMes + '...', 'Procesando', 10);
+
+    // ── Calcular datos directamente de las hojas fuente ──
+
+    // Función auxiliar para contar registros en un rango de fechas
+    function contarEnRango(hoja, colFecha, primerDia, ultimoDia) {
+      if (!hoja || hoja.getLastRow() < 2) return 0;
+      const fechas = hoja.getRange(2, colFecha, hoja.getLastRow() - 1, 1).getValues();
+      let cuenta = 0;
+      for (let i = 0; i < fechas.length; i++) {
+        const fecha = fechas[i][0];
+        if (fecha instanceof Date && fecha >= primerDia && fecha <= ultimoDia) {
+          cuenta++;
+        }
+      }
+      return cuenta;
+    }
+
+    // 1. Procesos Culminados este mes
+    const hojaCulminados = ss.getSheetByName('Procesos Culminados');
+    const culminadosMes = contarEnRango(hojaCulminados, 1, primerDia, ultimoDia);
+
+    // 2. Retiradx este mes
+    const hojaRetiradx = ss.getSheetByName('Retiradx');
+    const retiradxMes = contarEnRango(hojaRetiradx, 1, primerDia, ultimoDia);
+
+    // 3. Intervención de casos (total activos, no filtrado por mes)
+    const hojaIntervencion = ss.getSheetByName('Intervención de casos');
+    const gestionTotal = hojaIntervencion ? Math.max(0, hojaIntervencion.getLastRow() - 1) : 0;
+
+    // 4. Datos de Terapias Individual
+    const terapias = ss.getSheetByName('Terapias Individual');
+    let activosTotal = 0;
+    let sesionesGerber = 0, sesionesMelissa = 0, sesionesDiana = 0, sesionesKarina = 0;
+    let activosGerber = 0, activosMelissa = 0, activosDiana = 0, activosKarina = 0;
+
+    if (terapias && terapias.getLastRow() > 1) {
+      const datos = terapias.getRange(2, 1, terapias.getLastRow() - 1, 13).getValues();
+      // Columnas: A=0:Fecha, B=1:Terapeuta, C=2:ID, D=3:Participante, E=4:Malestar,
+      //           F=5:Género, G=6:Edad, H=7:No.Sesión, I=8:Estado, J=9:Motivo,
+      //           K=10:SesionesMesAnterior, L=11:Inasistencias, M=12:Asistencias
+
+      for (let i = 0; i < datos.length; i++) {
+        const terapeuta = datos[i][1] ? datos[i][1].toString().trim() : '';
+        const estado = datos[i][8] ? datos[i][8].toString().trim() : '';
+        const asistencias = datos[i][12] || 0; // Columna M: Asistencias del mes actual
+
+        if (estado === 'En proceso') {
+          activosTotal++;
+
+          if (terapeuta === 'Gerber') {
+            activosGerber++;
+            sesionesGerber += asistencias;
+          } else if (terapeuta === 'Melissa') {
+            activosMelissa++;
+            sesionesMelissa += asistencias;
+          } else if (terapeuta === 'Diana') {
+            activosDiana++;
+            sesionesDiana += asistencias;
+          } else if (terapeuta === 'Karina') {
+            activosKarina++;
+            sesionesKarina += asistencias;
+          }
+        }
+      }
+    }
+
+    // 5. Tasa de éxito
+    const totalCulminados = hojaCulminados ? Math.max(0, hojaCulminados.getLastRow() - 1) : 0;
+    const totalRetiradx = hojaRetiradx ? Math.max(0, hojaRetiradx.getLastRow() - 1) : 0;
+    const totalProcesados = totalCulminados + totalRetiradx + gestionTotal;
+    const tasaExito = totalProcesados > 0 ? (Math.round(totalCulminados / totalProcesados * 1000) / 10) + '%' : '0%';
+
+    // 6. Derivaciones institucionales
+    const hojaDerivaciones = ss.getSheetByName('Derivaciones Institucionales');
+    const derivacionesTotal = hojaDerivaciones ? Math.max(0, hojaDerivaciones.getLastRow() - 1) : 0;
+
+    // ── Guardar en Reportes Mensuales ──
+    const nuevaFila = mensuales.getLastRow() + 1;
+    const datosReporte = [
+      nombreMes,
+      culminadosMes,
+      retiradxMes,
+      gestionTotal,
+      activosTotal,
+      tasaExito,
+      sesionesGerber,
+      sesionesMelissa,
+      sesionesDiana,
+      sesionesKarina,
+      activosGerber,
+      activosMelissa,
+      activosDiana,
+      activosKarina,
+      derivacionesTotal,
+      new Date()
+    ];
+
+    mensuales.getRange(nuevaFila, 1, 1, datosReporte.length).setValues([datosReporte]);
+
+    // Actualizar "Sesiones Mes Anterior" para el próximo mes
+    actualizarSesionesMesAnterior();
+
+    // Mostrar resumen
+    ui.alert(
+      '✅ Reporte Guardado: ' + nombreMes,
+      'RESUMEN DEL REPORTE:\n\n' +
+      '📊 Culminados este mes: ' + culminadosMes + '\n' +
+      '📊 Retiradx este mes: ' + retiradxMes + '\n' +
+      '📊 Casos en intervención: ' + gestionTotal + '\n' +
+      '📊 Total activos: ' + activosTotal + '\n' +
+      '📊 Tasa de éxito: ' + tasaExito + '\n\n' +
+      '👤 Sesiones por terapeuta:\n' +
+      '   Gerber: ' + sesionesGerber + ' ses. / ' + activosGerber + ' activos\n' +
+      '   Melissa: ' + sesionesMelissa + ' ses. / ' + activosMelissa + ' activos\n' +
+      '   Diana: ' + sesionesDiana + ' ses. / ' + activosDiana + ' activos\n' +
+      '   Karina: ' + sesionesKarina + ' ses. / ' + activosKarina + ' activos\n\n' +
+      '✅ Sesiones del mes anterior actualizadas.\n' +
+      '📁 Guardado en fila: ' + nuevaFila,
+      ui.ButtonSet.OK
+    );
+
+    ss.toast('✅ Reporte de ' + nombreMes + ' guardado correctamente', 'Completado', 5);
+
+  } catch (error) {
+    Logger.log('❌ Error guardando reporte específico: ' + error.toString());
+    ui.alert('❌ Error: ' + error.toString());
   }
 }
 
