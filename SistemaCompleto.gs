@@ -888,8 +888,9 @@ function alEditar(e) {
   // PROTECCIÓN CONTRA EJECUCIONES MÚLTIPLES (Google Sheets bug - dispara 2 veces)
   // Usar CacheService para rastrear ejecuciones recientes
   const cache = CacheService.getDocumentCache();
-  // Clave SIN valor para prevenir disparos cuando se revierte un cambio
-  const cacheKey = hoja + '_' + fila + '_' + columna;
+  // Clave INCLUYE el valor para permitir ediciones legítimas posteriores al mismo celda
+  // (ej: después de un revert por no-show, el terapeuta puede volver a editar la misma celda)
+  const cacheKey = hoja + '_' + fila + '_' + columna + '_' + valor;
   const yaEjecutado = cache.get(cacheKey);
 
   if (yaEjecutado) {
@@ -898,8 +899,8 @@ function alEditar(e) {
     return;
   }
 
-  // Marcar como ejecutado por 15 segundos (tiempo suficiente para responder diálogos)
-  cache.put(cacheKey, 'true', 15);
+  // Marcar como ejecutado por 5 segundos (solo para prevenir el doble disparo de Google)
+  cache.put(cacheKey, 'true', 5);
 
   // LOG: Registrar TODA edición
   Logger.log('═══════════════════════════════════════');
@@ -1598,8 +1599,8 @@ function registrarAsistenciaSesion(sheet, fila, numSesion, valorAnterior) {
     return;
   }
 
-  // Marcar como en proceso por 20 segundos
-  cache.put(lockKey, 'true', 20);
+  // Marcar como en proceso por 8 segundos (solo previene doble disparo, no bloquea ediciones futuras)
+  cache.put(lockKey, 'true', 8);
 
   // Obtener datos del participante
   const participante = sheet.getRange(fila, 4).getValue(); // Columna D: Participante
@@ -1670,7 +1671,7 @@ function registrarAsistenciaSesion(sheet, fila, numSesion, valorAnterior) {
       // Usuario canceló - revertir el cambio
       Logger.log('⚠️ Usuario canceló el registro de asistencia');
       const sesionAnterior = valorAnterior || (parseInt(numSesion) - 1);
-      sheet.getRange(fila, 6).setValue(sesionAnterior); // Revertir cambio - Columna F
+      sheet.getRange(fila, 8).setValue(sesionAnterior); // Revertir cambio - Columna H: No. Sesión
       Logger.log('📊 Número de sesión revertido por cancelación: ' + numSesion + ' → ' + sesionAnterior);
     }
   } finally {
