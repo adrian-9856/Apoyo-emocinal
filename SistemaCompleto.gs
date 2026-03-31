@@ -501,7 +501,12 @@ function crearReporte() {
     ['Ultima actualizacion:', '=TEXT(NOW(),"DD/MM/YYYY HH:MM")', 'Mes actual:', '=TEXT(TODAY(),"MMMM YYYY")'],
     ['', '', '', ''],
 
-    // SECCIÓN 1: NO ASISTIDAS
+    // SECCIÓN 1: NUEVOS INGRESOS
+    ['NUEVOS INGRESOS', 'Total', 'Este mes', ''],
+    ['Participantes que vinieron a primera cita', '=IFERROR(IF(ISBLANK(\'Nuevos Ingresos\'!A1),0,COUNTA(\'Nuevos Ingresos\'!C:C)-1),0)', '=IFERROR(IF(ISBLANK(\'Nuevos Ingresos\'!A1),0,COUNTIFS(\'Nuevos Ingresos\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Nuevos Ingresos\'!A:A,"<="&EOMONTH(TODAY(),0))),0)', ''],
+    ['', '', '', ''],
+
+    // SECCIÓN 2: PERSONAS NO ASISTIDAS
     ['PERSONAS NO ASISTIDAS', 'Total', 'Este mes', ''],
     ['Personas que no asistieron a primera cita', '=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)', '=IFERROR(COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
     ['', '', '', ''],
@@ -639,11 +644,35 @@ function crearReportesMensuales() {
   const sheet = ss.insertSheet('Reportes Mensuales');
 
   const headers = [
-    'Mes/Año', 'Culminados', 'Retiradx', 'Gestión Casos',
-    'Total Activos', 'Tasa Éxito (%)',
-    'Sesiones Gerber', 'Sesiones Melissa', 'Sesiones Diana', 'Sesiones Karina',
-    'Activos Gerber', 'Activos Melissa', 'Activos Diana', 'Activos Karina',
-    'Derivaciones Externas', 'Fecha Guardado'
+    'Mes/Año',
+    // NUEVOS INGRESOS
+    'Nuevos Ingresos (Total)', 'Nuevos Ingresos (Mes)',
+    // PERSONAS NO ASISTIDAS
+    'No Asistidas (Total)', 'No Asistidas (Mes)',
+    // DERIVACIONES INSTITUCIONALES
+    'Derivaciones (Total)', 'Derivaciones (Mes)',
+    // FORMULARIO DE BIENESTAR
+    'Formularios (Total)', 'Alertas Suicidio',
+    // CASOS ACTIVOS POR TERAPEUTA
+    'Activos Gerber', 'Sesiones Gerber',
+    'Activos Melissa', 'Sesiones Melissa',
+    'Activos Diana', 'Sesiones Diana',
+    'Activos Karina', 'Sesiones Karina',
+    'Total Activos', 'Total Sesiones',
+    // PROCESOS CULMINADOS
+    'Culminados (Total)', 'Culminados (Mes)', 'Tasa Culminación',
+    // RETIRADX
+    'Retiradx (Total)', 'Retiradx (Mes)', 'Tasa Retiro',
+    // INTERVENCION DE CASOS
+    'Casos Intervención',
+    // RESUMEN GENERAL
+    'Total Procesados', 'Tasa Éxito', 'Casos Activos Totales',
+    // CAPTACIÓN
+    'Hoja Interés (Total)', 'Hoja Interés (Mes)',
+    'Referencias (Total)', 'Referencias (Mes)',
+    'Deriv. Inst. Recibidas (Total)', 'Deriv. Inst. Recibidas (Mes)',
+    // FECHA
+    'Fecha Guardado'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -652,7 +681,9 @@ function crearReportesMensuales() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 100, 100, 100, 100, 100, 90, 90, 90, 90, 90, 90, 90, 90, 120, 120].forEach((w, i) => {
+  // Anchos de columna (36 columnas)
+  const anchos = [120, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 100, 100, 100, 100, 100, 100, 90, 100, 100, 100, 90, 90, 90, 90, 90, 90, 120];
+  anchos.forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -778,7 +809,7 @@ function configurarValidaciones() {
     intervencion.getRange('H2:H200').setDataValidation(enviarListaRule);
   }
 
-  // Validaciones de Motivos de Retiro - en Retiradx columna F
+  // Validaciones de Motivos de Retiro - en Retiradx columna E (Motivo)
   if (retirxs) {
     const motivoDesercionRule = SpreadsheetApp.newDataValidation()
       .requireValueInList([
@@ -806,7 +837,7 @@ function configurarValidaciones() {
       ])
       .setAllowInvalid(true)
       .build();
-    retirxs.getRange('F2:F200').setDataValidation(motivoDesercionRule);
+    retirxs.getRange('E2:E200').setDataValidation(motivoDesercionRule);
   }
 
   // =====================================================================
@@ -3327,48 +3358,94 @@ function guardarReporteMensual() {
 
     const mesActual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM yyyy');
 
-    // Referencias correctas según el diseño del reporte
-    const culminados = reporte.getRange('C24').getValue(); // Culminados este mes (fila 24)
-    const retirxs = reporte.getRange('C27').getValue(); // Retiradx este mes (fila 27)
-    const gestion = reporte.getRange('B30').getValue(); // Total en intervención (fila 30)
-    const activos = reporte.getRange('B21').getValue(); // Total casos activos (fila 21)
-    const tasaExito = reporte.getRange('B34').getValue(); // Tasa de éxito (fila 34)
+    // NUEVOS INGRESOS (fila 5) - Las fórmulas en el reporte manejan si la hoja existe o no
+    const nuevosIngresosTotal = reporte.getRange('B5').getValue();
+    const nuevosIngresosMes = reporte.getRange('C5').getValue();
 
-    // Sesiones por terapeuta (columna C de cada fila)
-    const sesionesGerber = reporte.getRange('C17').getValue(); // Fila 17
-    const sesionesMelissa = reporte.getRange('C18').getValue(); // Fila 18
-    const sesionesDiana = reporte.getRange('C19').getValue(); // Fila 19
-    const sesionesKarina = reporte.getRange('C20').getValue(); // Fila 20
+    // PERSONAS NO ASISTIDAS (fila 8)
+    const noAsistidasTotal = reporte.getRange('B8').getValue();
+    const noAsistidasMes = reporte.getRange('C8').getValue();
 
-    // Activos por terapeuta (columna B de cada fila)
-    const activosGerber = reporte.getRange('B17').getValue(); // Fila 17
-    const activosMelissa = reporte.getRange('B18').getValue(); // Fila 18
-    const activosDiana = reporte.getRange('B19').getValue(); // Fila 19
-    const activosKarina = reporte.getRange('B20').getValue(); // Fila 20
+    // DERIVACIONES INSTITUCIONALES (fila 11)
+    const derivacionesTotal = reporte.getRange('B11').getValue();
+    const derivacionesMes = reporte.getRange('C11').getValue();
 
-    const derivacionesExternas = reporte.getRange('B11').getValue(); // Derivaciones institucionales (fila 11)
+    // FORMULARIO DE BIENESTAR (fila 14)
+    const formulariosTotal = reporte.getRange('B14').getValue();
+    const alertasSuicidio = reporte.getRange('C14').getValue();
+
+    // CASOS ACTIVOS POR TERAPEUTA (filas 17-21)
+    const activosGerber = reporte.getRange('B17').getValue();
+    const sesionesGerber = reporte.getRange('C17').getValue();
+    const activosMelissa = reporte.getRange('B18').getValue();
+    const sesionesMelissa = reporte.getRange('C18').getValue();
+    const activosDiana = reporte.getRange('B19').getValue();
+    const sesionesDiana = reporte.getRange('C19').getValue();
+    const activosKarina = reporte.getRange('B20').getValue();
+    const sesionesKarina = reporte.getRange('C20').getValue();
+    const totalActivos = reporte.getRange('B21').getValue();
+    const totalSesiones = reporte.getRange('C21').getValue();
+
+    // PROCESOS CULMINADOS (fila 24)
+    const culminadosTotal = reporte.getRange('B24').getValue();
+    const culminadosMes = reporte.getRange('C24').getValue();
+    const tasaCulminacion = reporte.getRange('D24').getValue();
+
+    // RETIRADX (fila 27)
+    const retiradxTotal = reporte.getRange('B27').getValue();
+    const retiradxMes = reporte.getRange('C27').getValue();
+    const tasaRetiro = reporte.getRange('D27').getValue();
+
+    // INTERVENCION DE CASOS (fila 30)
+    const casosIntervencion = reporte.getRange('B30').getValue();
+
+    // RESUMEN GENERAL (filas 33-35)
+    const totalProcesados = reporte.getRange('B33').getValue();
+    const tasaExito = reporte.getRange('B34').getValue();
+    const casosActivosTotales = reporte.getRange('B35').getValue();
+
+    // CAPTACIÓN (filas 38-40)
+    const hojaInteresTotal = reporte.getRange('B38').getValue();
+    const hojaInteresMes = reporte.getRange('C38').getValue();
+    const referenciasTotal = reporte.getRange('B39').getValue();
+    const referenciasMes = reporte.getRange('C39').getValue();
+    const derivInstRecibTotal = reporte.getRange('B40').getValue();
+    const derivInstRecibMes = reporte.getRange('C40').getValue();
 
     const nuevaFila = mensuales.getLastRow() + 1;
     const datos = [
       mesActual,
-      culminados,
-      retirxs,
-      gestion,
-      activos,
-      tasaExito,
-      sesionesGerber,
-      sesionesMelissa,
-      sesionesDiana,
-      sesionesKarina,
-      activosGerber,
-      activosMelissa,
-      activosDiana,
-      activosKarina,
-      derivacionesExternas,
+      // NUEVOS INGRESOS
+      nuevosIngresosTotal, nuevosIngresosMes,
+      // PERSONAS NO ASISTIDAS
+      noAsistidasTotal, noAsistidasMes,
+      // DERIVACIONES INSTITUCIONALES
+      derivacionesTotal, derivacionesMes,
+      // FORMULARIO DE BIENESTAR
+      formulariosTotal, alertasSuicidio,
+      // CASOS ACTIVOS POR TERAPEUTA
+      activosGerber, sesionesGerber,
+      activosMelissa, sesionesMelissa,
+      activosDiana, sesionesDiana,
+      activosKarina, sesionesKarina,
+      totalActivos, totalSesiones,
+      // PROCESOS CULMINADOS
+      culminadosTotal, culminadosMes, tasaCulminacion,
+      // RETIRADX
+      retiradxTotal, retiradxMes, tasaRetiro,
+      // INTERVENCION DE CASOS
+      casosIntervencion,
+      // RESUMEN GENERAL
+      totalProcesados, tasaExito, casosActivosTotales,
+      // CAPTACIÓN
+      hojaInteresTotal, hojaInteresMes,
+      referenciasTotal, referenciasMes,
+      derivInstRecibTotal, derivInstRecibMes,
+      // FECHA
       new Date()
     ];
 
-    mensuales.getRange(nuevaFila, 1, 1, 17).setValues([datos]);
+    mensuales.getRange(nuevaFila, 1, 1, datos.length).setValues([datos]);
 
     // Actualizar "Sesiones Mes Anterior" para el próximo mes
     // Copiar el valor actual de "No. Sesión" a "Sesiones Mes Anterior"
