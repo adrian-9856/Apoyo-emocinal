@@ -4216,12 +4216,14 @@ function actualizarFormulasReporte() {
     reporte.getRange('A24').setValue('Tasa de culminación de Terapia Individual');
     reporte.getRange('B24').setFormula('=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)');
     reporte.getRange('C24').setFormula('=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    reporte.getRange('E24').setFormula('=IFERROR(IF((B24+B27)>0,ROUND(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12")/(B24+B27)*100,1)&"%","0%"),"0%")');
+    reporte.getRange('E24').setFormula('=IFERROR(IF((B24+B27)>0,COUNTIF(\'Procesos Culminados\'!E2:E500,">=12")/(B24+B27),0),0)');
+    reporte.getRange('E24').setNumberFormat('0.0%');
 
     // Fila 27: Retiradx
     reporte.getRange('B27').setFormula('=IFERROR(COUNTA(Retiradx!A:A)-1,0)');
     reporte.getRange('C27').setFormula('=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    reporte.getRange('E27').setFormula('=IFERROR(IF((B24+B27)>0,ROUND(B27/(B24+B27)*100,1)&"%","0%"),"0%")');
+    reporte.getRange('E27').setFormula('=IFERROR(IF((B24+B27)>0,B27/(B24+B27),0),0)');
+    reporte.getRange('E27').setNumberFormat('0.0%');
 
     // Fila 30: Intervención de casos
     reporte.getRange('B30').setFormula('=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)');
@@ -4230,7 +4232,8 @@ function actualizarFormulasReporte() {
     reporte.getRange('B33').setFormula('=IFERROR(B24+B27+B30,0)');
 
     // Fila 34: Tasa de éxito
-    reporte.getRange('B34').setFormula('=IFERROR(IF(B33>0,ROUND(B24/B33*100,1)&"%","0%"),"0%")');
+    reporte.getRange('B34').setFormula('=IFERROR(IF(B33>0,B24/B33,0),0)');
+    reporte.getRange('B34').setNumberFormat('0.0%');
 
     // Fila 35: Casos activos totales
     reporte.getRange('B35').setFormula('=IFERROR(B21,0)');
@@ -4271,6 +4274,7 @@ function actualizarFormulasReporte() {
       'Todas las formulas del reporte han sido actualizadas:\n' +
       '• Sesiones mes = SOLO Asistencias reales (columna M)\n' +
       '• Inasistencias = Contador de inasistencias (columna L)\n' +
+      '• Tasas = Formato de porcentaje nativo (0% como número, no texto)\n' +
       '• Protección IFERROR y filtros correctos\n\n' +
       'El reporte ahora muestra valores correctos incluyendo inasistencias.',
       'Reporte Actualizado',
