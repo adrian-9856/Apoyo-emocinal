@@ -604,13 +604,13 @@ function crearReporte() {
     ['', '', '', '', ''],
 
     // SECCIÓN 6: PROCESOS CULMINADOS
-    ['PROCESOS CULMINADOS', 'Total', 'Este mes', '', 'Tasa culminación (12 ses.)'],
-    ['Tasa de culminación de Terapia Individual', '=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '', '=IFERROR(IF((B24+B27)>0,ROUND(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12")/(B24+B27)*100,1)&"%","0%"),"0%")'],
+    ['PROCESOS CULMINADOS', 'Total', 'Este mes', '', 'Culminados 12+ ses.'],
+    ['Procesos Culminados', '=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '', '=IFERROR(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12"),0)'],
     ['', '', '', '', ''],
 
     // SECCIÓN 7: RETIRADX
-    ['RETIRADX', 'Total', 'Este mes', '', 'Tasa retiro'],
-    ['Participantxs que se retiraron', '=IFERROR(COUNTA(Retiradx!A:A)-1,0)', '=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)', '', '=IFERROR(IF((B24+B27)>0,ROUND(B27/(B24+B27)*100,1)&"%","0%"),"0%")'],
+    ['RETIRADX', 'Total', 'Este mes', '', ''],
+    ['Participantxs que se retiraron', '=IFERROR(COUNTA(Retiradx!A:A)-1,0)', '=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)', '', ''],
     ['', '', '', '', ''],
 
     // SECCIÓN 8: INTERVENCION DE CASOS
@@ -621,7 +621,7 @@ function crearReporte() {
     // SECCIÓN 9: RESUMEN GENERAL
     ['RESUMEN GENERAL', 'Valor', '', '', ''],
     ['Total casos procesados', '=IFERROR(B24+B27+B30,0)', '', '', ''],
-    ['Tasa de exito', '=IFERROR(IF(B33>0,ROUND(B24/B33*100,1)&"%","0%"),"0%")', '', '', ''],
+    ['', '', '', '', ''],
     ['Casos activos totales', '=IFERROR(B21,0)', '', '', ''],
     ['', '', '', '', ''],
 
@@ -734,13 +734,13 @@ function crearReportesMensuales() {
     'Activos Karina', 'Sesiones Karina',
     'Total Activos', 'Total Sesiones',
     // PROCESOS CULMINADOS
-    'Culminados (Total)', 'Culminados (Mes)', 'Tasa Culminación',
+    'Culminados (Total)', 'Culminados (Mes)', 'Culminados 12+ ses.',
     // RETIRADX
-    'Retiradx (Total)', 'Retiradx (Mes)', 'Tasa Retiro',
+    'Retiradx (Total)', 'Retiradx (Mes)', '',
     // INTERVENCION DE CASOS
     'Casos Intervención',
     // RESUMEN GENERAL
-    'Total Procesados', 'Tasa Éxito', 'Casos Activos Totales',
+    'Total Procesados', '', 'Casos Activos Totales',
     // CAPTACIÓN
     'Hoja Interés (Total)', 'Hoja Interés (Mes)',
     'Referencias (Total)', 'Referencias (Mes)',
@@ -760,14 +760,6 @@ function crearReportesMensuales() {
   anchos.forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
-
-  // Aplicar formato de porcentaje a las columnas de tasas
-  // Columna 23 (W): Tasa Culminación
-  // Columna 26 (Z): Tasa Retiro
-  // Columna 28 (AB): Tasa Éxito
-  sheet.getRange('W:W').setNumberFormat('0.0%');  // Columna 23 - Tasa Culminación
-  sheet.getRange('Z:Z').setNumberFormat('0.0%');  // Columna 26 - Tasa Retiro
-  sheet.getRange('AB:AB').setNumberFormat('0.0%');  // Columna 28 - Tasa Éxito
 }
 
 /**
@@ -830,11 +822,6 @@ function actualizarHeadersReportesMensuales() {
     anchos.forEach((w, i) => {
       sheet.setColumnWidth(i + 1, w);
     });
-
-    // Aplicar formato de porcentaje a las columnas de tasas
-    sheet.getRange('W:W').setNumberFormat('0.0%');  // Columna 23 - Tasa Culminación
-    sheet.getRange('Z:Z').setNumberFormat('0.0%');  // Columna 26 - Tasa Retiro
-    sheet.getRange('AB:AB').setNumberFormat('0.0%');  // Columna 28 - Tasa Éxito
 
     // Ajustar altura de la fila de headers
     sheet.setRowHeight(1, 60);
@@ -3619,14 +3606,6 @@ function guardarReporteMensual() {
 
     mensuales.getRange(nuevaFila, 1, 1, datos.length).setValues([datos]);
 
-    // Aplicar formato de porcentaje a las columnas de tasas
-    // Columna 23 (W): Tasa Culminación
-    // Columna 26 (Z): Tasa Retiro
-    // Columna 28 (AB): Tasa Éxito
-    mensuales.getRange(nuevaFila, 23).setNumberFormat('0.0%');  // Tasa Culminación
-    mensuales.getRange(nuevaFila, 26).setNumberFormat('0.0%');  // Tasa Retiro
-    mensuales.getRange(nuevaFila, 28).setNumberFormat('0.0%');  // Tasa Éxito
-
     // Actualizar "Sesiones Mes Anterior" para el próximo mes
     // Copiar el valor actual de "No. Sesión" a "Sesiones Mes Anterior"
     actualizarSesionesMesAnterior();
@@ -4228,23 +4207,21 @@ function actualizarFormulasReporte() {
     reporte.getRange('C21').setFormula('=IFERROR(SUM(C17:C20),0)');
     reporte.getRange('D21').setFormula('=IFERROR(SUM(D17:D20),0)');
 
-    // Fila 23: header — actualizar columna E a "Tasa culminación"
-    reporte.getRange('E23').setValue('Tasa culminación (12 ses.)');
+    // Fila 23: header — actualizar columna E a "Culminados 12+ ses."
+    reporte.getRange('E23').setValue('Culminados 12+ ses.');
 
-    // Fila 24: Tasa de culminación de Terapia Individual
+    // Fila 24: Procesos Culminados
     // A24 = etiqueta, B24 = total culminados, C24 = este mes,
-    // E24 = % quienes completaron 12+ sesiones del total que concluyeron (culminados + retiradxs)
-    reporte.getRange('A24').setValue('Tasa de culminación de Terapia Individual');
+    // E24 = número de personas que completaron 12+ sesiones
+    reporte.getRange('A24').setValue('Procesos Culminados');
     reporte.getRange('B24').setFormula('=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)');
     reporte.getRange('C24').setFormula('=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    reporte.getRange('E24').setFormula('=IFERROR(IF((B24+B27)>0,COUNTIF(\'Procesos Culminados\'!E2:E500,">=12")/(B24+B27),0),0)');
-    reporte.getRange('E24').setNumberFormat('0.0%');
+    reporte.getRange('E24').setFormula('=IFERROR(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12"),0)');
 
     // Fila 27: Retiradx
     reporte.getRange('B27').setFormula('=IFERROR(COUNTA(Retiradx!A:A)-1,0)');
     reporte.getRange('C27').setFormula('=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    reporte.getRange('E27').setFormula('=IFERROR(IF((B24+B27)>0,B27/(B24+B27),0),0)');
-    reporte.getRange('E27').setNumberFormat('0.0%');
+    reporte.getRange('E27').setValue('');
 
     // Fila 30: Intervención de casos
     reporte.getRange('B30').setFormula('=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)');
@@ -4252,9 +4229,9 @@ function actualizarFormulasReporte() {
     // Fila 33: Total casos procesados
     reporte.getRange('B33').setFormula('=IFERROR(B24+B27+B30,0)');
 
-    // Fila 34: Tasa de éxito
-    reporte.getRange('B34').setFormula('=IFERROR(IF(B33>0,B24/B33,0),0)');
-    reporte.getRange('B34').setNumberFormat('0.0%');
+    // Fila 34: Tasa de éxito - eliminada
+    reporte.getRange('A34').setValue('');
+    reporte.getRange('B34').setValue('');
 
     // Fila 35: Casos activos totales
     reporte.getRange('B35').setFormula('=IFERROR(B21,0)');
@@ -4295,9 +4272,10 @@ function actualizarFormulasReporte() {
       'Todas las formulas del reporte han sido actualizadas:\n' +
       '• Sesiones mes = SOLO Asistencias reales (columna M)\n' +
       '• Inasistencias = Contador de inasistencias (columna L)\n' +
-      '• Tasas = Formato de porcentaje nativo (0% como número, no texto)\n' +
+      '• Culminados 12+ ses. = Número de personas con 12+ sesiones\n' +
+      '• Tasas eliminadas (solo números exactos)\n' +
       '• Protección IFERROR y filtros correctos\n\n' +
-      'El reporte ahora muestra valores correctos incluyendo inasistencias.',
+      'El reporte ahora muestra solo números exactos, sin porcentajes.',
       'Reporte Actualizado',
       6
     );
