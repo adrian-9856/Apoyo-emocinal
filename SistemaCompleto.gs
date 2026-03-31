@@ -760,6 +760,14 @@ function crearReportesMensuales() {
   anchos.forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
+
+  // Aplicar formato de porcentaje a las columnas de tasas
+  // Columna 23 (W): Tasa Culminación
+  // Columna 26 (Z): Tasa Retiro
+  // Columna 28 (AB): Tasa Éxito
+  sheet.getRange('W:W').setNumberFormat('0.0%');  // Columna 23 - Tasa Culminación
+  sheet.getRange('Z:Z').setNumberFormat('0.0%');  // Columna 26 - Tasa Retiro
+  sheet.getRange('AB:AB').setNumberFormat('0.0%');  // Columna 28 - Tasa Éxito
 }
 
 /**
@@ -822,6 +830,11 @@ function actualizarHeadersReportesMensuales() {
     anchos.forEach((w, i) => {
       sheet.setColumnWidth(i + 1, w);
     });
+
+    // Aplicar formato de porcentaje a las columnas de tasas
+    sheet.getRange('W:W').setNumberFormat('0.0%');  // Columna 23 - Tasa Culminación
+    sheet.getRange('Z:Z').setNumberFormat('0.0%');  // Columna 26 - Tasa Retiro
+    sheet.getRange('AB:AB').setNumberFormat('0.0%');  // Columna 28 - Tasa Éxito
 
     // Ajustar altura de la fila de headers
     sheet.setRowHeight(1, 60);
@@ -3548,12 +3561,12 @@ function guardarReporteMensual() {
     // PROCESOS CULMINADOS (fila 24)
     const culminadosTotal = reporte.getRange('B24').getValue();
     const culminadosMes = reporte.getRange('C24').getValue();
-    const tasaCulminacion = reporte.getRange('D24').getValue();
+    const tasaCulminacion = reporte.getRange('E24').getValue();
 
     // RETIRADX (fila 27)
     const retiradxTotal = reporte.getRange('B27').getValue();
     const retiradxMes = reporte.getRange('C27').getValue();
-    const tasaRetiro = reporte.getRange('D27').getValue();
+    const tasaRetiro = reporte.getRange('E27').getValue();
 
     // INTERVENCION DE CASOS (fila 30)
     const casosIntervencion = reporte.getRange('B30').getValue();
@@ -3605,6 +3618,14 @@ function guardarReporteMensual() {
     ];
 
     mensuales.getRange(nuevaFila, 1, 1, datos.length).setValues([datos]);
+
+    // Aplicar formato de porcentaje a las columnas de tasas
+    // Columna 23 (W): Tasa Culminación
+    // Columna 26 (Z): Tasa Retiro
+    // Columna 28 (AB): Tasa Éxito
+    mensuales.getRange(nuevaFila, 23).setNumberFormat('0.0%');  // Tasa Culminación
+    mensuales.getRange(nuevaFila, 26).setNumberFormat('0.0%');  // Tasa Retiro
+    mensuales.getRange(nuevaFila, 28).setNumberFormat('0.0%');  // Tasa Éxito
 
     // Actualizar "Sesiones Mes Anterior" para el próximo mes
     // Copiar el valor actual de "No. Sesión" a "Sesiones Mes Anterior"
