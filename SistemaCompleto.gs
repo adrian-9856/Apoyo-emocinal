@@ -65,6 +65,7 @@ function onOpen() {
       .addItem('🔤 Reparar Nombres de Hojas', 'repararNombresHojasConAviso')
       .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
       .addItem('🔧 Reparar Fórmulas Reporte', 'actualizarFormulasReporte')
+      .addItem('📊 Actualizar Headers Reportes Mensuales', 'actualizarHeadersReportesMensuales')
       .addItem('🔍 Diagnóstico CSV Hoja de interés', 'diagnosticarFormularioInteres')
       .addItem('📋 Mostrar todas las columnas CSV', 'mostrarColumnasCSVInteres')
       .addItem('📋 Mostrar columnas CSV Histórico', 'mostrarColumnasCSVHistorico')
@@ -686,6 +687,91 @@ function crearReportesMensuales() {
   anchos.forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
+}
+
+/**
+ * Actualiza los headers y formato de la hoja "Reportes Mensuales" existente
+ * Útil cuando la hoja ya existe pero tiene el formato antiguo
+ */
+function actualizarHeadersReportesMensuales() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Reportes Mensuales');
+
+    if (!sheet) {
+      ss.toast('❌ No existe la hoja "Reportes Mensuales"', 'Error', 3);
+      return;
+    }
+
+    const headers = [
+      'Mes/Año',
+      // NUEVOS INGRESOS
+      'Nuevos Ingresos (Total)', 'Nuevos Ingresos (Mes)',
+      // PERSONAS NO ASISTIDAS
+      'No Asistidas (Total)', 'No Asistidas (Mes)',
+      // DERIVACIONES INSTITUCIONALES
+      'Derivaciones (Total)', 'Derivaciones (Mes)',
+      // FORMULARIO DE BIENESTAR
+      'Formularios (Total)', 'Alertas Suicidio',
+      // CASOS ACTIVOS POR TERAPEUTA
+      'Activos Gerber', 'Sesiones Gerber',
+      'Activos Melissa', 'Sesiones Melissa',
+      'Activos Diana', 'Sesiones Diana',
+      'Activos Karina', 'Sesiones Karina',
+      'Total Activos', 'Total Sesiones',
+      // PROCESOS CULMINADOS
+      'Culminados (Total)', 'Culminados (Mes)', 'Tasa Culminación',
+      // RETIRADX
+      'Retiradx (Total)', 'Retiradx (Mes)', 'Tasa Retiro',
+      // INTERVENCION DE CASOS
+      'Casos Intervención',
+      // RESUMEN GENERAL
+      'Total Procesados', 'Tasa Éxito', 'Casos Activos Totales',
+      // CAPTACIÓN
+      'Hoja Interés (Total)', 'Hoja Interés (Mes)',
+      'Referencias (Total)', 'Referencias (Mes)',
+      'Deriv. Inst. Recibidas (Total)', 'Deriv. Inst. Recibidas (Mes)',
+      // FECHA
+      'Fecha Guardado'
+    ];
+
+    // Actualizar headers
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+      .setBackground('#6a1b9a')
+      .setFontColor('white')
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle')
+      .setWrap(true);
+
+    // Ajustar anchos de columna (36 columnas)
+    const anchos = [120, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 100, 100, 100, 100, 100, 100, 90, 100, 100, 100, 90, 90, 90, 90, 90, 90, 120];
+    anchos.forEach((w, i) => {
+      sheet.setColumnWidth(i + 1, w);
+    });
+
+    // Ajustar altura de la fila de headers
+    sheet.setRowHeight(1, 60);
+
+    ss.toast(
+      '✅ Headers actualizados correctamente\n\n' +
+      'La hoja "Reportes Mensuales" ahora tiene:\n' +
+      '- 36 columnas con todas las métricas\n' +
+      '- Formato mejorado y legible',
+      'Headers Actualizados',
+      5
+    );
+
+    Logger.log('✅ Headers de Reportes Mensuales actualizados');
+
+  } catch (error) {
+    Logger.log('❌ Error actualizando headers: ' + error.toString());
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      '❌ Error: ' + error.toString(),
+      'Error',
+      5
+    );
+  }
 }
 
 // =====================================================================
