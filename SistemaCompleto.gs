@@ -1,4 +1,76 @@
 // =====================================================================
+// FUNCIONES DE REPARACIÓN RÁPIDA
+// =====================================================================
+
+/**
+ * Recrea SOLO la hoja "Reporte" con la estructura actualizada de 5 columnas
+ * Incluye la nueva columna de "Inasistencias"
+ * EJECUTAR DESDE: Extensiones → Apps Script → Seleccionar esta función → Ejecutar
+ */
+function recrearReporte() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    // Confirmar con el usuario
+    const respuesta = ui.alert(
+      '🔄 Recrear Hoja Reporte',
+      '¿Deseas recrear la hoja "Reporte" con la nueva columna de Inasistencias?\n\n' +
+      'Esto:\n' +
+      '✅ Eliminará la hoja "Reporte" actual\n' +
+      '✅ Creará una nueva con 5 columnas\n' +
+      '✅ Incluirá la columna "Inasistencias"\n' +
+      '✅ Actualizará todas las fórmulas\n\n' +
+      'Las demás hojas NO se tocarán.',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (respuesta !== ui.Button.YES) {
+      ui.alert('❌ Cancelado', 'No se realizaron cambios.', ui.ButtonSet.OK);
+      return;
+    }
+
+    // Eliminar hoja Reporte si existe
+    const reporteViejo = ss.getSheetByName('Reporte');
+    if (reporteViejo) {
+      ss.deleteSheet(reporteViejo);
+      Logger.log('🗑️ Hoja Reporte antigua eliminada');
+    }
+
+    // Crear nueva hoja Reporte
+    ss.toast('Creando nueva hoja Reporte...', 'Paso 1/2', 3);
+    crearReporte();
+    Logger.log('✅ Hoja Reporte recreada con 5 columnas');
+
+    // Actualizar fórmulas
+    ss.toast('Actualizando fórmulas...', 'Paso 2/2', 3);
+    Utilities.sleep(1000);
+    actualizarFormulasReporte();
+    Logger.log('✅ Fórmulas actualizadas');
+
+    // Actualizar reportes
+    actualizarReportes();
+
+    ui.alert(
+      '✅ REPORTE RECREADO EXITOSAMENTE',
+      'La hoja "Reporte" ahora tiene:\n\n' +
+      '✅ 5 columnas (A, B, C, D, E)\n' +
+      '✅ Columna D: Inasistencias\n' +
+      '✅ Todas las fórmulas actualizadas\n' +
+      '✅ Datos recalculados\n\n' +
+      'Ve a la hoja "Reporte" para verificar.',
+      ui.ButtonSet.OK
+    );
+
+    Logger.log('🎉 Proceso completado exitosamente');
+
+  } catch (error) {
+    ui.alert('❌ ERROR', 'Error: ' + error.message, ui.ButtonSet.OK);
+    Logger.log('❌ Error recreando reporte: ' + error.message);
+  }
+}
+
+// =====================================================================
 // VARIABLES GLOBALES
 // =====================================================================
 
