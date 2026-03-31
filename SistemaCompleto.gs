@@ -498,73 +498,73 @@ function crearReporte() {
 
   // Título principal
   const data = [
-    ['REPORTE AUTOMATICO - APOYO EMOCIONAL', '', '', ''],
-    ['Ultima actualizacion:', '=TEXT(NOW(),"DD/MM/YYYY HH:MM")', 'Mes actual:', '=TEXT(TODAY(),"MMMM YYYY")'],
-    ['', '', '', ''],
+    ['REPORTE AUTOMATICO - APOYO EMOCIONAL', '', '', '', ''],
+    ['Ultima actualizacion:', '=TEXT(NOW(),"DD/MM/YYYY HH:MM")', 'Mes actual:', '=TEXT(TODAY(),"MMMM YYYY")', ''],
+    ['', '', '', '', ''],
 
     // SECCIÓN 1: NUEVOS INGRESOS
-    ['NUEVOS INGRESOS', 'Total', 'Este mes', ''],
-    ['Participantes que vinieron a primera cita', '=IFERROR(IF(ISBLANK(\'Nuevos Ingresos\'!A1),0,COUNTA(\'Nuevos Ingresos\'!C:C)-1),0)', '=IFERROR(IF(ISBLANK(\'Nuevos Ingresos\'!A1),0,COUNTIFS(\'Nuevos Ingresos\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Nuevos Ingresos\'!A:A,"<="&EOMONTH(TODAY(),0))),0)', ''],
-    ['', '', '', ''],
+    ['NUEVOS INGRESOS', 'Total', 'Este mes', '', ''],
+    ['Participantes que vinieron a primera cita', '=IFERROR(IF(ISBLANK(\'Nuevos Ingresos\'!A1),0,COUNTA(\'Nuevos Ingresos\'!C:C)-1),0)', '=IFERROR(IF(ISBLANK(\'Nuevos Ingresos\'!A1),0,COUNTIFS(\'Nuevos Ingresos\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Nuevos Ingresos\'!A:A,"<="&EOMONTH(TODAY(),0))),0)', '', ''],
+    ['', '', '', '', ''],
 
     // SECCIÓN 2: PERSONAS NO ASISTIDAS
-    ['PERSONAS NO ASISTIDAS', 'Total', 'Este mes', ''],
-    ['Personas que no asistieron a primera cita', '=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)', '=IFERROR(COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
-    ['', '', '', ''],
+    ['PERSONAS NO ASISTIDAS', 'Total', 'Este mes', '', ''],
+    ['Personas que no asistieron a primera cita', '=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)', '=IFERROR(COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '', ''],
+    ['', '', '', '', ''],
 
     // SECCIÓN 3: DERIVACIONES — cuenta desde hoja Derivaciones Institucionales
-    ['DERIVACIONES INSTITUCIONALES', 'Total', 'Este mes', ''],
-    ['Total derivaciones institucionales', '=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
-    ['', '', '', ''],
+    ['DERIVACIONES INSTITUCIONALES', 'Total', 'Este mes', '', ''],
+    ['Total derivaciones institucionales', '=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '', ''],
+    ['', '', '', '', ''],
 
     // SECCIÓN 4: BIENESTAR (Formularios de KoboToolbox)
-    ['FORMULARIO DE BIENESTAR', 'Total', 'Alertas suicidio', ''],
-    ['Formularios recibidos', '=IFERROR(COUNTA(\'C_03_Formulario de Bienestar (2026)\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Sí")+COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Si"),0)', ''],
-    ['', '', '', ''],
+    ['FORMULARIO DE BIENESTAR', 'Total', 'Alertas suicidio', '', ''],
+    ['Formularios recibidos', '=IFERROR(COUNTA(\'C_03_Formulario de Bienestar (2026)\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Sí")+COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Si"),0)', '', ''],
+    ['', '', '', '', ''],
 
-    // SECCIÓN 5: CASOS ACTIVOS - Sesiones mes suma solo Asistencias (columna M)
-    ['CASOS ACTIVOS POR TERAPEUTA', 'Casos activos', 'Sesiones mes', ''],
-    ['Gerber', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Gerber",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)', ''],
-    ['Melissa', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Melissa",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)', ''],
-    ['Diana', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Diana",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)', ''],
-    ['Karina', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Karina",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)', ''],
-    ['TOTAL', '=IFERROR(SUM(B17:B20),0)', '=IFERROR(SUM(C17:C20),0)', ''],
-    ['', '', '', ''],
+    // SECCIÓN 5: CASOS ACTIVOS - Sesiones mes suma solo Asistencias (columna M), Inasistencias (columna L)
+    ['CASOS ACTIVOS POR TERAPEUTA', 'Casos activos', 'Sesiones mes', 'Inasistencias', ''],
+    ['Gerber', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Gerber",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)', ''],
+    ['Melissa', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Melissa",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)', ''],
+    ['Diana', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Diana",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)', ''],
+    ['Karina', '=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Karina",\'Terapias Individual\'!I:I,"En proceso"),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)', '=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)', ''],
+    ['TOTAL', '=IFERROR(SUM(B17:B20),0)', '=IFERROR(SUM(C17:C20),0)', '=IFERROR(SUM(D17:D20),0)', ''],
+    ['', '', '', '', ''],
 
     // SECCIÓN 6: PROCESOS CULMINADOS
-    ['PROCESOS CULMINADOS', 'Total', 'Este mes', 'Tasa culminación (12 ses.)'],
-    ['Tasa de culminación de Terapia Individual', '=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF((B24+B27)>0,ROUND(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12")/(B24+B27)*100,1)&"%","0%"),"0%")'],
-    ['', '', '', ''],
+    ['PROCESOS CULMINADOS', 'Total', 'Este mes', 'Tasa culminación (12 ses.)', ''],
+    ['Tasa de culminación de Terapia Individual', '=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF((B24+B27)>0,ROUND(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12")/(B24+B27)*100,1)&"%","0%"),"0%")', ''],
+    ['', '', '', '', ''],
 
     // SECCIÓN 7: RETIRADX
-    ['RETIRADX', 'Total', 'Este mes', 'Tasa retiro'],
-    ['Participantxs que se retiraron', '=IFERROR(COUNTA(Retiradx!A:A)-1,0)', '=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF((B24+B27)>0,ROUND(B27/(B24+B27)*100,1)&"%","0%"),"0%")'],
-    ['', '', '', ''],
+    ['RETIRADX', 'Total', 'Este mes', 'Tasa retiro', ''],
+    ['Participantxs que se retiraron', '=IFERROR(COUNTA(Retiradx!A:A)-1,0)', '=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF((B24+B27)>0,ROUND(B27/(B24+B27)*100,1)&"%","0%"),"0%")', ''],
+    ['', '', '', '', ''],
 
     // SECCIÓN 8: INTERVENCION DE CASOS
-    ['INTERVENCION DE CASOS', 'Total', '', ''],
-    ['Casos en intervencion', '=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)', '', ''],
-    ['', '', '', ''],
+    ['INTERVENCION DE CASOS', 'Total', '', '', ''],
+    ['Casos en intervencion', '=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)', '', '', ''],
+    ['', '', '', '', ''],
 
     // SECCIÓN 9: RESUMEN GENERAL
-    ['RESUMEN GENERAL', 'Valor', '', ''],
-    ['Total casos procesados', '=IFERROR(B24+B27+B30,0)', '', ''],
-    ['Tasa de exito', '=IFERROR(IF(B33>0,ROUND(B24/B33*100,1)&"%","0%"),"0%")', '', ''],
-    ['Casos activos totales', '=IFERROR(B21,0)', '', ''],
-    ['', '', '', ''],
+    ['RESUMEN GENERAL', 'Valor', '', '', ''],
+    ['Total casos procesados', '=IFERROR(B24+B27+B30,0)', '', '', ''],
+    ['Tasa de exito', '=IFERROR(IF(B33>0,ROUND(B24/B33*100,1)&"%","0%"),"0%")', '', '', ''],
+    ['Casos activos totales', '=IFERROR(B21,0)', '', '', ''],
+    ['', '', '', '', ''],
 
     // SECCIÓN 10: CAPTACIÓN (formularios de ingreso)
-    ['CAPTACIÓN', 'Total', 'Este mes', ''],
-    ['Hoja de interés (Terapia Individual)', '=IFERROR(COUNTA(\'Hoja de interés\'!C:C)-1,0)', '=IFERROR(COUNTIFS(\'Hoja de interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Hoja de interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
-    ['Referencias de programas recibidas', '=IFERROR(COUNTA(\'Referencias de programas\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Referencias de programas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias de programas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
-    ['Derivaciones institucionales recibidas', '=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '']
+    ['CAPTACIÓN', 'Total', 'Este mes', '', ''],
+    ['Hoja de interés (Terapia Individual)', '=IFERROR(COUNTA(\'Hoja de interés\'!C:C)-1,0)', '=IFERROR(COUNTIFS(\'Hoja de interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Hoja de interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '', ''],
+    ['Referencias de programas recibidas', '=IFERROR(COUNTA(\'Referencias de programas\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Referencias de programas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias de programas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '', ''],
+    ['Derivaciones institucionales recibidas', '=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '', '']
   ];
 
   // Escribir datos
-  sheet.getRange(1, 1, data.length, 4).setValues(data);
+  sheet.getRange(1, 1, data.length, 5).setValues(data);
 
   // DISEÑO: Título principal (fila 1)
-  sheet.getRange('A1:D1')
+  sheet.getRange('A1:E1')
     .merge()
     .setBackground('#0d47a1')
     .setFontColor('white')
@@ -575,7 +575,7 @@ function crearReporte() {
   sheet.setRowHeight(1, 45);
 
   // DISEÑO: Subtítulo con fecha (fila 2)
-  sheet.getRange('A2:D2')
+  sheet.getRange('A2:E2')
     .setBackground('#e3f2fd')
     .setFontSize(10)
     .setVerticalAlignment('middle');
@@ -586,7 +586,7 @@ function crearReporte() {
   // DISEÑO: Headers de secciones (columnas azul oscuro)
   const headerRows = [4, 7, 10, 13, 16, 23, 26, 29, 32, 37];
   headerRows.forEach(row => {
-    sheet.getRange('A' + row + ':D' + row)
+    sheet.getRange('A' + row + ':E' + row)
       .setBackground('#1565c0')
       .setFontColor('white')
       .setFontWeight('bold')
@@ -599,7 +599,7 @@ function crearReporte() {
   // DISEÑO: Filas totales (azul más claro, negrita)
   const totalRows = [21, 33, 34, 35];
   totalRows.forEach(row => {
-    sheet.getRange('A' + row + ':D' + row)
+    sheet.getRange('A' + row + ':E' + row)
       .setBackground('#bbdefb')
       .setFontWeight('bold')
       .setFontSize(10);
@@ -609,24 +609,25 @@ function crearReporte() {
   const dataRows = [5, 8, 11, 14, 17, 18, 19, 20, 24, 27, 30, 38, 39, 40];
   dataRows.forEach((row, idx) => {
     const bg = idx % 2 === 0 ? '#ffffff' : '#f5f5f5';
-    sheet.getRange('A' + row + ':D' + row)
+    sheet.getRange('A' + row + ':E' + row)
       .setBackground(bg)
       .setFontSize(10)
       .setVerticalAlignment('middle');
   });
 
   // Bordes profesionales en toda la tabla
-  sheet.getRange('A1:D' + data.length)
+  sheet.getRange('A1:E' + data.length)
     .setBorder(true, true, true, true, true, true, '#cccccc', SpreadsheetApp.BorderStyle.SOLID);
 
   // Anchos de columna optimizados para cualquier laptop
   sheet.setColumnWidth(1, 280);  // Columna descripción
   sheet.setColumnWidth(2, 120);  // Columna valor 1
   sheet.setColumnWidth(3, 120);  // Columna valor 2
-  sheet.setColumnWidth(4, 140);  // Columna valor 3
+  sheet.setColumnWidth(4, 120);  // Columna valor 3 - Inasistencias
+  sheet.setColumnWidth(5, 140);  // Columna valor 4
 
   // Alineación de números
-  sheet.getRange('B:D').setHorizontalAlignment('center');
+  sheet.getRange('B:E').setHorizontalAlignment('center');
   sheet.getRange('A:A').setHorizontalAlignment('left');
 
   // Altura predeterminada para filas de datos
@@ -4123,25 +4124,32 @@ function actualizarFormulasReporte() {
     reporte.getRange('C19').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)');
     reporte.getRange('C20').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)');
 
-    // Fila 21: TOTAL casos activos y sesiones
+    // Filas 17-20: Inasistencias (columna D) = Suma de Inasistencias (columna L)
+    reporte.getRange('D17').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)');
+    reporte.getRange('D18').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)');
+    reporte.getRange('D19').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)');
+    reporte.getRange('D20').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)');
+
+    // Fila 21: TOTAL casos activos, sesiones e inasistencias
     reporte.getRange('B21').setFormula('=IFERROR(SUM(B17:B20),0)');
     reporte.getRange('C21').setFormula('=IFERROR(SUM(C17:C20),0)');
+    reporte.getRange('D21').setFormula('=IFERROR(SUM(D17:D20),0)');
 
-    // Fila 23: header — actualizar columna D a "Tasa culminación"
-    reporte.getRange('D23').setValue('Tasa culminación (12 ses.)');
+    // Fila 23: header — actualizar columna E a "Tasa culminación"
+    reporte.getRange('E23').setValue('Tasa culminación (12 ses.)');
 
     // Fila 24: Tasa de culminación de Terapia Individual
     // A24 = etiqueta, B24 = total culminados, C24 = este mes,
-    // D24 = % quienes completaron 12+ sesiones del total que concluyeron (culminados + retiradxs)
+    // E24 = % quienes completaron 12+ sesiones del total que concluyeron (culminados + retiradxs)
     reporte.getRange('A24').setValue('Tasa de culminación de Terapia Individual');
     reporte.getRange('B24').setFormula('=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)');
     reporte.getRange('C24').setFormula('=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    reporte.getRange('D24').setFormula('=IFERROR(IF((B24+B27)>0,ROUND(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12")/(B24+B27)*100,1)&"%","0%"),"0%")');
+    reporte.getRange('E24').setFormula('=IFERROR(IF((B24+B27)>0,ROUND(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12")/(B24+B27)*100,1)&"%","0%"),"0%")');
 
     // Fila 27: Retiradx
     reporte.getRange('B27').setFormula('=IFERROR(COUNTA(Retiradx!A:A)-1,0)');
     reporte.getRange('C27').setFormula('=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    reporte.getRange('D27').setFormula('=IFERROR(IF((B24+B27)>0,ROUND(B27/(B24+B27)*100,1)&"%","0%"),"0%")');
+    reporte.getRange('E27').setFormula('=IFERROR(IF((B24+B27)>0,ROUND(B27/(B24+B27)*100,1)&"%","0%"),"0%")');
 
     // Fila 30: Intervención de casos
     reporte.getRange('B30').setFormula('=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)');
@@ -4158,9 +4166,9 @@ function actualizarFormulasReporte() {
     // ── SECCIÓN 10: CAPTACIÓN ──────────────────────────────────────────────────
     // Fila 36 separador; Fila 37 = header CAPTACIÓN; Filas 38-40 = datos
     // Siempre se escribe para garantizar que exista con los textos correctos
-    reporte.getRange('A36:D36').setValues([['', '', '', '']]);
-    reporte.getRange('A37:D37').setValues([['CAPTACIÓN', 'Total', 'Este mes', '']]);
-    reporte.getRange('A37:D37')
+    reporte.getRange('A36:E36').setValues([['', '', '', '', '']]);
+    reporte.getRange('A37:E37').setValues([['CAPTACIÓN', 'Total', 'Este mes', '', '']]);
+    reporte.getRange('A37:E37')
       .setBackground('#1565c0').setFontColor('white').setFontWeight('bold')
       .setHorizontalAlignment('center').setVerticalAlignment('middle').setFontSize(11);
     reporte.setRowHeight(37, 35);
@@ -4168,7 +4176,7 @@ function actualizarFormulasReporte() {
     reporte.getRange('A39').setValue('Referencias de programas recibidas');
     reporte.getRange('A40').setValue('Derivaciones institucionales recibidas');
     [38, 39, 40].forEach((row, idx) => {
-      reporte.getRange('A' + row + ':D' + row)
+      reporte.getRange('A' + row + ':E' + row)
         .setBackground(idx % 2 === 0 ? '#ffffff' : '#f5f5f5')
         .setFontSize(10).setVerticalAlignment('middle');
       reporte.setRowHeight(row, 28);
@@ -4189,10 +4197,10 @@ function actualizarFormulasReporte() {
     ss.toast(
       '✅ FORMULAS ACTUALIZADAS\n\n' +
       'Todas las formulas del reporte han sido actualizadas:\n' +
-      '• Sesiones mes = SOLO Asistencias reales\n' +
-      '• NO cuenta inasistencias\n' +
+      '• Sesiones mes = SOLO Asistencias reales (columna M)\n' +
+      '• Inasistencias = Contador de inasistencias (columna L)\n' +
       '• Protección IFERROR y filtros correctos\n\n' +
-      'El reporte ahora muestra valores correctos.',
+      'El reporte ahora muestra valores correctos incluyendo inasistencias.',
       'Reporte Actualizado',
       6
     );
