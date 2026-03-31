@@ -604,13 +604,13 @@ function crearReporte() {
     ['', '', '', '', ''],
 
     // SECCIÓN 6: PROCESOS CULMINADOS
-    ['PROCESOS CULMINADOS', 'Total', 'Este mes', 'Tasa culminación (12 ses.)', ''],
-    ['Tasa de culminación de Terapia Individual', '=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF((B24+B27)>0,ROUND(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12")/(B24+B27)*100,1)&"%","0%"),"0%")', ''],
+    ['PROCESOS CULMINADOS', 'Total', 'Este mes', '', 'Tasa culminación (12 ses.)'],
+    ['Tasa de culminación de Terapia Individual', '=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '', '=IFERROR(IF((B24+B27)>0,ROUND(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12")/(B24+B27)*100,1)&"%","0%"),"0%")'],
     ['', '', '', '', ''],
 
     // SECCIÓN 7: RETIRADX
-    ['RETIRADX', 'Total', 'Este mes', 'Tasa retiro', ''],
-    ['Participantxs que se retiraron', '=IFERROR(COUNTA(Retiradx!A:A)-1,0)', '=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF((B24+B27)>0,ROUND(B27/(B24+B27)*100,1)&"%","0%"),"0%")', ''],
+    ['RETIRADX', 'Total', 'Este mes', '', 'Tasa retiro'],
+    ['Participantxs que se retiraron', '=IFERROR(COUNTA(Retiradx!A:A)-1,0)', '=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)', '', '=IFERROR(IF((B24+B27)>0,ROUND(B27/(B24+B27)*100,1)&"%","0%"),"0%")'],
     ['', '', '', '', ''],
 
     // SECCIÓN 8: INTERVENCION DE CASOS
