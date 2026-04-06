@@ -552,7 +552,8 @@ function crearReporte() {
     ['CAPTACIÓN', 'Total', 'Este mes', ''],
     ['Hoja de interés (Terapia Individual)', '=IFERROR(COUNTA(\'Hoja de interés\'!C:C)-1,0)', '=IFERROR(COUNTIFS(\'Hoja de interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Hoja de interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
     ['Referencias de programas recibidas', '=IFERROR(COUNTA(\'Referencias de programas\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Referencias de programas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias de programas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
-    ['Derivaciones institucionales recibidas', '=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '']
+    ['Derivaciones institucionales recibidas', '=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', ''],
+    ['Nuevos ingresos a Terapia Individual', '=IFERROR(COUNTA(\'Terapias Individual\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Terapias Individual\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '']
   ];
 
   // Escribir datos
@@ -601,7 +602,7 @@ function crearReporte() {
   });
 
   // DISEÑO: Filas de datos normales (fondo blanco alternado)
-  const dataRows = [5, 8, 11, 14, 17, 18, 19, 20, 24, 27, 30, 38, 39, 40];
+  const dataRows = [5, 8, 11, 14, 17, 18, 19, 20, 24, 27, 30, 38, 39, 40, 41];
   dataRows.forEach((row, idx) => {
     const bg = idx % 2 === 0 ? '#ffffff' : '#f5f5f5';
     sheet.getRange('A' + row + ':D' + row)
@@ -644,7 +645,7 @@ function crearReportesMensuales() {
     'Total Activos', 'Tasa Éxito (%)',
     'Sesiones Gerber', 'Sesiones Melissa', 'Sesiones Diana', 'Sesiones Karina',
     'Activos Gerber', 'Activos Melissa', 'Activos Diana', 'Activos Karina',
-    'Derivaciones Externas', 'Fecha Guardado'
+    'Derivaciones Externas', 'Nuevos Ingresos', 'Fecha Guardado'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -653,7 +654,7 @@ function crearReportesMensuales() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 100, 100, 100, 100, 100, 90, 90, 90, 90, 90, 90, 90, 90, 120, 120].forEach((w, i) => {
+  [120, 100, 100, 100, 100, 100, 90, 90, 90, 90, 90, 90, 90, 90, 120, 110, 120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -3349,6 +3350,7 @@ function guardarReporteMensual() {
     const activosKarina = reporte.getRange('B20').getValue(); // Fila 20
 
     const derivacionesExternas = reporte.getRange('B11').getValue(); // Derivaciones institucionales (fila 11)
+    const nuevosIngresos = reporte.getRange('C41').getValue(); // Nuevos ingresos este mes (fila 41)
 
     const nuevaFila = mensuales.getLastRow() + 1;
     const datos = [
@@ -3367,10 +3369,11 @@ function guardarReporteMensual() {
       activosDiana,
       activosKarina,
       derivacionesExternas,
+      nuevosIngresos,
       new Date()
     ];
 
-    mensuales.getRange(nuevaFila, 1, 1, 17).setValues([datos]);
+    mensuales.getRange(nuevaFila, 1, 1, datos.length).setValues([datos]);
 
     // Actualizar "Sesiones Mes Anterior" para el próximo mes
     // Copiar el valor actual de "No. Sesión" a "Sesiones Mes Anterior"
@@ -3552,6 +3555,18 @@ function guardarReporteMesEspecifico() {
     const hojaDerivaciones = ss.getSheetByName('Derivaciones Institucionales');
     const derivacionesTotal = hojaDerivaciones ? Math.max(0, hojaDerivaciones.getLastRow() - 1) : 0;
 
+    // 7. Nuevos ingresos a Terapia Individual (por fecha de ingreso en el mes)
+    let nuevosIngresos = 0;
+    if (terapias && terapias.getLastRow() > 1) {
+      const fechasIngreso = terapias.getRange(2, 1, terapias.getLastRow() - 1, 1).getValues();
+      for (let i = 0; i < fechasIngreso.length; i++) {
+        const fecha = fechasIngreso[i][0];
+        if (fecha instanceof Date && fecha >= primerDia && fecha <= ultimoDia) {
+          nuevosIngresos++;
+        }
+      }
+    }
+
     // ── Guardar en Reportes Mensuales ──
     const nuevaFila = mensuales.getLastRow() + 1;
     const datosReporte = [
@@ -3570,6 +3585,7 @@ function guardarReporteMesEspecifico() {
       activosDiana,
       activosKarina,
       derivacionesTotal,
+      nuevosIngresos,
       new Date()
     ];
 
@@ -3582,17 +3598,18 @@ function guardarReporteMesEspecifico() {
     ui.alert(
       '✅ Reporte Guardado: ' + nombreMes,
       'RESUMEN DEL REPORTE:\n\n' +
+      '📊 Nuevos ingresos: ' + nuevosIngresos + '\n' +
       '📊 Culminados este mes: ' + culminadosMes + '\n' +
       '📊 Retiradx este mes: ' + retiradxMes + '\n' +
       '📊 Casos en intervención: ' + gestionTotal + '\n' +
       '📊 Total activos: ' + activosTotal + '\n' +
       '📊 Tasa de éxito: ' + tasaExito + '\n\n' +
-      '👤 Sesiones por terapeuta:\n' +
+      '👤 Sesiones por terapeuta (asistencias reales):\n' +
       '   Gerber: ' + sesionesGerber + ' ses. / ' + activosGerber + ' activos\n' +
       '   Melissa: ' + sesionesMelissa + ' ses. / ' + activosMelissa + ' activos\n' +
       '   Diana: ' + sesionesDiana + ' ses. / ' + activosDiana + ' activos\n' +
       '   Karina: ' + sesionesKarina + ' ses. / ' + activosKarina + ' activos\n\n' +
-      '✅ Sesiones del mes anterior actualizadas.\n' +
+      '✅ Asistencias e inasistencias reseteadas a 0.\n' +
       '📁 Guardado en fila: ' + nuevaFila,
       ui.ButtonSet.OK
     );
@@ -3607,19 +3624,18 @@ function guardarReporteMesEspecifico() {
 
 /**
  * Actualiza "Sesiones Mes Anterior" para empezar el conteo del nuevo mes
- * NO borra ningún dato, solo actualiza la columna de tracking
+ * 1. Copia No. Sesión (H) → Sesiones Mes Anterior (K)
+ * 2. Resetea Asistencias (M) a 0 para el nuevo mes
+ * 3. Resetea Inasistencias (L) a 0 para el nuevo mes
  */
 function actualizarSesionesMesAnterior() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   try {
-    // Actualizar "Sesiones Mes Anterior" en Terapias
-    // Copiar el valor actual de "No. Sesión" (columna H) a "Sesiones Mes Anterior" (columna K)
     const terapias = ss.getSheetByName('Terapias Individual');
     if (terapias && terapias.getLastRow() > 1) {
       const ultimaFila = terapias.getLastRow();
 
-      // Recorrer cada fila y copiar No. Sesión a Sesiones Mes Anterior
       for (let fila = 2; fila <= ultimaFila; fila++) {
         const participante = terapias.getRange(fila, 4).getValue(); // Columna D: Participante
         const numSesion = terapias.getRange(fila, 8).getValue(); // Columna H: No. Sesión
@@ -3627,11 +3643,15 @@ function actualizarSesionesMesAnterior() {
         // Solo actualizar si hay un participante (fila tiene datos)
         if (participante && participante.toString().trim() !== '') {
           // Copiar el número actual de sesiones a "Sesiones Mes Anterior"
-          terapias.getRange(fila, 11).setValue(numSesion || 0); // Columna K
+          terapias.getRange(fila, 11).setValue(numSesion || 0); // Columna K: Sesiones Mes Anterior
+
+          // Resetear contadores mensuales a 0 para empezar el nuevo mes
+          terapias.getRange(fila, 12).setValue(0); // Columna L: Inasistencias → 0
+          terapias.getRange(fila, 13).setValue(0); // Columna M: Asistencias → 0
         }
       }
 
-      Logger.log('✅ Terapias Individual: Sesiones del mes anterior actualizadas');
+      Logger.log('✅ Terapias Individual: H→K copiado, L y M reseteados a 0');
     }
 
     // Actualizar reportes
@@ -4235,11 +4255,20 @@ function actualizarFormulasReporte() {
     reporte.getRange('B40').setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)');
     reporte.getRange('C40').setFormula('=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
+    // Fila 41: Nuevos ingresos a Terapia Individual (por fecha de ingreso)
+    reporte.getRange('A41').setValue('Nuevos ingresos a Terapia Individual');
+    reporte.getRange('B41').setFormula('=IFERROR(COUNTA(\'Terapias Individual\'!A:A)-1,0)');
+    reporte.getRange('C41').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Terapias Individual\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    reporte.getRange('A41:D41')
+      .setBackground('#ffffff')
+      .setFontSize(10).setVerticalAlignment('middle');
+    reporte.setRowHeight(41, 28);
+
     ss.toast(
       '✅ FORMULAS ACTUALIZADAS\n\n' +
       'Todas las formulas del reporte han sido actualizadas:\n' +
       '• Sesiones mes = SOLO Asistencias reales\n' +
-      '• NO cuenta inasistencias\n' +
+      '• Nuevos ingresos por fecha de ingreso\n' +
       '• Protección IFERROR y filtros correctos\n\n' +
       'El reporte ahora muestra valores correctos.',
       'Reporte Actualizado',
