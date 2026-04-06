@@ -138,6 +138,7 @@ function onOpen() {
       .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
       .addItem('🔧 Reparar Fórmulas Reporte', 'actualizarFormulasReporte')
       .addItem('📊 Actualizar Headers Reportes Mensuales', 'actualizarHeadersReportesMensuales')
+      .addItem('🧹 Limpiar Asistencias e Inasistencias', 'limpiarAsistenciasEInasistencias')
       .addItem('🔍 Diagnóstico CSV Hoja de interés', 'diagnosticarFormularioInteres')
       .addItem('📋 Mostrar todas las columnas CSV', 'mostrarColumnasCSVInteres')
       .addItem('📋 Mostrar columnas CSV Histórico', 'mostrarColumnasCSVHistorico')
@@ -151,6 +152,7 @@ function onOpen() {
     ui.createMenu('🏥 Apoyo Emocional')
       .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodo')
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
+      .addItem('📅 Guardar Reporte de Mes Anterior', 'guardarReporteMesEspecifico')
       .addSeparator()
       .addSubMenu(menuAvanzado)
       .addToUi();
@@ -3639,6 +3641,7 @@ function actualizarSesionesMesAnterior() {
   try {
     // Actualizar "Sesiones Mes Anterior" en Terapias
     // Copiar el valor actual de "No. Sesión" (columna H) a "Sesiones Mes Anterior" (columna K)
+    // Y resetear Asistencias (M) e Inasistencias (L) a 0 para empezar el nuevo mes limpio
     const terapias = ss.getSheetByName('Terapias Individual');
     if (terapias && terapias.getLastRow() > 1) {
       const ultimaFila = terapias.getLastRow();
@@ -3652,10 +3655,14 @@ function actualizarSesionesMesAnterior() {
         if (participante && participante.toString().trim() !== '') {
           // Copiar el número actual de sesiones a "Sesiones Mes Anterior"
           terapias.getRange(fila, 11).setValue(numSesion || 0); // Columna K
+
+          // Resetear Inasistencias (L) y Asistencias (M) a 0
+          terapias.getRange(fila, 12).setValue(0); // Columna L: Inasistencias
+          terapias.getRange(fila, 13).setValue(0); // Columna M: Asistencias
         }
       }
 
-      Logger.log('✅ Terapias Individual: Sesiones del mes anterior actualizadas');
+      Logger.log('✅ Terapias Individual: Sesiones del mes anterior actualizadas y contadores reseteados');
     }
 
     // Actualizar reportes
@@ -3664,6 +3671,83 @@ function actualizarSesionesMesAnterior() {
     Logger.log('✅ Sesiones mes anterior actualizadas para nuevo mes');
   } catch (error) {
     Logger.log('❌ Error actualizando sesiones mes anterior: ' + error.toString());
+    throw error;
+  }
+}
+
+// =====================================================================
+// FUNCIÓN DE LIMPIEZA MANUAL
+// =====================================================================
+
+/**
+ * Resetea manualmente las columnas M (Asistencias) y L (Inasistencias) a 0
+ * en Terapias Individual. Útil para limpiar datos después de cerrar un mes.
+ */
+function limpiarAsistenciasEInasistencias() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    // Confirmar con el usuario
+    const respuesta = ui.alert(
+      '⚠️ Limpiar Asistencias e Inasistencias',
+      '¿Estás seguro de que quieres resetear a 0 las columnas de Asistencias (M) e Inasistencias (L) en Terapias Individual?\n\n' +
+      'Esta acción es necesaria después de guardar el reporte mensual para empezar el nuevo mes limpio.\n\n' +
+      '⚠️ Esta acción NO se puede deshacer.',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (respuesta !== ui.Button.YES) {
+      ss.toast('❌ Operación cancelada', 'Limpieza', 3);
+      return;
+    }
+
+    ss.toast('🔄 Limpiando asistencias e inasistencias...', 'Limpieza', 2);
+
+    const terapias = ss.getSheetByName('Terapias Individual');
+    if (!terapias) {
+      throw new Error('No se encontró la hoja "Terapias Individual"');
+    }
+
+    const ultimaFila = terapias.getLastRow();
+    if (ultimaFila < 2) {
+      ss.toast('⚠️ No hay datos para limpiar', 'Limpieza', 3);
+      return;
+    }
+
+    let contador = 0;
+
+    // Recorrer cada fila y resetear L y M a 0
+    for (let fila = 2; fila <= ultimaFila; fila++) {
+      const participante = terapias.getRange(fila, 4).getValue(); // Columna D: Participante
+
+      // Solo limpiar si hay un participante (fila tiene datos)
+      if (participante && participante.toString().trim() !== '') {
+        // Resetear Inasistencias (L) y Asistencias (M) a 0
+        terapias.getRange(fila, 12).setValue(0); // Columna L: Inasistencias
+        terapias.getRange(fila, 13).setValue(0); // Columna M: Asistencias
+        contador++;
+      }
+    }
+
+    // Actualizar reportes
+    actualizarReportes();
+
+    ss.toast(
+      '✅ LIMPIEZA COMPLETA\n\n' +
+      '✓ ' + contador + ' participantes limpiados\n' +
+      '✓ Asistencias (M) reseteadas a 0\n' +
+      '✓ Inasistencias (L) reseteadas a 0\n' +
+      '✓ Reportes actualizados',
+      'Limpieza',
+      5
+    );
+
+    Logger.log('✅ Limpieza completa: ' + contador + ' participantes');
+
+  } catch (error) {
+    Logger.log('❌ Error en limpieza: ' + error.toString());
+    ss.toast('❌ Error: ' + error.toString(), 'Error', 5);
     throw error;
   }
 }
