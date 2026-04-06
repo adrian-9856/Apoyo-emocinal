@@ -212,7 +212,14 @@ function mantenimientoAutomatico() {
       Logger.log('⚠️ rellenarDatosFaltantes: ' + eFill.message);
     }
 
-    // 4. Actualizar reportes
+    // 4. Reparar headers de Reportes Mensuales si faltan columnas
+    try {
+      repararHeadersReportesMensuales();
+    } catch (eHeaders) {
+      Logger.log('⚠️ repararHeadersReportesMensuales: ' + eHeaders.message);
+    }
+
+    // 5. Actualizar reportes
     actualizarReportes();
     Logger.log('✅ Reportes actualizados');
 
@@ -657,6 +664,62 @@ function crearReportesMensuales() {
   [120, 100, 100, 100, 100, 100, 90, 90, 90, 90, 90, 90, 90, 90, 120, 110, 120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
+}
+
+/**
+ * Repara los headers de "Reportes Mensuales" si faltan columnas nuevas (ej: "Nuevos Ingresos")
+ * Se ejecuta automáticamente en el mantenimiento
+ */
+function repararHeadersReportesMensuales() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const mensuales = ss.getSheetByName('Reportes Mensuales');
+  if (!mensuales) return;
+
+  const headersCorrectos = [
+    'Mes/Año', 'Culminados', 'Retiradx', 'Gestión Casos',
+    'Total Activos', 'Tasa Éxito (%)',
+    'Sesiones Gerber', 'Sesiones Melissa', 'Sesiones Diana', 'Sesiones Karina',
+    'Activos Gerber', 'Activos Melissa', 'Activos Diana', 'Activos Karina',
+    'Derivaciones Externas', 'Nuevos Ingresos', 'Fecha Guardado'
+  ];
+
+  // Leer headers actuales
+  const headersActuales = mensuales.getRange(1, 1, 1, mensuales.getLastColumn()).getValues()[0];
+
+  // Verificar si falta la columna "Nuevos Ingresos"
+  const tieneNuevosIngresos = headersActuales.some(h => h.toString() === 'Nuevos Ingresos');
+
+  if (!tieneNuevosIngresos) {
+    // Reescribir todos los headers correctos
+    mensuales.getRange(1, 1, 1, headersCorrectos.length).setValues([headersCorrectos])
+      .setBackground('#6a1b9a')
+      .setFontColor('white')
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center');
+
+    // Si hay datos existentes, verificar que "Fecha Guardado" esté en la columna correcta
+    // Los datos antiguos tenían: col 16 = Fecha Guardado, ahora col 16 = Nuevos Ingresos, col 17 = Fecha Guardado
+    // Mover la Fecha Guardado una columna a la derecha para los registros existentes
+    const ultimaFila = mensuales.getLastRow();
+    if (ultimaFila > 1) {
+      for (let fila = 2; fila <= ultimaFila; fila++) {
+        const valorCol16 = mensuales.getRange(fila, 16).getValue();
+        const valorCol17 = mensuales.getRange(fila, 17).getValue();
+
+        // Si col 16 tiene una fecha y col 17 está vacía, mover fecha a col 17
+        if (valorCol16 instanceof Date && !valorCol17) {
+          mensuales.getRange(fila, 17).setValue(valorCol16); // Mover fecha a col 17
+          mensuales.getRange(fila, 16).setValue(0); // Col 16 = Nuevos Ingresos (0 para meses anteriores)
+        }
+      }
+    }
+
+    [120, 100, 100, 100, 100, 100, 90, 90, 90, 90, 90, 90, 90, 90, 120, 110, 120].forEach((w, i) => {
+      mensuales.setColumnWidth(i + 1, w);
+    });
+
+    Logger.log('✅ Headers de Reportes Mensuales reparados: columna "Nuevos Ingresos" agregada');
+  }
 }
 
 // =====================================================================
@@ -3376,14 +3439,15 @@ function guardarReporteMensual() {
     mensuales.getRange(nuevaFila, 1, 1, datos.length).setValues([datos]);
 
     // Actualizar "Sesiones Mes Anterior" para el próximo mes
-    // Copiar el valor actual de "No. Sesión" a "Sesiones Mes Anterior"
+    // Copiar H→K, resetear M y L a 0
     actualizarSesionesMesAnterior();
 
     ss.toast(
       '✅ REPORTE MENSUAL GUARDADO\n\n' +
       'Mes: ' + mesActual + '\n' +
       'Guardado en fila: ' + nuevaFila + '\n\n' +
-      'Las sesiones del proximo mes se contaran desde cero.',
+      '✅ Asistencias e inasistencias reseteadas a 0.\n' +
+      'El nuevo mes empieza limpio.',
       'Reporte Guardado',
       5
     );
