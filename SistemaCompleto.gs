@@ -226,6 +226,7 @@ function onOpen() {
       .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
       .addItem('🔧 Reparar Fórmulas Reporte', 'actualizarFormulasReporte')
       .addItem('📊 Actualizar Headers Reportes Mensuales', 'actualizarHeadersReportesMensuales')
+      .addItem('🔄 Resetear Sesiones Mes Anterior', 'resetearSesionesMesAnterior')
       .addItem('🧹 Limpiar Asistencias e Inasistencias', 'limpiarAsistenciasEInasistencias')
       .addItem('🔍 Diagnóstico CSV Hoja de interés', 'diagnosticarFormularioInteres')
       .addItem('📋 Mostrar todas las columnas CSV', 'mostrarColumnasCSVInteres')
