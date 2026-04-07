@@ -819,20 +819,20 @@ function crearReportesMensuales() {
     'Derivaciones (Total)', 'Derivaciones (Mes)',
     // FORMULARIO DE BIENESTAR
     'Formularios (Total)', 'Alertas Suicidio',
-    // CASOS ACTIVOS POR TERAPEUTA
-    'Activos Gerber', 'Sesiones Gerber',
-    'Activos Melissa', 'Sesiones Melissa',
-    'Activos Diana', 'Sesiones Diana',
-    'Activos Karina', 'Sesiones Karina',
-    'Total Activos', 'Total Sesiones',
+    // CASOS ACTIVOS POR TERAPEUTA (con inasistencias)
+    'Activos Gerber', 'Sesiones Gerber', 'Inasistencias Gerber',
+    'Activos Melissa', 'Sesiones Melissa', 'Inasistencias Melissa',
+    'Activos Diana', 'Sesiones Diana', 'Inasistencias Diana',
+    'Activos Karina', 'Sesiones Karina', 'Inasistencias Karina',
+    'Total Activos', 'Total Sesiones', 'Total Inasistencias',
     // PROCESOS CULMINADOS
     'Culminados (Total)', 'Culminados (Mes)', 'Culminados 12+ ses.',
     // RETIRADX
-    'Retiradx (Total)', 'Retiradx (Mes)', '',
+    'Retiradx (Total)', 'Retiradx (Mes)', 'Tasa Retiro',
     // INTERVENCION DE CASOS
     'Casos Intervención',
     // RESUMEN GENERAL
-    'Total Procesados', '', 'Casos Activos Totales',
+    'Total Procesados', 'Tasa Éxito', 'Casos Activos Totales',
     // CAPTACIÓN
     'Hoja Interés (Total)', 'Hoja Interés (Mes)',
     'Referencias (Total)', 'Referencias (Mes)',
@@ -847,8 +847,8 @@ function crearReportesMensuales() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  // Anchos de columna (36 columnas)
-  const anchos = [120, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 100, 100, 100, 100, 100, 100, 90, 100, 100, 100, 90, 90, 90, 90, 90, 90, 120];
+  // Anchos de columna (41 columnas - se agregaron 5 columnas de inasistencias)
+  const anchos = [120, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 100, 100, 100, 100, 100, 100, 90, 100, 100, 100, 90, 90, 90, 90, 90, 90, 90, 120];
   anchos.forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
@@ -878,12 +878,12 @@ function actualizarHeadersReportesMensuales() {
       'Derivaciones (Total)', 'Derivaciones (Mes)',
       // FORMULARIO DE BIENESTAR
       'Formularios (Total)', 'Alertas Suicidio',
-      // CASOS ACTIVOS POR TERAPEUTA
-      'Activos Gerber', 'Sesiones Gerber',
-      'Activos Melissa', 'Sesiones Melissa',
-      'Activos Diana', 'Sesiones Diana',
-      'Activos Karina', 'Sesiones Karina',
-      'Total Activos', 'Total Sesiones',
+      // CASOS ACTIVOS POR TERAPEUTA (con inasistencias)
+      'Activos Gerber', 'Sesiones Gerber', 'Inasistencias Gerber',
+      'Activos Melissa', 'Sesiones Melissa', 'Inasistencias Melissa',
+      'Activos Diana', 'Sesiones Diana', 'Inasistencias Diana',
+      'Activos Karina', 'Sesiones Karina', 'Inasistencias Karina',
+      'Total Activos', 'Total Sesiones', 'Total Inasistencias',
       // PROCESOS CULMINADOS
       'Culminados (Total)', 'Culminados (Mes)', 'Tasa Culminación',
       // RETIRADX
@@ -909,8 +909,8 @@ function actualizarHeadersReportesMensuales() {
       .setVerticalAlignment('middle')
       .setWrap(true);
 
-    // Ajustar anchos de columna (36 columnas)
-    const anchos = [120, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 100, 100, 100, 100, 100, 100, 90, 100, 100, 100, 90, 90, 90, 90, 90, 90, 120];
+    // Ajustar anchos de columna (41 columnas - se agregaron 5 columnas de inasistencias)
+    const anchos = [120, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 100, 100, 100, 100, 100, 100, 90, 100, 100, 100, 90, 90, 90, 90, 90, 90, 90, 120];
     anchos.forEach((w, i) => {
       sheet.setColumnWidth(i + 1, w);
     });
@@ -921,13 +921,14 @@ function actualizarHeadersReportesMensuales() {
     ss.toast(
       '✅ Headers actualizados correctamente\n\n' +
       'La hoja "Reportes Mensuales" ahora tiene:\n' +
-      '- 36 columnas con todas las métricas\n' +
+      '- 41 columnas con todas las métricas\n' +
+      '- Incluye conteo de inasistencias por terapeuta\n' +
       '- Formato mejorado y legible',
       'Headers Actualizados',
       5
     );
 
-    Logger.log('✅ Headers de Reportes Mensuales actualizados');
+    Logger.log('✅ Headers de Reportes Mensuales actualizados (con inasistencias)');
 
   } catch (error) {
     Logger.log('❌ Error actualizando headers: ' + error.toString());
@@ -3625,17 +3626,22 @@ function guardarReporteMensual() {
     const formulariosTotal = reporte.getRange('B14').getValue();
     const alertasSuicidio = reporte.getRange('C14').getValue();
 
-    // CASOS ACTIVOS POR TERAPEUTA (filas 17-21)
+    // CASOS ACTIVOS POR TERAPEUTA (filas 17-21) - incluye inasistencias
     const activosGerber = reporte.getRange('B17').getValue();
     const sesionesGerber = reporte.getRange('C17').getValue();
+    const inasistenciasGerber = reporte.getRange('D17').getValue();
     const activosMelissa = reporte.getRange('B18').getValue();
     const sesionesMelissa = reporte.getRange('C18').getValue();
+    const inasistenciasMelissa = reporte.getRange('D18').getValue();
     const activosDiana = reporte.getRange('B19').getValue();
     const sesionesDiana = reporte.getRange('C19').getValue();
+    const inasistenciasDiana = reporte.getRange('D19').getValue();
     const activosKarina = reporte.getRange('B20').getValue();
     const sesionesKarina = reporte.getRange('C20').getValue();
+    const inasistenciasKarina = reporte.getRange('D20').getValue();
     const totalActivos = reporte.getRange('B21').getValue();
     const totalSesiones = reporte.getRange('C21').getValue();
+    const totalInasistencias = reporte.getRange('D21').getValue();
 
     // PROCESOS CULMINADOS (fila 24)
     const culminadosTotal = reporte.getRange('B24').getValue();
@@ -3674,12 +3680,12 @@ function guardarReporteMensual() {
       derivacionesTotal, derivacionesMes,
       // FORMULARIO DE BIENESTAR
       formulariosTotal, alertasSuicidio,
-      // CASOS ACTIVOS POR TERAPEUTA
-      activosGerber, sesionesGerber,
-      activosMelissa, sesionesMelissa,
-      activosDiana, sesionesDiana,
-      activosKarina, sesionesKarina,
-      totalActivos, totalSesiones,
+      // CASOS ACTIVOS POR TERAPEUTA (con inasistencias)
+      activosGerber, sesionesGerber, inasistenciasGerber,
+      activosMelissa, sesionesMelissa, inasistenciasMelissa,
+      activosDiana, sesionesDiana, inasistenciasDiana,
+      activosKarina, sesionesKarina, inasistenciasKarina,
+      totalActivos, totalSesiones, totalInasistencias,
       // PROCESOS CULMINADOS
       culminadosTotal, culminadosMes, tasaCulminacion,
       // RETIRADX
@@ -9779,7 +9785,7 @@ function generarReporteMarzo2026() {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // 5. CASOS ACTIVOS Y SESIONES POR TERAPEUTA
+    // 5. CASOS ACTIVOS, SESIONES E INASISTENCIAS POR TERAPEUTA
     // ═══════════════════════════════════════════════════════════
     const terapeutas = ['Gerber', 'Melissa', 'Diana', 'Karina'];
     const datosTerapeutas = {};
@@ -9787,7 +9793,8 @@ function generarReporteMarzo2026() {
     terapeutas.forEach(terapeuta => {
       datosTerapeutas[terapeuta] = {
         activos: 0,
-        sesiones: 0
+        sesiones: 0,
+        inasistencias: 0
       };
     });
 
@@ -9799,11 +9806,13 @@ function generarReporteMarzo2026() {
         const participante = fila[3]; // Columna D
         const numSesion = fila[7] || 0; // Columna H: No. Sesión
         const estado = fila[8]; // Columna I: Estado
+        const inasistencias = fila[11] || 0; // Columna L: Inasistencias
 
         if (participante && participante.toString().trim() !== '' && estado === 'En proceso') {
           if (terapeutas.includes(terapeuta)) {
             datosTerapeutas[terapeuta].activos++;
             datosTerapeutas[terapeuta].sesiones += Number(numSesion);
+            datosTerapeutas[terapeuta].inasistencias += Number(inasistencias);
           }
         }
       });
@@ -9811,6 +9820,7 @@ function generarReporteMarzo2026() {
 
     const totalActivos = Object.values(datosTerapeutas).reduce((sum, t) => sum + t.activos, 0);
     const totalSesiones = Object.values(datosTerapeutas).reduce((sum, t) => sum + t.sesiones, 0);
+    const totalInasistencias = Object.values(datosTerapeutas).reduce((sum, t) => sum + t.inasistencias, 0);
 
     // ═══════════════════════════════════════════════════════════
     // 6. PROCESOS CULMINADOS
@@ -9967,12 +9977,12 @@ function generarReporteMarzo2026() {
       derivacionesTotal, derivacionesMes,
       // FORMULARIO DE BIENESTAR
       formulariosTotal, alertasSuicidio,
-      // CASOS ACTIVOS POR TERAPEUTA
-      datosTerapeutas['Gerber'].activos, datosTerapeutas['Gerber'].sesiones,
-      datosTerapeutas['Melissa'].activos, datosTerapeutas['Melissa'].sesiones,
-      datosTerapeutas['Diana'].activos, datosTerapeutas['Diana'].sesiones,
-      datosTerapeutas['Karina'].activos, datosTerapeutas['Karina'].sesiones,
-      totalActivos, totalSesiones,
+      // CASOS ACTIVOS POR TERAPEUTA (con inasistencias)
+      datosTerapeutas['Gerber'].activos, datosTerapeutas['Gerber'].sesiones, datosTerapeutas['Gerber'].inasistencias,
+      datosTerapeutas['Melissa'].activos, datosTerapeutas['Melissa'].sesiones, datosTerapeutas['Melissa'].inasistencias,
+      datosTerapeutas['Diana'].activos, datosTerapeutas['Diana'].sesiones, datosTerapeutas['Diana'].inasistencias,
+      datosTerapeutas['Karina'].activos, datosTerapeutas['Karina'].sesiones, datosTerapeutas['Karina'].inasistencias,
+      totalActivos, totalSesiones, totalInasistencias,
       // PROCESOS CULMINADOS
       culminadosTotal, culminadosMes, tasaCulminacion,
       // RETIRADX
@@ -10012,11 +10022,11 @@ function generarReporteMarzo2026() {
       '   • Total: ' + nuevosIngresosTotal + '\n' +
       '   • Marzo: ' + nuevosIngresosMes + '\n\n' +
       'CASOS ACTIVOS POR TERAPEUTA:\n' +
-      '   • Gerber: ' + datosTerapeutas['Gerber'].activos + ' casos, ' + datosTerapeutas['Gerber'].sesiones + ' sesiones\n' +
-      '   • Melissa: ' + datosTerapeutas['Melissa'].activos + ' casos, ' + datosTerapeutas['Melissa'].sesiones + ' sesiones\n' +
-      '   • Diana: ' + datosTerapeutas['Diana'].activos + ' casos, ' + datosTerapeutas['Diana'].sesiones + ' sesiones\n' +
-      '   • Karina: ' + datosTerapeutas['Karina'].activos + ' casos, ' + datosTerapeutas['Karina'].sesiones + ' sesiones\n' +
-      '   • TOTAL: ' + totalActivos + ' casos, ' + totalSesiones + ' sesiones\n\n' +
+      '   • Gerber: ' + datosTerapeutas['Gerber'].activos + ' casos, ' + datosTerapeutas['Gerber'].sesiones + ' sesiones, ' + datosTerapeutas['Gerber'].inasistencias + ' inasistencias\n' +
+      '   • Melissa: ' + datosTerapeutas['Melissa'].activos + ' casos, ' + datosTerapeutas['Melissa'].sesiones + ' sesiones, ' + datosTerapeutas['Melissa'].inasistencias + ' inasistencias\n' +
+      '   • Diana: ' + datosTerapeutas['Diana'].activos + ' casos, ' + datosTerapeutas['Diana'].sesiones + ' sesiones, ' + datosTerapeutas['Diana'].inasistencias + ' inasistencias\n' +
+      '   • Karina: ' + datosTerapeutas['Karina'].activos + ' casos, ' + datosTerapeutas['Karina'].sesiones + ' sesiones, ' + datosTerapeutas['Karina'].inasistencias + ' inasistencias\n' +
+      '   • TOTAL: ' + totalActivos + ' casos, ' + totalSesiones + ' sesiones, ' + totalInasistencias + ' inasistencias\n\n' +
       'PROCESOS FINALIZADOS:\n' +
       '   • Culminados (mes): ' + culminadosMes + '\n' +
       '   • Retirados (mes): ' + retiradosMes + '\n\n' +
@@ -10032,7 +10042,8 @@ function generarReporteMarzo2026() {
       '📋 DATOS PRINCIPALES:\n\n' +
       '• Nuevos Ingresos (Marzo): ' + nuevosIngresosMes + '\n' +
       '• Total Casos Activos: ' + totalActivos + '\n' +
-      '• Total Sesiones: ' + totalSesiones + '\n\n' +
+      '• Total Sesiones: ' + totalSesiones + '\n' +
+      '• Total Inasistencias: ' + totalInasistencias + '\n\n' +
       'Ve a "Reportes Mensuales" para ver todos los detalles.'
     );
 

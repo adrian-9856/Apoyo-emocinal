@@ -132,7 +132,7 @@ function generarReporteMarzo2026() {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // 5. CASOS ACTIVOS Y SESIONES POR TERAPEUTA
+    // 5. CASOS ACTIVOS, SESIONES E INASISTENCIAS POR TERAPEUTA
     // ═══════════════════════════════════════════════════════════
     const terapeutas = ['Gerber', 'Melissa', 'Diana', 'Karina'];
     const datosTerapeutas = {};
@@ -140,7 +140,8 @@ function generarReporteMarzo2026() {
     terapeutas.forEach(terapeuta => {
       datosTerapeutas[terapeuta] = {
         activos: 0,
-        sesiones: 0
+        sesiones: 0,
+        inasistencias: 0
       };
     });
 
@@ -152,11 +153,13 @@ function generarReporteMarzo2026() {
         const participante = fila[3]; // Columna D
         const numSesion = fila[7] || 0; // Columna H: No. Sesión
         const estado = fila[8]; // Columna I: Estado
+        const inasistencias = fila[11] || 0; // Columna L: Inasistencias
 
         if (participante && participante.toString().trim() !== '' && estado === 'En proceso') {
           if (terapeutas.includes(terapeuta)) {
             datosTerapeutas[terapeuta].activos++;
             datosTerapeutas[terapeuta].sesiones += Number(numSesion);
+            datosTerapeutas[terapeuta].inasistencias += Number(inasistencias);
           }
         }
       });
@@ -164,6 +167,7 @@ function generarReporteMarzo2026() {
 
     const totalActivos = Object.values(datosTerapeutas).reduce((sum, t) => sum + t.activos, 0);
     const totalSesiones = Object.values(datosTerapeutas).reduce((sum, t) => sum + t.sesiones, 0);
+    const totalInasistencias = Object.values(datosTerapeutas).reduce((sum, t) => sum + t.inasistencias, 0);
 
     // ═══════════════════════════════════════════════════════════
     // 6. PROCESOS CULMINADOS
@@ -320,12 +324,12 @@ function generarReporteMarzo2026() {
       derivacionesTotal, derivacionesMes,
       // FORMULARIO DE BIENESTAR
       formulariosTotal, alertasSuicidio,
-      // CASOS ACTIVOS POR TERAPEUTA
-      datosTerapeutas['Gerber'].activos, datosTerapeutas['Gerber'].sesiones,
-      datosTerapeutas['Melissa'].activos, datosTerapeutas['Melissa'].sesiones,
-      datosTerapeutas['Diana'].activos, datosTerapeutas['Diana'].sesiones,
-      datosTerapeutas['Karina'].activos, datosTerapeutas['Karina'].sesiones,
-      totalActivos, totalSesiones,
+      // CASOS ACTIVOS POR TERAPEUTA (con inasistencias)
+      datosTerapeutas['Gerber'].activos, datosTerapeutas['Gerber'].sesiones, datosTerapeutas['Gerber'].inasistencias,
+      datosTerapeutas['Melissa'].activos, datosTerapeutas['Melissa'].sesiones, datosTerapeutas['Melissa'].inasistencias,
+      datosTerapeutas['Diana'].activos, datosTerapeutas['Diana'].sesiones, datosTerapeutas['Diana'].inasistencias,
+      datosTerapeutas['Karina'].activos, datosTerapeutas['Karina'].sesiones, datosTerapeutas['Karina'].inasistencias,
+      totalActivos, totalSesiones, totalInasistencias,
       // PROCESOS CULMINADOS
       culminadosTotal, culminadosMes, tasaCulminacion,
       // RETIRADX
@@ -365,11 +369,11 @@ function generarReporteMarzo2026() {
       '   • Total: ' + nuevosIngresosTotal + '\n' +
       '   • Marzo: ' + nuevosIngresosMes + '\n\n' +
       'CASOS ACTIVOS POR TERAPEUTA:\n' +
-      '   • Gerber: ' + datosTerapeutas['Gerber'].activos + ' casos, ' + datosTerapeutas['Gerber'].sesiones + ' sesiones\n' +
-      '   • Melissa: ' + datosTerapeutas['Melissa'].activos + ' casos, ' + datosTerapeutas['Melissa'].sesiones + ' sesiones\n' +
-      '   • Diana: ' + datosTerapeutas['Diana'].activos + ' casos, ' + datosTerapeutas['Diana'].sesiones + ' sesiones\n' +
-      '   • Karina: ' + datosTerapeutas['Karina'].activos + ' casos, ' + datosTerapeutas['Karina'].sesiones + ' sesiones\n' +
-      '   • TOTAL: ' + totalActivos + ' casos, ' + totalSesiones + ' sesiones\n\n' +
+      '   • Gerber: ' + datosTerapeutas['Gerber'].activos + ' casos, ' + datosTerapeutas['Gerber'].sesiones + ' sesiones, ' + datosTerapeutas['Gerber'].inasistencias + ' inasistencias\n' +
+      '   • Melissa: ' + datosTerapeutas['Melissa'].activos + ' casos, ' + datosTerapeutas['Melissa'].sesiones + ' sesiones, ' + datosTerapeutas['Melissa'].inasistencias + ' inasistencias\n' +
+      '   • Diana: ' + datosTerapeutas['Diana'].activos + ' casos, ' + datosTerapeutas['Diana'].sesiones + ' sesiones, ' + datosTerapeutas['Diana'].inasistencias + ' inasistencias\n' +
+      '   • Karina: ' + datosTerapeutas['Karina'].activos + ' casos, ' + datosTerapeutas['Karina'].sesiones + ' sesiones, ' + datosTerapeutas['Karina'].inasistencias + ' inasistencias\n' +
+      '   • TOTAL: ' + totalActivos + ' casos, ' + totalSesiones + ' sesiones, ' + totalInasistencias + ' inasistencias\n\n' +
       'PROCESOS FINALIZADOS:\n' +
       '   • Culminados (mes): ' + culminadosMes + '\n' +
       '   • Retirados (mes): ' + retiradosMes + '\n\n' +
@@ -385,7 +389,8 @@ function generarReporteMarzo2026() {
       '📋 DATOS PRINCIPALES:\n\n' +
       '• Nuevos Ingresos (Marzo): ' + nuevosIngresosMes + '\n' +
       '• Total Casos Activos: ' + totalActivos + '\n' +
-      '• Total Sesiones: ' + totalSesiones + '\n\n' +
+      '• Total Sesiones: ' + totalSesiones + '\n' +
+      '• Total Inasistencias: ' + totalInasistencias + '\n\n' +
       'Ve a "Reportes Mensuales" para ver todos los detalles.'
     );
 
