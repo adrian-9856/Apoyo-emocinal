@@ -159,6 +159,8 @@ function onOpen() {
       .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodo')
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
       .addSeparator()
+      .addItem('📅 Generar Reporte Marzo 2026', 'generarReporteMarzo2026')
+      .addSeparator()
       .addSubMenu(menuValidacion)
       .addSubMenu(menuAvanzado)
       .addToUi();
