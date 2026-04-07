@@ -3,6 +3,88 @@
 // =====================================================================
 
 /**
+ * Resetea la columna "Sesiones Mes Anterior" a 0 para todos los registros
+ * Útil cuando hay problemas con reportes mensuales y se necesita empezar de nuevo
+ * EJECUTAR DESDE: Extensiones → Apps Script → Seleccionar esta función → Ejecutar
+ */
+function resetearSesionesMesAnterior() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    // Confirmar con el usuario
+    const respuesta = ui.alert(
+      '🔄 Resetear Sesiones Mes Anterior',
+      '¿Deseas resetear la columna "Sesiones Mes Anterior" a 0?\n\n' +
+      'Esto:\n' +
+      '✅ Pondrá todos los valores de "Sesiones Mes Anterior" en 0\n' +
+      '✅ Te permitirá empezar el conteo de nuevo\n' +
+      '✅ NO afectará las columnas de Asistencias e Inasistencias\n\n' +
+      '¿Continuar?',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (respuesta !== ui.Button.YES) {
+      ui.alert('❌ Cancelado', 'No se realizaron cambios.', ui.ButtonSet.OK);
+      return;
+    }
+
+    // Obtener la hoja Terapias Individual
+    const terapias = ss.getSheetByName('Terapias Individual');
+    if (!terapias) {
+      ui.alert('❌ Error', 'No se encontró la hoja "Terapias Individual"', ui.ButtonSet.OK);
+      return;
+    }
+
+    const ultimaFila = terapias.getLastRow();
+    if (ultimaFila <= 1) {
+      ui.alert('⚠️ Sin datos', 'No hay registros para actualizar.', ui.ButtonSet.OK);
+      return;
+    }
+
+    ss.toast('Reseteando Sesiones Mes Anterior...', '⏳ Procesando', -1);
+
+    let registrosActualizados = 0;
+
+    // Recorrer todas las filas desde la 2 en adelante
+    for (let fila = 2; fila <= ultimaFila; fila++) {
+      const participante = terapias.getRange(fila, 4).getValue(); // Columna D: Participante
+
+      // Solo actualizar si hay un participante (fila con datos)
+      if (participante && participante.toString().trim() !== '') {
+        // Resetear la columna K (Sesiones Mes Anterior) a 0
+        terapias.getRange(fila, 11).setValue(0);
+        registrosActualizados++;
+      }
+    }
+
+    ss.toast(
+      `✅ Se resetearon ${registrosActualizados} registros exitosamente`,
+      'Completado',
+      5
+    );
+
+    ui.alert(
+      '✅ Reseteo Completado',
+      `Se actualizaron ${registrosActualizados} registros.\n\n` +
+      'La columna "Sesiones Mes Anterior" ahora tiene valor 0 en todos los registros.\n\n' +
+      'Ahora puedes empezar el conteo de nuevo basado en las asistencias reales.',
+      ui.ButtonSet.OK
+    );
+
+    Logger.log(`✅ Sesiones Mes Anterior reseteadas: ${registrosActualizados} registros`);
+
+  } catch (error) {
+    Logger.log('❌ Error al resetear Sesiones Mes Anterior: ' + error.toString());
+    ui.alert(
+      '❌ Error',
+      'Ocurrió un error al resetear las sesiones:\n\n' + error.toString(),
+      ui.ButtonSet.OK
+    );
+  }
+}
+
+/**
  * Recrea SOLO la hoja "Reporte" con la estructura actualizada de 5 columnas
  * Incluye la nueva columna de "Inasistencias"
  * EJECUTAR DESDE: Extensiones → Apps Script → Seleccionar esta función → Ejecutar
