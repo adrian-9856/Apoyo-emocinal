@@ -6446,6 +6446,19 @@ function _buscarCol(headers, fragmentos) {
 }
 
 /**
+ * Igual que _buscarCol pero busca coincidencia EXACTA (sin incluir substrings).
+ * Útil para evitar que "_submission_time" coincida con "fecha" genérico.
+ * @param {string[]} headers
+ * @param {string[]} terminos
+ * @returns {number} índice o -1
+ */
+function _buscarColExacta(headers, terminos) {
+  const norm = s => (s || '').toString().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  return headers.findIndex(h => terminos.some(t => norm(h) === norm(t)));
+}
+
+/**
  * Normaliza el valor de género a los valores canónicos del sistema.
  * KoboToolbox puede devolver "Mujer / Femenino", "Hombre / Masculino", etc.
  */
@@ -7771,7 +7784,10 @@ function importarReferencias() {
     // Log de diagnóstico: mostrar todos los encabezados del CSV
     Logger.log('📋 Encabezados CSV Referencias: ' + JSON.stringify(hCSV));
 
-    const iFecha    = _buscarCol(hCSV, ['fecha de referencia', '_submission_time', 'fecha', 'date', '_submission']);
+    // Para la fecha: buscar primero _submission_time (fecha real de envío del formulario)
+    // Si no existe, buscar 'fecha de referencia'. Evitar 'fecha' genérico que puede ser fecha de nacimiento.
+    let iFecha = _buscarColExacta(hCSV, ['_submission_time', 'submissiontime', 'submission_time']);
+    if (iFecha < 0) iFecha = _buscarCol(hCSV, ['fecha de referencia', 'fecha_de_referencia', 'date of reference']);
     const iPrograma = _buscarCol(hCSV, [
       '1. información del programa (origen) / programa que refiere',
       'información del programa (origen) / programa que refiere',
@@ -7814,7 +7830,7 @@ function importarReferencias() {
     const iMotivo   = _buscarCol(hCSV, ['detalles apoyo emocional / breve motivo de la referencia', 'motivo']);
     const iUUID     = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
-    Logger.log('📍 Referencias: iPrograma=' + iPrograma + ' iPersona=' + iPersona + ' iTipoApoyo=' + iTipoApoyo + ' iNombre=' + iNombre + ' iUUID=' + iUUID);
+    Logger.log('📍 Referencias: iFecha=' + iFecha + ' (' + (iFecha >= 0 ? hCSV[iFecha] : 'NO ENCONTRADO - usará fecha hoy') + ') iPrograma=' + iPrograma + ' iPersona=' + iPersona + ' iTipoApoyo=' + iTipoApoyo + ' iNombre=' + iNombre + ' iUUID=' + iUUID);
 
     // IDs ya importados (col I = _uuid, índice 8)
     const existentes = sheet.getLastRow() > 1
@@ -7840,8 +7856,16 @@ function importarReferencias() {
       const uuid = iUUID >= 0 ? (f[iUUID] || '').trim() : '';
       if (uuid && uuidsSet.has(uuid)) continue;
 
+      // Obtener fecha: usar _submission_time o fecha de referencia del CSV
+      // Si no hay ninguna, usar la fecha de hoy como fallback
+      let fechaFila = new Date();
+      if (iFecha >= 0 && f[iFecha]) {
+        const parsed = new Date(f[iFecha]);
+        fechaFila = isNaN(parsed.getTime()) ? new Date() : parsed;
+      }
+
       filasNuevas.push([
-        iFecha >= 0     ? f[iFecha]     : new Date(), // A: Fecha
+        fechaFila,                                     // A: Fecha (envío del formulario)
         iPrograma >= 0  ? f[iPrograma]  : '',          // B: Programa
         iPersona >= 0   ? f[iPersona]   : '',          // C: Persona
         iNombre >= 0    ? f[iNombre]    : '',          // D: Nombre Completo
