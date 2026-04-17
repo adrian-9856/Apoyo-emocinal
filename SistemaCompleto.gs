@@ -77,6 +77,8 @@ function onOpen() {
     // ── Menú principal simplificado ──
     ui.createMenu('🏥 Apoyo Emocional')
       .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodo')
+      .addItem('📋 Reimportar Intervención de Casos', 'reimportarIntervencionCasos')
+      .addSeparator()
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
       .addItem('📅 Guardar Reporte de Mes Anterior', 'guardarReporteMesEspecifico')
       .addSeparator()
@@ -8141,6 +8143,50 @@ function importarDerivacionesInstitucionales() {
 //   });
 // }
 
+
+// =====================================================================
+// REIMPORTAR INTERVENCIÓN DE CASOS (limpia y reimporta)
+// =====================================================================
+
+/**
+ * Limpia la hoja "Intervención de casos" y reimporta desde KoboToolbox.
+ * Solo afecta esa hoja, no toca ninguna otra.
+ */
+function reimportarIntervencionCasos() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const confirmar = ui.alert(
+    '📋 Reimportar Intervención de Casos',
+    '¿Desea limpiar y reimportar los datos de Intervención de Casos desde KoboToolbox?\n\n' +
+    'Esto va a:\n' +
+    '1. Borrar los datos actuales de la hoja (filas 2 en adelante)\n' +
+    '2. Reimportar todo desde KoboToolbox con las columnas de Motivo unificadas\n\n' +
+    '⚠️ Los campos que hayan llenado manualmente (como Terapeuta y Hoja de Interés)\n' +
+    'se van a perder. Tendrán que volver a llenarlos.\n\n' +
+    '¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmar !== ui.Button.YES) return;
+
+  try {
+    const sheet = ss.getSheetByName('Intervención de casos');
+    if (sheet && sheet.getLastRow() > 1) {
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+      sheet.getRange(2, 1, sheet.getLastRow(), sheet.getLastColumn()).clearFormat();
+      Logger.log('✅ Hoja Intervención de casos limpiada');
+    }
+
+    ss.toast('📥 Reimportando Intervención de casos...', 'Procesando', 10);
+    importarIntervencionesCasos();
+
+    ss.toast('✅ Intervención de casos reimportada correctamente', 'Completado', 5);
+  } catch (error) {
+    Logger.log('❌ Error reimportando: ' + error.toString());
+    ui.alert('❌ Error: ' + error.toString());
+  }
+}
 
 // =====================================================================
 // HOJA: INTERVENCIÓN DE CASOS  (KoboToolbox)
