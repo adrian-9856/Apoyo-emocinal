@@ -6459,6 +6459,26 @@ function _buscarColExacta(headers, terminos) {
 }
 
 /**
+ * Devuelve TODOS los índices de columnas cuyo encabezado contenga alguno de los fragmentos.
+ * Útil cuando KoboToolbox exporta múltiples columnas con el mismo nombre (ej: en diferentes secciones).
+ * @param {string[]} headers
+ * @param {string[]} fragmentos
+ * @returns {number[]} array de índices
+ */
+function _buscarTodasCols(headers, fragmentos) {
+  const norm = s => (s || '').toString().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const indices = [];
+  headers.forEach((h, idx) => {
+    const hn = norm(h);
+    if (fragmentos.some(f => hn.includes(norm(f)))) {
+      indices.push(idx);
+    }
+  });
+  return indices;
+}
+
+/**
  * Normaliza el valor de género a los valores canónicos del sistema.
  * KoboToolbox puede devolver "Mujer / Femenino", "Hombre / Masculino", etc.
  */
@@ -8177,16 +8197,23 @@ function importarIntervencionesCasos() {
 
     // Mapear columnas del CSV
     const hCSV = filas[0];
-    const iFecha     = _buscarCol(hCSV, ['fecha de intervencion', 'fecha intervencion', '_submission_time', 'start', 'fecha']);
+    // Buscar fecha de envío del formulario, no una "fecha" genérica que puede ser fecha de nacimiento
+    let iFecha = _buscarColExacta(hCSV, ['_submission_time', 'submissiontime', 'submission_time']);
+    if (iFecha < 0) iFecha = _buscarCol(hCSV, ['fecha de intervencion', 'fecha intervencion', 'fecha_de_intervencion']);
     const iNombres   = _buscarCol(hCSV, ['nombre (s)', 'nombre(s)', 'nombres']);
     const iApellidos = _buscarCol(hCSV, ['apellido (s)', 'apellido(s)', 'apellidos']);
     const iCreamosID = _buscarCol(hCSV, ['creamos id', 'creamos_id']);
     const iTipo      = _buscarCol(hCSV, ['tipo intervencion de caso', 'tipo_intervencion', 'tipo']);
-    const iMotivo    = _buscarCol(hCSV, ['motivo intervencion de caso', 'motivo_intervencion', 'motivo']);
+    // El CSV de KoboToolbox puede tener MÚLTIPLES columnas "Motivo intervención de caso"
+    // (una por cada sección del formulario). Buscar todas y combinar valores.
+    const indicesMotivo = _buscarTodasCols(hCSV, ['motivo intervencion de caso', 'motivo_intervencion']);
+    const iMotivo    = indicesMotivo.length > 0 ? indicesMotivo[0] : _buscarCol(hCSV, ['motivo']);
     const iUUID      = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
     Logger.log('📍 IntervenciónCasos: iFecha=' + iFecha + ' iNombres=' + iNombres +
-               ' iCreamosID=' + iCreamosID + ' iTipo=' + iTipo + ' iUUID=' + iUUID);
+               ' iCreamosID=' + iCreamosID + ' iTipo=' + iTipo +
+               ' iMotivo=' + JSON.stringify(indicesMotivo) + ' (' + indicesMotivo.length + ' columnas motivo)' +
+               ' iUUID=' + iUUID);
 
     // UUIDs ya importados (col G = 7)
     const lastRow = sheet.getLastRow();
@@ -8209,13 +8236,25 @@ function importarIntervencionesCasos() {
       const fechaRaw = iFecha >= 0 ? (f[iFecha] || '').trim() : '';
       const fecha    = fechaRaw ? new Date(fechaRaw) : new Date();
 
+      // Combinar las múltiples columnas "Motivo intervención de caso"
+      // KoboToolbox exporta una columna por cada sección; solo una tendrá valor por registro
+      let motivoCombinado = '';
+      if (indicesMotivo.length > 0) {
+        motivoCombinado = indicesMotivo
+          .map(idx => (f[idx] || '').trim())
+          .filter(Boolean)
+          .join(' | ');
+      } else if (iMotivo >= 0) {
+        motivoCombinado = (f[iMotivo] || '').trim();
+      }
+
       filasNuevas.push([
         fecha,                                                        // A: Fecha
         nombreCompleto,                                               // B: Participante
         '',                                                           // C: Terapeuta (manual)
         iCreamosID >= 0 ? (f[iCreamosID] || '').trim() : '',         // D: Creamos ID
         iTipo      >= 0 ? (f[iTipo]      || '').trim() : '',         // E: Tipo
-        iMotivo    >= 0 ? (f[iMotivo]    || '').trim() : '',         // F: Motivo
+        motivoCombinado,                                              // F: Motivo (combinado de todas las columnas)
         uuid,                                                         // G: _uuid (oculto)
         'No'                                                          // H: Hoja de Interés (valor por defecto)
       ]);
