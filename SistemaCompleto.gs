@@ -20,8 +20,8 @@ var COL_INTERES_REFERENCIAS = 10;
 /** Columna de "Hoja de Interés" en Derivaciones Institucionales (1-based) - columna 12 (L) */
 var COL_INTERES_DERIVACIONES = 12;
 
-/** Columna de "Hoja de Interés" en Intervención de casos (1-based) - columna 8 (H) */
-var COL_INTERES_INTERVENCION = 8;
+/** Columna de "Hoja de Interés" en Intervención de casos (1-based) - columna 9 (I) */
+var COL_INTERES_INTERVENCION = 9;
 
 /** URLs de formularios KoboToolbox */
 var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esvntaAqU9GDq9aAkoKjPpY/data.csv';  // histórico 2024-2026
@@ -74,10 +74,17 @@ function onOpen() {
       .addSeparator()
       .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos');
 
+    // ── Submenú de reimportación individual ──
+    const menuReimportar = ui.createMenu('📥 Reimportar Hojas')
+      .addItem('📋 Intervención de Casos', 'reimportarIntervencionCasos')
+      .addItem('📄 Hoja de Interés', 'reimportarHojaInteres')
+      .addItem('🔗 Referencias de Programas', 'reimportarReferencias')
+      .addItem('🏛️ Derivaciones Institucionales', 'reimportarDerivaciones');
+
     // ── Menú principal simplificado ──
     ui.createMenu('🏥 Apoyo Emocional')
       .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodo')
-      .addItem('📋 Reimportar Intervención de Casos', 'reimportarIntervencionCasos')
+      .addSubMenu(menuReimportar)
       .addSeparator()
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
       .addItem('📅 Guardar Reporte de Mes Anterior', 'guardarReporteMesEspecifico')
@@ -457,27 +464,28 @@ function crearGestionCasos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Intervención de casos');
 
-  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creamos ID', 'Tipo', 'Motivo', '_uuid', 'Hoja de Interés'];
+  // A:Fecha B:Participante C:Terapeuta D:CreamosID E:Tipo F:Nota G:Motivo H:_uuid I:HojaInterés
+  const headers = ['Fecha', 'Participante', 'Terapeuta', 'Creamos ID', 'Tipo', 'Nota', 'Motivo', '_uuid', 'Hoja de Interés'];
 
-  sheet.getRange(1, 1, 1, 8).setValues([headers])
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground('#f57c00')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 200, 120, 120, 120, 300, 100, 140].forEach((w, i) => {
+  [120, 200, 120, 120, 120, 250, 300, 100, 140].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
-  // Ocultar columna G (_uuid)
+  // Ocultar columna H (_uuid)
   try {
-    sheet.hideColumns(7);
+    sheet.hideColumns(8);
   } catch(e) {
-    Logger.log('⚠️ No se pudo ocultar columna G: ' + e.message);
+    Logger.log('⚠️ No se pudo ocultar columna _uuid: ' + e.message);
   }
 
-  // Validación para columna "Hoja de Interés" (columna H/8)
-  sheet.getRange('H2:H1000').setDataValidation(
+  // Validación para columna "Hoja de Interés" (columna I/9)
+  sheet.getRange('I2:I1000').setDataValidation(
     SpreadsheetApp.newDataValidation()
       .requireValueInList(['No', 'Sí'], true).setAllowInvalid(false).build()
   );
@@ -823,26 +831,26 @@ function configurarValidaciones() {
 
   // Validaciones de Tipo de Intervención - en Intervención de casos columna E
   if (intervencion) {
-    // Validación en columna E (Tipo) - desplegable con 4 opciones
+    // Validación en columna E (Tipo) - desplegable
     const tipoIntervencionRule = SpreadsheetApp.newDataValidation()
       .requireValueInList([
-        'Referencia programas',
-        'Derivación institucional',
         'Paps',
-        'Crisis suicida'
+        'Crisis suicida',
+        'Derivación institucional',
+        'Otras organizaciones de la red'
       ])
       .setAllowInvalid(true)
       .build();
     intervencion.getRange('E2:E200').setDataValidation(tipoIntervencionRule);
 
-    // NO validación en columna F (Motivo) - debe ser texto libre
+    // Columna F = Nota (texto libre), Columna G = Motivo (texto libre)
 
-    // Validación para columna H (8) - Enviar a Lista de Espera
+    // Validación para columna I (9) - Hoja de Interés
     const enviarListaRule = SpreadsheetApp.newDataValidation()
       .requireValueInList(['Sí', 'No'])
       .setAllowInvalid(false)
       .build();
-    intervencion.getRange('H2:H200').setDataValidation(enviarListaRule);
+    intervencion.getRange('I2:I200').setDataValidation(enviarListaRule);
   }
 
   // Validaciones de Motivos de Retiro - en Retiradx columna F
@@ -1125,9 +1133,9 @@ function alEditar(e) {
     }
   }
 
-  // Intervención de casos - Columna H (8)
+  // Intervención de casos - Columna I (9) - Hoja de Interés
   if (hoja === 'Intervención de casos' && columna === COL_INTERES_INTERVENCION) {
-    Logger.log('✅ Detectada edición en Intervención de casos, columna H - Hoja de Interés');
+    Logger.log('✅ Detectada edición en Intervención de casos, columna I - Hoja de Interés');
     if (val === 'Sí' || val === 'Si' || val === 'sí' || val === 'si') {
       e.range.setBackground('#d4edda'); // Verde suave
       Logger.log('✅ Color verde aplicado (Sí)');
@@ -3952,10 +3960,10 @@ function limpiarTodosLosDatos() {
       retirxs.getRange(2, 1, retirxs.getLastRow() - 1, 6).clearContent();
     }
 
-    // Limpiar Intervención de Casos (desde fila 2) - ahora incluye columnas G y H
+    // Limpiar Intervención de Casos (desde fila 2) - columnas A-I (9 columnas)
     const gestion = ss.getSheetByName('Intervención de casos');
-    if (gestion.getLastRow() > 1) {
-      gestion.getRange(2, 1, gestion.getLastRow() - 1, 8).clearContent();
+    if (gestion && gestion.getLastRow() > 1) {
+      gestion.getRange(2, 1, gestion.getLastRow() - 1, 9).clearContent();
     }
 
     // Limpiar Personas no asistidas (desde fila 2) - ahora incluye columna I (Notas)
@@ -8171,19 +8179,123 @@ function reimportarIntervencionCasos() {
   if (confirmar !== ui.Button.YES) return;
 
   try {
-    const sheet = ss.getSheetByName('Intervención de casos');
-    if (sheet && sheet.getLastRow() > 1) {
-      sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
-      sheet.getRange(2, 1, sheet.getLastRow(), sheet.getLastColumn()).clearFormat();
-      Logger.log('✅ Hoja Intervención de casos limpiada');
+    let sheet = ss.getSheetByName('Intervención de casos');
+
+    // Borrar hoja completa y recrearla con la estructura correcta
+    if (sheet) {
+      ss.deleteSheet(sheet);
+      Logger.log('✅ Hoja Intervención de casos eliminada para recrear');
     }
+
+    crearGestionCasos();
+    Logger.log('✅ Hoja Intervención de casos recreada con nueva estructura');
 
     ss.toast('📥 Reimportando Intervención de casos...', 'Procesando', 10);
     importarIntervencionesCasos();
 
+    // Reaplicar validaciones
+    sheet = ss.getSheetByName('Intervención de casos');
+    if (sheet) {
+      const tipoRule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(['Paps', 'Crisis suicida', 'Derivación institucional', 'Otras organizaciones de la red'])
+        .setAllowInvalid(true).build();
+      sheet.getRange('E2:E200').setDataValidation(tipoRule);
+
+      const interesRule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(['Sí', 'No']).setAllowInvalid(false).build();
+      sheet.getRange('I2:I200').setDataValidation(interesRule);
+    }
+
     ss.toast('✅ Intervención de casos reimportada correctamente', 'Completado', 5);
   } catch (error) {
     Logger.log('❌ Error reimportando: ' + error.toString());
+    ui.alert('❌ Error: ' + error.toString());
+  }
+}
+
+/**
+ * Limpia y reimporta solo "Hoja de interés" desde KoboToolbox.
+ */
+function reimportarHojaInteres() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const confirmar = ui.alert(
+    '📄 Reimportar Hoja de Interés',
+    '¿Limpiar y reimportar Hoja de Interés desde KoboToolbox?\n\n' +
+    '⚠️ Los campos manuales (Terapeuta Asignado, Asistió a Cita, etc.) se perderán.',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirmar !== ui.Button.YES) return;
+
+  try {
+    const sheet = ss.getSheetByName('Hoja de interés');
+    if (sheet && sheet.getLastRow() > 1) {
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+      sheet.getRange(2, 1, sheet.getLastRow(), sheet.getLastColumn()).clearFormat();
+    }
+    ss.toast('📥 Reimportando Hoja de interés...', 'Procesando', 10);
+    importarFormularioInteres();
+    ss.toast('✅ Hoja de interés reimportada', 'Completado', 5);
+  } catch (error) {
+    ui.alert('❌ Error: ' + error.toString());
+  }
+}
+
+/**
+ * Limpia y reimporta solo "Referencias de programas" desde KoboToolbox.
+ */
+function reimportarReferencias() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const confirmar = ui.alert(
+    '🔗 Reimportar Referencias de Programas',
+    '¿Limpiar y reimportar Referencias de Programas desde KoboToolbox?\n\n' +
+    '⚠️ El campo "Hoja de Interés" (columna J) se reseteará a "No".',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirmar !== ui.Button.YES) return;
+
+  try {
+    const sheet = ss.getSheetByName('Referencias de programas');
+    if (sheet && sheet.getLastRow() > 1) {
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+      sheet.getRange(2, 1, sheet.getLastRow(), sheet.getLastColumn()).clearFormat();
+    }
+    ss.toast('📥 Reimportando Referencias...', 'Procesando', 10);
+    importarReferencias();
+    ss.toast('✅ Referencias reimportadas', 'Completado', 5);
+  } catch (error) {
+    ui.alert('❌ Error: ' + error.toString());
+  }
+}
+
+/**
+ * Limpia y reimporta solo "Derivaciones Institucionales" desde KoboToolbox.
+ */
+function reimportarDerivaciones() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const confirmar = ui.alert(
+    '🏛️ Reimportar Derivaciones Institucionales',
+    '¿Limpiar y reimportar Derivaciones Institucionales desde KoboToolbox?\n\n' +
+    '⚠️ El campo "Hoja de Interés" se reseteará a "No".',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirmar !== ui.Button.YES) return;
+
+  try {
+    const sheet = ss.getSheetByName('Derivaciones Institucionales');
+    if (sheet && sheet.getLastRow() > 1) {
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+      sheet.getRange(2, 1, sheet.getLastRow(), sheet.getLastColumn()).clearFormat();
+    }
+    ss.toast('📥 Reimportando Derivaciones...', 'Procesando', 10);
+    importarDerivacionesInstitucionales();
+    ss.toast('✅ Derivaciones reimportadas', 'Completado', 5);
+  } catch (error) {
     ui.alert('❌ Error: ' + error.toString());
   }
 }
@@ -8234,11 +8346,11 @@ function importarIntervencionesCasos() {
       sheet = ss.getSheetByName('Intervención de casos');
     }
 
-    // Asegurar que la columna G existe como _uuid (oculta) para el dedup
-    const headerG = sheet.getRange(1, 7).getValue();
-    if (!headerG || headerG.toString().trim() === '') {
-      sheet.getRange(1, 7).setValue('_uuid');
-      try { sheet.hideColumns(7); } catch(e) {}
+    // Asegurar que la columna H existe como _uuid (oculta) para el dedup
+    const headerH = sheet.getRange(1, 8).getValue();
+    if (!headerH || headerH.toString().trim() === '') {
+      sheet.getRange(1, 8).setValue('_uuid');
+      try { sheet.hideColumns(8); } catch(e) {}
     }
 
     // Mapear columnas del CSV
@@ -8250,27 +8362,61 @@ function importarIntervencionesCasos() {
     const iApellidos = _buscarCol(hCSV, ['apellido (s)', 'apellido(s)', 'apellidos']);
     const iCreamosID = _buscarCol(hCSV, ['creamos id', 'creamos_id']);
     const iTipo      = _buscarCol(hCSV, ['tipo intervencion de caso', 'tipo_intervencion', 'tipo']);
-    // El CSV de KoboToolbox puede tener MÚLTIPLES columnas "Motivo intervención de caso"
-    // (una por cada sección del formulario). Buscar todas y combinar valores.
-    const indicesMotivo = _buscarTodasCols(hCSV, ['motivo intervencion de caso', 'motivo_intervencion']);
+    const iNota      = _buscarCol(hCSV, ['nota intervencion de caso', 'nota_intervencion', 'nota intervencion', 'nota']);
+    // El CSV de KoboToolbox tiene 4 columnas "Motivo_intervenci_n_de_caso_001..004"
+    const indicesMotivo = _buscarTodasCols(hCSV, ['motivo intervencion de caso', 'motivo_intervencion', 'motivo_intervenci']);
     const iMotivo    = indicesMotivo.length > 0 ? indicesMotivo[0] : _buscarCol(hCSV, ['motivo']);
     const iUUID      = _buscarCol(hCSV, ['_uuid', 'uuid']);
 
     Logger.log('📍 IntervenciónCasos: iFecha=' + iFecha + ' iNombres=' + iNombres +
-               ' iCreamosID=' + iCreamosID + ' iTipo=' + iTipo +
+               ' iCreamosID=' + iCreamosID + ' iTipo=' + iTipo + ' iNota=' + iNota +
                ' iMotivo=' + JSON.stringify(indicesMotivo) + ' (' + indicesMotivo.length + ' columnas motivo)' +
                ' iUUID=' + iUUID);
 
-    // UUIDs ya importados (col G = 7)
+    // UUIDs ya importados (col H = 8, _uuid)
     const lastRow = sheet.getLastRow();
     const existentes = lastRow > 1
-      ? sheet.getRange(2, 7, lastRow - 1, 1).getValues().flat()
+      ? sheet.getRange(2, 8, lastRow - 1, 1).getValues().flat()
       : [];
     const uuidsSet = new Set(existentes.map(v => (v || '').toString().trim()).filter(Boolean));
 
+    // Tipos válidos para Intervención de casos (excluir Inclusión laboral, Referencia programas, etc.)
+    const tiposValidos = ['paps', 'crisis suicida', 'derivacion institucional', 'derivación institucional',
+                          'otras organizaciones de la red'];
+
+    // Nombres de programa que NO son motivos reales de intervención
+    const programasExcluir = ['inclucion_laboral', 'inclusion_laboral', 'inclusión laboral', 'inclusion laboral',
+                              'educacion', 'educación'];
+
     const filasNuevas = [];
+    let omitidosTipo = 0;
     for (let i = 1; i < filas.length; i++) {
       const f = filas[i];
+
+      // Filtrar por tipo: solo tipos relevantes para intervención de casos
+      if (iTipo >= 0) {
+        const tipoRaw = (f[iTipo] || '').toString().toLowerCase().trim();
+        if (tipoRaw && !tiposValidos.some(tv => tipoRaw.includes(tv))) {
+          omitidosTipo++;
+          continue;
+        }
+      }
+
+      // Filtrar: excluir registros donde algún motivo sea un nombre de programa
+      let esPrograma = false;
+      if (indicesMotivo.length > 0) {
+        for (let idx = 0; idx < indicesMotivo.length; idx++) {
+          const motivoVal = (f[indicesMotivo[idx]] || '').toString().toLowerCase().trim();
+          if (motivoVal && programasExcluir.some(p => motivoVal.includes(p))) {
+            esPrograma = true;
+            break;
+          }
+        }
+      }
+      if (esPrograma) {
+        omitidosTipo++;
+        continue;
+      }
 
       const uuid = iUUID >= 0 ? (f[iUUID] || '').trim() : '';
       if (uuid && uuidsSet.has(uuid)) continue;
@@ -8283,7 +8429,6 @@ function importarIntervencionesCasos() {
       const fecha    = fechaRaw ? new Date(fechaRaw) : new Date();
 
       // Combinar las múltiples columnas "Motivo intervención de caso"
-      // KoboToolbox exporta una columna por cada sección; solo una tendrá valor por registro
       let motivoCombinado = '';
       if (indicesMotivo.length > 0) {
         motivoCombinado = indicesMotivo
@@ -8294,21 +8439,38 @@ function importarIntervencionesCasos() {
         motivoCombinado = (f[iMotivo] || '').trim();
       }
 
+      // Combinar múltiples columnas de Nota si existen
+      const indicesNota = _buscarTodasCols(hCSV, ['nota intervencion de caso', 'nota_intervencion', 'nota_intervenci']);
+      let notaCombinada = '';
+      if (indicesNota.length > 0) {
+        notaCombinada = indicesNota
+          .map(idx => (f[idx] || '').trim())
+          .filter(Boolean)
+          .join(' | ');
+      } else if (iNota >= 0) {
+        notaCombinada = (f[iNota] || '').trim();
+      }
+
       filasNuevas.push([
         fecha,                                                        // A: Fecha
         nombreCompleto,                                               // B: Participante
         '',                                                           // C: Terapeuta (manual)
         iCreamosID >= 0 ? (f[iCreamosID] || '').trim() : '',         // D: Creamos ID
         iTipo      >= 0 ? (f[iTipo]      || '').trim() : '',         // E: Tipo
-        motivoCombinado,                                              // F: Motivo (combinado de todas las columnas)
-        uuid,                                                         // G: _uuid (oculto)
-        'No'                                                          // H: Hoja de Interés (valor por defecto)
+        notaCombinada,                                                // F: Nota
+        motivoCombinado,                                              // G: Motivo
+        uuid,                                                         // H: _uuid (oculto)
+        'No'                                                          // I: Hoja de Interés
       ]);
       if (uuid) uuidsSet.add(uuid);
     }
 
+    if (omitidosTipo > 0) {
+      Logger.log('📊 IntervenciónCasos: ' + omitidosTipo + ' registros omitidos por tipo no relevante (ej: Inclusión laboral)');
+    }
+
     if (filasNuevas.length > 0) {
-      sheet.getRange(sheet.getLastRow() + 1, 1, filasNuevas.length, 8).setValues(filasNuevas);
+      sheet.getRange(sheet.getLastRow() + 1, 1, filasNuevas.length, 9).setValues(filasNuevas);
     }
 
     const msg = filasNuevas.length > 0
