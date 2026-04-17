@@ -35,6 +35,19 @@ function onOpen() {
   try {
     const ui = SpreadsheetApp.getUi();
 
+    // ── Submenú Validación: análisis y verificación de reportes ──
+    const menuValidacion = ui.createMenu('🔍 Validación de Reportes')
+      .addItem('📊 Analizar Reporte Actual', 'analizarReporteActual')
+      .addItem('📅 Validar Mes Específico', 'validarMesEspecifico')
+      .addItem('📋 Generar Reporte Detallado', 'generarReporteDetallado');
+
+    // ── Submenú de reimportación individual ──
+    const menuReimportar = ui.createMenu('📥 Reimportar Hojas')
+      .addItem('📋 Intervención de Casos', 'reimportarIntervencionCasos')
+      .addItem('📄 Hoja de Interés', 'reimportarHojaInteres')
+      .addItem('🔗 Referencias de Programas', 'reimportarReferencias')
+      .addItem('🏛️ Derivaciones Institucionales', 'reimportarDerivaciones');
+
     // ── Submenú Avanzado: todo lo técnico / configuración ──
     const menuAvanzado = ui.createMenu('⚙️ Avanzado')
       // Instalación
@@ -65,6 +78,9 @@ function onOpen() {
       .addItem('🔤 Reparar Nombres de Hojas', 'repararNombresHojasConAviso')
       .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
       .addItem('🔧 Reparar Fórmulas Reporte', 'actualizarFormulasReporte')
+      .addItem('📊 Actualizar Headers Reportes Mensuales', 'actualizarHeadersReportesMensuales')
+      .addItem('🔄 Resetear Sesiones Mes Anterior', 'resetearSesionesMesAnterior')
+      .addItem('🧹 Limpiar Asistencias e Inasistencias', 'limpiarAsistenciasEInasistencias')
       .addItem('🔍 Diagnóstico CSV Hoja de interés', 'diagnosticarFormularioInteres')
       .addItem('📋 Mostrar todas las columnas CSV', 'mostrarColumnasCSVInteres')
       .addItem('📋 Mostrar columnas CSV Histórico', 'mostrarColumnasCSVHistorico')
@@ -74,13 +90,6 @@ function onOpen() {
       .addSeparator()
       .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos');
 
-    // ── Submenú de reimportación individual ──
-    const menuReimportar = ui.createMenu('📥 Reimportar Hojas')
-      .addItem('📋 Intervención de Casos', 'reimportarIntervencionCasos')
-      .addItem('📄 Hoja de Interés', 'reimportarHojaInteres')
-      .addItem('🔗 Referencias de Programas', 'reimportarReferencias')
-      .addItem('🏛️ Derivaciones Institucionales', 'reimportarDerivaciones');
-
     // ── Menú principal simplificado ──
     ui.createMenu('🏥 Apoyo Emocional')
       .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodo')
@@ -88,7 +97,9 @@ function onOpen() {
       .addSeparator()
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
       .addItem('📅 Guardar Reporte de Mes Anterior', 'guardarReporteMesEspecifico')
+      .addItem('📅 Generar Reporte Marzo 2026', 'generarReporteMarzo2026')
       .addSeparator()
+      .addSubMenu(menuValidacion)
       .addSubMenu(menuAvanzado)
       .addToUi();
 
@@ -99,8 +110,6 @@ function onOpen() {
       Logger.log('Error en mantenimiento automático: ' + error.message);
     }
   } catch (error) {
-    // Si getUi() no está disponible (ejecutándose desde trigger instalable o editor)
-    // solo registrar el error y continuar
     Logger.log('onOpen ejecutado desde contexto sin UI disponible: ' + error.message);
   }
 }
@@ -223,9 +232,9 @@ function mantenimientoAutomatico() {
 
     // 4. Reparar headers de Reportes Mensuales si faltan columnas
     try {
-      repararHeadersReportesMensuales();
+      actualizarHeadersReportesMensuales();
     } catch (eHeaders) {
-      Logger.log('⚠️ repararHeadersReportesMensuales: ' + eHeaders.message);
+      Logger.log('actualizarHeadersReportesMensuales: ' + eHeaders.message);
     }
 
     // 5. Actualizar reportes
@@ -658,11 +667,24 @@ function crearReportesMensuales() {
   const sheet = ss.insertSheet('Reportes Mensuales');
 
   const headers = [
-    'Mes/Año', 'Culminados', 'Retiradx', 'Gestión Casos',
-    'Total Activos', 'Tasa Éxito (%)',
-    'Sesiones Gerber', 'Sesiones Melissa', 'Sesiones Diana', 'Sesiones Karina',
-    'Activos Gerber', 'Activos Melissa', 'Activos Diana', 'Activos Karina',
-    'Derivaciones Externas', 'Nuevos Ingresos', 'Fecha Guardado'
+    'Mes/Año',
+    'Nuevos Ingresos (Total)', 'Nuevos Ingresos (Mes)',
+    'No Asistidas (Total)', 'No Asistidas (Mes)',
+    'Derivaciones (Total)', 'Derivaciones (Mes)',
+    'Formularios (Total)', 'Alertas Suicidio',
+    'Activos Gerber', 'Sesiones Gerber', 'Inasistencias Gerber',
+    'Activos Melissa', 'Sesiones Melissa', 'Inasistencias Melissa',
+    'Activos Diana', 'Sesiones Diana', 'Inasistencias Diana',
+    'Activos Karina', 'Sesiones Karina', 'Inasistencias Karina',
+    'Total Activos', 'Total Sesiones', 'Total Inasistencias',
+    'Culminados (Total)', 'Culminados (Mes)', 'Culminados 12+ ses.',
+    'Retiradx (Total)', 'Retiradx (Mes)', 'Tasa Retiro',
+    'Casos Intervención',
+    'Total Procesados', 'Tasa Éxito', 'Casos Activos Totales',
+    'Hoja Interés (Total)', 'Hoja Interés (Mes)',
+    'Referencias (Total)', 'Referencias (Mes)',
+    'Deriv. Inst. Recibidas (Total)', 'Deriv. Inst. Recibidas (Mes)',
+    'Fecha Guardado'
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -671,64 +693,69 @@ function crearReportesMensuales() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 100, 100, 100, 100, 100, 90, 90, 90, 90, 90, 90, 90, 90, 120, 110, 120].forEach((w, i) => {
+  const anchos = [120, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 100, 100, 100, 100, 100, 100, 90, 100, 100, 100, 90, 90, 90, 90, 90, 90, 90, 120];
+  anchos.forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
 
-/**
- * Repara los headers de "Reportes Mensuales" si faltan columnas nuevas (ej: "Nuevos Ingresos")
- * Se ejecuta automáticamente en el mantenimiento
- */
-function repararHeadersReportesMensuales() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const mensuales = ss.getSheetByName('Reportes Mensuales');
-  if (!mensuales) return;
+function actualizarHeadersReportesMensuales() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Reportes Mensuales');
 
-  const headersCorrectos = [
-    'Mes/Año', 'Culminados', 'Retiradx', 'Gestión Casos',
-    'Total Activos', 'Tasa Éxito (%)',
-    'Sesiones Gerber', 'Sesiones Melissa', 'Sesiones Diana', 'Sesiones Karina',
-    'Activos Gerber', 'Activos Melissa', 'Activos Diana', 'Activos Karina',
-    'Derivaciones Externas', 'Nuevos Ingresos', 'Fecha Guardado'
-  ];
+    if (!sheet) {
+      ss.toast('No existe la hoja "Reportes Mensuales"', 'Error', 3);
+      return;
+    }
 
-  // Leer headers actuales
-  const headersActuales = mensuales.getRange(1, 1, 1, mensuales.getLastColumn()).getValues()[0];
+    const headers = [
+      'Mes/Año',
+      'Nuevos Ingresos (Total)', 'Nuevos Ingresos (Mes)',
+      'No Asistidas (Total)', 'No Asistidas (Mes)',
+      'Derivaciones (Total)', 'Derivaciones (Mes)',
+      'Formularios (Total)', 'Alertas Suicidio',
+      'Activos Gerber', 'Sesiones Gerber', 'Inasistencias Gerber',
+      'Activos Melissa', 'Sesiones Melissa', 'Inasistencias Melissa',
+      'Activos Diana', 'Sesiones Diana', 'Inasistencias Diana',
+      'Activos Karina', 'Sesiones Karina', 'Inasistencias Karina',
+      'Total Activos', 'Total Sesiones', 'Total Inasistencias',
+      'Culminados (Total)', 'Culminados (Mes)', 'Culminados 12+ ses.',
+      'Retiradx (Total)', 'Retiradx (Mes)', 'Tasa Retiro',
+      'Casos Intervención',
+      'Total Procesados', 'Tasa Éxito', 'Casos Activos Totales',
+      'Hoja Interés (Total)', 'Hoja Interés (Mes)',
+      'Referencias (Total)', 'Referencias (Mes)',
+      'Deriv. Inst. Recibidas (Total)', 'Deriv. Inst. Recibidas (Mes)',
+      'Fecha Guardado'
+    ];
 
-  // Verificar si falta la columna "Nuevos Ingresos"
-  const tieneNuevosIngresos = headersActuales.some(h => h.toString() === 'Nuevos Ingresos');
-
-  if (!tieneNuevosIngresos) {
-    // Reescribir todos los headers correctos
-    mensuales.getRange(1, 1, 1, headersCorrectos.length).setValues([headersCorrectos])
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers])
       .setBackground('#6a1b9a')
       .setFontColor('white')
       .setFontWeight('bold')
-      .setHorizontalAlignment('center');
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle')
+      .setWrap(true);
 
-    // Si hay datos existentes, verificar que "Fecha Guardado" esté en la columna correcta
-    // Los datos antiguos tenían: col 16 = Fecha Guardado, ahora col 16 = Nuevos Ingresos, col 17 = Fecha Guardado
-    // Mover la Fecha Guardado una columna a la derecha para los registros existentes
-    const ultimaFila = mensuales.getLastRow();
-    if (ultimaFila > 1) {
-      for (let fila = 2; fila <= ultimaFila; fila++) {
-        const valorCol16 = mensuales.getRange(fila, 16).getValue();
-        const valorCol17 = mensuales.getRange(fila, 17).getValue();
-
-        // Si col 16 tiene una fecha y col 17 está vacía, mover fecha a col 17
-        if (valorCol16 instanceof Date && !valorCol17) {
-          mensuales.getRange(fila, 17).setValue(valorCol16); // Mover fecha a col 17
-          mensuales.getRange(fila, 16).setValue(0); // Col 16 = Nuevos Ingresos (0 para meses anteriores)
-        }
-      }
-    }
-
-    [120, 100, 100, 100, 100, 100, 90, 90, 90, 90, 90, 90, 90, 90, 120, 110, 120].forEach((w, i) => {
-      mensuales.setColumnWidth(i + 1, w);
+    const anchos = [120, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 100, 100, 100, 100, 100, 100, 90, 100, 100, 100, 90, 90, 90, 90, 90, 90, 90, 120];
+    anchos.forEach((w, i) => {
+      sheet.setColumnWidth(i + 1, w);
     });
 
-    Logger.log('✅ Headers de Reportes Mensuales reparados: columna "Nuevos Ingresos" agregada');
+    sheet.setRowHeight(1, 60);
+
+    ss.toast(
+      'Headers actualizados correctamente (41 columnas con inasistencias)',
+      'Headers Actualizados',
+      5
+    );
+
+    Logger.log('Headers de Reportes Mensuales actualizados (con inasistencias)');
+
+  } catch (error) {
+    Logger.log('Error actualizando headers: ' + error.message);
+    SpreadsheetApp.getActiveSpreadsheet().toast('Error: ' + error.message, 'Error', 5);
   }
 }
 
@@ -3397,73 +3424,108 @@ function guardarReporteMensual() {
     const mensuales = ss.getSheetByName('Reportes Mensuales');
 
     if (!reporte || !mensuales) {
-      ss.toast('❌ Hojas de reporte no encontradas', 'Error', 3);
+      ss.toast('Hojas de reporte no encontradas', 'Error', 3);
       return;
     }
 
     const mesActual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM yyyy');
 
-    // Referencias correctas según el diseño del reporte
-    const culminados = reporte.getRange('C24').getValue(); // Culminados este mes (fila 24)
-    const retirxs = reporte.getRange('C27').getValue(); // Retiradx este mes (fila 27)
-    const gestion = reporte.getRange('B30').getValue(); // Total en intervención (fila 30)
-    const activos = reporte.getRange('B21').getValue(); // Total casos activos (fila 21)
-    const tasaExito = reporte.getRange('B34').getValue(); // Tasa de éxito (fila 34)
+    // NUEVOS INGRESOS (fila 5)
+    const nuevosIngresosTotal = reporte.getRange('B5').getValue();
+    const nuevosIngresosMes = reporte.getRange('C5').getValue();
 
-    // Sesiones por terapeuta (columna C de cada fila)
-    const sesionesGerber = reporte.getRange('C17').getValue(); // Fila 17
-    const sesionesMelissa = reporte.getRange('C18').getValue(); // Fila 18
-    const sesionesDiana = reporte.getRange('C19').getValue(); // Fila 19
-    const sesionesKarina = reporte.getRange('C20').getValue(); // Fila 20
+    // PERSONAS NO ASISTIDAS (fila 8)
+    const noAsistidasTotal = reporte.getRange('B8').getValue();
+    const noAsistidasMes = reporte.getRange('C8').getValue();
 
-    // Activos por terapeuta (columna B de cada fila)
-    const activosGerber = reporte.getRange('B17').getValue(); // Fila 17
-    const activosMelissa = reporte.getRange('B18').getValue(); // Fila 18
-    const activosDiana = reporte.getRange('B19').getValue(); // Fila 19
-    const activosKarina = reporte.getRange('B20').getValue(); // Fila 20
+    // DERIVACIONES INSTITUCIONALES (fila 11)
+    const derivacionesTotal = reporte.getRange('B11').getValue();
+    const derivacionesMes = reporte.getRange('C11').getValue();
 
-    const derivacionesExternas = reporte.getRange('B11').getValue(); // Derivaciones institucionales (fila 11)
-    const nuevosIngresos = reporte.getRange('C41').getValue(); // Nuevos ingresos este mes (fila 41)
+    // FORMULARIO DE BIENESTAR (fila 14)
+    const formulariosTotal = reporte.getRange('B14').getValue();
+    const alertasSuicidio = reporte.getRange('C14').getValue();
+
+    // CASOS ACTIVOS POR TERAPEUTA (filas 17-21) - incluye inasistencias
+    const activosGerber = reporte.getRange('B17').getValue();
+    const sesionesGerber = reporte.getRange('C17').getValue();
+    const inasistenciasGerber = reporte.getRange('D17').getValue();
+    const activosMelissa = reporte.getRange('B18').getValue();
+    const sesionesMelissa = reporte.getRange('C18').getValue();
+    const inasistenciasMelissa = reporte.getRange('D18').getValue();
+    const activosDiana = reporte.getRange('B19').getValue();
+    const sesionesDiana = reporte.getRange('C19').getValue();
+    const inasistenciasDiana = reporte.getRange('D19').getValue();
+    const activosKarina = reporte.getRange('B20').getValue();
+    const sesionesKarina = reporte.getRange('C20').getValue();
+    const inasistenciasKarina = reporte.getRange('D20').getValue();
+    const totalActivos = reporte.getRange('B21').getValue();
+    const totalSesiones = reporte.getRange('C21').getValue();
+    const totalInasistencias = reporte.getRange('D21').getValue();
+
+    // PROCESOS CULMINADOS (fila 24)
+    const culminadosTotal = reporte.getRange('B24').getValue();
+    const culminadosMes = reporte.getRange('C24').getValue();
+    const tasaCulminacion = reporte.getRange('E24').getValue();
+
+    // RETIRADX (fila 27)
+    const retiradxTotal = reporte.getRange('B27').getValue();
+    const retiradxMes = reporte.getRange('C27').getValue();
+    const tasaRetiro = reporte.getRange('E27').getValue();
+
+    // INTERVENCION DE CASOS (fila 30)
+    const casosIntervencion = reporte.getRange('B30').getValue();
+
+    // RESUMEN GENERAL (filas 33-35)
+    const totalProcesados = reporte.getRange('B33').getValue();
+    const tasaExito = reporte.getRange('B34').getValue();
+    const casosActivosTotales = reporte.getRange('B35').getValue();
+
+    // CAPTACION (filas 38-40)
+    const hojaInteresTotal = reporte.getRange('B38').getValue();
+    const hojaInteresMes = reporte.getRange('C38').getValue();
+    const referenciasTotal = reporte.getRange('B39').getValue();
+    const referenciasMes = reporte.getRange('C39').getValue();
+    const derivInstRecibTotal = reporte.getRange('B40').getValue();
+    const derivInstRecibMes = reporte.getRange('C40').getValue();
 
     const nuevaFila = mensuales.getLastRow() + 1;
     const datos = [
       mesActual,
-      culminados,
-      retirxs,
-      gestion,
-      activos,
-      tasaExito,
-      sesionesGerber,
-      sesionesMelissa,
-      sesionesDiana,
-      sesionesKarina,
-      activosGerber,
-      activosMelissa,
-      activosDiana,
-      activosKarina,
-      derivacionesExternas,
-      nuevosIngresos,
+      nuevosIngresosTotal, nuevosIngresosMes,
+      noAsistidasTotal, noAsistidasMes,
+      derivacionesTotal, derivacionesMes,
+      formulariosTotal, alertasSuicidio,
+      activosGerber, sesionesGerber, inasistenciasGerber,
+      activosMelissa, sesionesMelissa, inasistenciasMelissa,
+      activosDiana, sesionesDiana, inasistenciasDiana,
+      activosKarina, sesionesKarina, inasistenciasKarina,
+      totalActivos, totalSesiones, totalInasistencias,
+      culminadosTotal, culminadosMes, tasaCulminacion,
+      retiradxTotal, retiradxMes, tasaRetiro,
+      casosIntervencion,
+      totalProcesados, tasaExito, casosActivosTotales,
+      hojaInteresTotal, hojaInteresMes,
+      referenciasTotal, referenciasMes,
+      derivInstRecibTotal, derivInstRecibMes,
       new Date()
     ];
 
     mensuales.getRange(nuevaFila, 1, 1, datos.length).setValues([datos]);
 
-    // Actualizar "Sesiones Mes Anterior" para el próximo mes
-    // Copiar H→K, resetear M y L a 0
     actualizarSesionesMesAnterior();
 
     ss.toast(
-      '✅ REPORTE MENSUAL GUARDADO\n\n' +
+      'REPORTE MENSUAL GUARDADO\n\n' +
       'Mes: ' + mesActual + '\n' +
       'Guardado en fila: ' + nuevaFila + '\n\n' +
-      '✅ Asistencias e inasistencias reseteadas a 0.\n' +
-      'El nuevo mes empieza limpio.',
+      'Las sesiones del proximo mes se contaran desde cero.',
       'Reporte Guardado',
       5
     );
 
   } catch (error) {
-    Logger.log('❌ Error guardando reporte: ' + error.toString());
+    Logger.log('Error guardando reporte: ' + error.toString());
     SpreadsheetApp.getActiveSpreadsheet().toast(
       'Error: ' + error.toString(),
       'Error',
@@ -3482,13 +3544,12 @@ function guardarReporteMesEspecifico() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   try {
-    // Preguntar qué mes quieren reportar
     const respuesta = ui.prompt(
-      '📅 Reporte de Mes Específico',
-      'Ingrese el mes y año del reporte (formato: MM/YYYY)\n\n' +
+      'Reporte de Mes Especifico',
+      'Ingrese el mes y ano del reporte (formato: MM/YYYY)\n\n' +
       'Ejemplo: 03/2026 para marzo 2026\n\n' +
       'NOTA: Use esto cuando necesite generar el reporte de un mes\n' +
-      'después de que ese mes ya terminó.',
+      'despues de que ese mes ya termino.',
       ui.ButtonSet.OK_CANCEL
     );
 
@@ -3497,7 +3558,7 @@ function guardarReporteMesEspecifico() {
     const texto = respuesta.getResponseText().trim();
     const partes = texto.split('/');
     if (partes.length !== 2 || isNaN(partes[0]) || isNaN(partes[1])) {
-      ui.alert('❌ Formato inválido. Use MM/YYYY (ejemplo: 03/2026)');
+      ui.alert('Formato invalido. Use MM/YYYY (ejemplo: 03/2026)');
       return;
     }
 
@@ -3505,20 +3566,18 @@ function guardarReporteMesEspecifico() {
     const anio = parseInt(partes[1]);
 
     if (mes < 1 || mes > 12 || anio < 2020 || anio > 2030) {
-      ui.alert('❌ Mes o año fuera de rango válido.');
+      ui.alert('Mes o ano fuera de rango valido.');
       return;
     }
 
-    // Calcular primer y último día del mes seleccionado
     const primerDia = new Date(anio, mes - 1, 1);
-    const ultimoDia = new Date(anio, mes, 0); // Último día del mes
+    const ultimoDia = new Date(anio, mes, 0);
 
     const nombreMes = Utilities.formatDate(primerDia, Session.getScriptTimeZone(), 'MMMM yyyy');
 
-    // Verificar que no exista ya un reporte para ese mes
     const mensuales = ss.getSheetByName('Reportes Mensuales');
     if (!mensuales) {
-      ui.alert('❌ No se encontró la hoja "Reportes Mensuales"');
+      ui.alert('No se encontro la hoja "Reportes Mensuales"');
       return;
     }
 
@@ -3526,173 +3585,185 @@ function guardarReporteMesEspecifico() {
     for (let i = 1; i < datosExistentes.length; i++) {
       if (datosExistentes[i][0] && datosExistentes[i][0].toString().toLowerCase() === nombreMes.toLowerCase()) {
         const sobreescribir = ui.alert(
-          '⚠️ Ya existe reporte',
-          'Ya existe un reporte para "' + nombreMes + '".\n¿Desea sobreescribirlo?',
+          'Ya existe reporte',
+          'Ya existe un reporte para "' + nombreMes + '".\nDesea sobreescribirlo?',
           ui.ButtonSet.YES_NO
         );
         if (sobreescribir !== ui.Button.YES) return;
-        // Borrar la fila existente
         mensuales.deleteRow(i + 1);
         break;
       }
     }
 
-    // Confirmar antes de proceder
     const confirmar = ui.alert(
-      '📊 Confirmar Reporte',
-      '¿Generar reporte para: ' + nombreMes + '?\n\n' +
+      'Confirmar Reporte',
+      'Generar reporte para: ' + nombreMes + '?\n\n' +
       'Esto va a:\n' +
       '1. Calcular los datos de ' + nombreMes + ' directamente de las hojas\n' +
       '2. Guardar el reporte en "Reportes Mensuales"\n' +
       '3. Actualizar "Sesiones Mes Anterior" para empezar el nuevo mes\n\n' +
-      '⚠️ IMPORTANTE: Asegúrese de haber terminado de registrar\n' +
+      'IMPORTANTE: Asegurese de haber terminado de registrar\n' +
       'TODOS los pacientes y sesiones de ' + nombreMes + ' antes de continuar.',
       ui.ButtonSet.YES_NO
     );
 
     if (confirmar !== ui.Button.YES) return;
 
-    ss.toast('⏳ Calculando reporte de ' + nombreMes + '...', 'Procesando', 10);
+    ss.toast('Calculando reporte de ' + nombreMes + '...', 'Procesando', 10);
 
-    // ── Calcular datos directamente de las hojas fuente ──
-
-    // Función auxiliar para contar registros en un rango de fechas
-    function contarEnRango(hoja, colFecha, primerDia, ultimoDia) {
-      if (!hoja || hoja.getLastRow() < 2) return 0;
+    function contarEnRango(hoja, colFecha, pDia, uDia) {
+      if (!hoja || hoja.getLastRow() < 2) return { total: 0, mes: 0 };
       const fechas = hoja.getRange(2, colFecha, hoja.getLastRow() - 1, 1).getValues();
-      let cuenta = 0;
+      let total = hoja.getLastRow() - 1;
+      let enMes = 0;
       for (let i = 0; i < fechas.length; i++) {
         const fecha = fechas[i][0];
-        if (fecha instanceof Date && fecha >= primerDia && fecha <= ultimoDia) {
-          cuenta++;
+        if (fecha instanceof Date && fecha >= pDia && fecha <= uDia) {
+          enMes++;
         }
       }
-      return cuenta;
+      return { total: total, mes: enMes };
     }
 
-    // 1. Procesos Culminados este mes
-    const hojaCulminados = ss.getSheetByName('Procesos Culminados');
-    const culminadosMes = contarEnRango(hojaCulminados, 1, primerDia, ultimoDia);
-
-    // 2. Retiradx este mes
-    const hojaRetiradx = ss.getSheetByName('Retiradx');
-    const retiradxMes = contarEnRango(hojaRetiradx, 1, primerDia, ultimoDia);
-
-    // 3. Intervención de casos (total activos, no filtrado por mes)
-    const hojaIntervencion = ss.getSheetByName('Intervención de casos');
-    const gestionTotal = hojaIntervencion ? Math.max(0, hojaIntervencion.getLastRow() - 1) : 0;
-
-    // 4. Datos de Terapias Individual
+    // 1. NUEVOS INGRESOS
     const terapias = ss.getSheetByName('Terapias Individual');
-    let activosTotal = 0;
-    let sesionesGerber = 0, sesionesMelissa = 0, sesionesDiana = 0, sesionesKarina = 0;
+    let nuevosIngresosTotal = 0;
+    let nuevosIngresosMes = 0;
     let activosGerber = 0, activosMelissa = 0, activosDiana = 0, activosKarina = 0;
+    let sesionesGerber = 0, sesionesMelissa = 0, sesionesDiana = 0, sesionesKarina = 0;
+    let inasistenciasGerber = 0, inasistenciasMelissa = 0, inasistenciasDiana = 0, inasistenciasKarina = 0;
+    let totalActivos = 0;
 
     if (terapias && terapias.getLastRow() > 1) {
       const datos = terapias.getRange(2, 1, terapias.getLastRow() - 1, 13).getValues();
-      // Columnas: A=0:Fecha, B=1:Terapeuta, C=2:ID, D=3:Participante, E=4:Malestar,
-      //           F=5:Género, G=6:Edad, H=7:No.Sesión, I=8:Estado, J=9:Motivo,
-      //           K=10:SesionesMesAnterior, L=11:Inasistencias, M=12:Asistencias
+      datos.forEach(fila => {
+        const fechaIngreso = fila[0];
+        const terapeuta = fila[1] ? fila[1].toString().trim() : '';
+        const participante = fila[3];
+        const estado = fila[8] ? fila[8].toString().trim() : '';
+        const inasistencias = fila[11] || 0;
+        const asistencias = fila[12] || 0;
 
-      for (let i = 0; i < datos.length; i++) {
-        const terapeuta = datos[i][1] ? datos[i][1].toString().trim() : '';
-        const estado = datos[i][8] ? datos[i][8].toString().trim() : '';
-        const asistencias = datos[i][12] || 0; // Columna M: Asistencias del mes actual
-
-        if (estado === 'En proceso') {
-          activosTotal++;
-
-          if (terapeuta === 'Gerber') {
-            activosGerber++;
-            sesionesGerber += asistencias;
-          } else if (terapeuta === 'Melissa') {
-            activosMelissa++;
-            sesionesMelissa += asistencias;
-          } else if (terapeuta === 'Diana') {
-            activosDiana++;
-            sesionesDiana += asistencias;
-          } else if (terapeuta === 'Karina') {
-            activosKarina++;
-            sesionesKarina += asistencias;
+        if (participante && participante.toString().trim() !== '') {
+          nuevosIngresosTotal++;
+          if (fechaIngreso instanceof Date && fechaIngreso >= primerDia && fechaIngreso <= ultimoDia) {
+            nuevosIngresosMes++;
           }
         }
-      }
-    }
 
-    // 5. Tasa de éxito
-    const totalCulminados = hojaCulminados ? Math.max(0, hojaCulminados.getLastRow() - 1) : 0;
-    const totalRetiradx = hojaRetiradx ? Math.max(0, hojaRetiradx.getLastRow() - 1) : 0;
-    const totalProcesados = totalCulminados + totalRetiradx + gestionTotal;
-    const tasaExito = totalProcesados > 0 ? (Math.round(totalCulminados / totalProcesados * 1000) / 10) + '%' : '0%';
-
-    // 6. Derivaciones institucionales
-    const hojaDerivaciones = ss.getSheetByName('Derivaciones Institucionales');
-    const derivacionesTotal = hojaDerivaciones ? Math.max(0, hojaDerivaciones.getLastRow() - 1) : 0;
-
-    // 7. Nuevos ingresos a Terapia Individual (por fecha de ingreso en el mes)
-    let nuevosIngresos = 0;
-    if (terapias && terapias.getLastRow() > 1) {
-      const fechasIngreso = terapias.getRange(2, 1, terapias.getLastRow() - 1, 1).getValues();
-      for (let i = 0; i < fechasIngreso.length; i++) {
-        const fecha = fechasIngreso[i][0];
-        if (fecha instanceof Date && fecha >= primerDia && fecha <= ultimoDia) {
-          nuevosIngresos++;
+        if (estado === 'En proceso') {
+          totalActivos++;
+          if (terapeuta === 'Gerber') { activosGerber++; sesionesGerber += asistencias; inasistenciasGerber += inasistencias; }
+          else if (terapeuta === 'Melissa') { activosMelissa++; sesionesMelissa += asistencias; inasistenciasMelissa += inasistencias; }
+          else if (terapeuta === 'Diana') { activosDiana++; sesionesDiana += asistencias; inasistenciasDiana += inasistencias; }
+          else if (terapeuta === 'Karina') { activosKarina++; sesionesKarina += asistencias; inasistenciasKarina += inasistencias; }
         }
-      }
+      });
     }
 
-    // ── Guardar en Reportes Mensuales ──
+    // 2. PERSONAS NO ASISTIDAS
+    const hojaNoAsistidas = ss.getSheetByName('Personas no asistidas');
+    const noAsistidas = contarEnRango(hojaNoAsistidas, 1, primerDia, ultimoDia);
+
+    // 3. DERIVACIONES INSTITUCIONALES
+    const hojaDerivaciones = ss.getSheetByName('Derivaciones Institucionales');
+    const derivaciones = contarEnRango(hojaDerivaciones, 1, primerDia, ultimoDia);
+
+    // 4. FORMULARIO DE BIENESTAR
+    const hojaBienestar = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
+    let formulariosTotal = 0;
+    let alertasSuicidio = 0;
+    if (hojaBienestar && hojaBienestar.getLastRow() > 1) {
+      formulariosTotal = hojaBienestar.getLastRow() - 1;
+      const colB = hojaBienestar.getRange(2, 2, hojaBienestar.getLastRow() - 1, 1).getValues();
+      colB.forEach(f => {
+        const val = f[0] ? f[0].toString().trim().toLowerCase() : '';
+        if (val === 'si' || val === 'sí') alertasSuicidio++;
+      });
+    }
+
+    // 5. PROCESOS CULMINADOS
+    const hojaCulminados = ss.getSheetByName('Procesos Culminados');
+    const culminados = contarEnRango(hojaCulminados, 1, primerDia, ultimoDia);
+    let culminados12 = 0;
+    if (hojaCulminados && hojaCulminados.getLastRow() > 1) {
+      const sesCol = hojaCulminados.getRange(2, 5, hojaCulminados.getLastRow() - 1, 1).getValues();
+      sesCol.forEach(f => { if (f[0] >= 12) culminados12++; });
+    }
+
+    // 6. RETIRADX
+    const hojaRetiradx = ss.getSheetByName('Retiradx');
+    const retiradx = contarEnRango(hojaRetiradx, 1, primerDia, ultimoDia);
+    const tasaRetiro = (culminados.total + retiradx.total) > 0
+      ? (Math.round(retiradx.total / (culminados.total + retiradx.total) * 1000) / 10) + '%'
+      : '0%';
+
+    // 7. INTERVENCION DE CASOS
+    const hojaIntervencion = ss.getSheetByName('Intervención de casos');
+    const casosIntervencion = hojaIntervencion ? Math.max(0, hojaIntervencion.getLastRow() - 1) : 0;
+
+    // 8. RESUMEN
+    const totalSesiones = sesionesGerber + sesionesMelissa + sesionesDiana + sesionesKarina;
+    const totalInasistencias = inasistenciasGerber + inasistenciasMelissa + inasistenciasDiana + inasistenciasKarina;
+    const totalProcesados = culminados.total + retiradx.total + casosIntervencion;
+    const tasaExito = totalProcesados > 0 ? (Math.round(culminados.total / totalProcesados * 1000) / 10) + '%' : '0%';
+
+    // 9. CAPTACION
+    const hojaInteres = ss.getSheetByName('Hoja de interés');
+    const interes = contarEnRango(hojaInteres, 1, primerDia, ultimoDia);
+    const hojaReferencias = ss.getSheetByName('Referencias de programas');
+    const referencias = contarEnRango(hojaReferencias, 1, primerDia, ultimoDia);
+
+    // Guardar en Reportes Mensuales (41 columnas)
     const nuevaFila = mensuales.getLastRow() + 1;
     const datosReporte = [
       nombreMes,
-      culminadosMes,
-      retiradxMes,
-      gestionTotal,
-      activosTotal,
-      tasaExito,
-      sesionesGerber,
-      sesionesMelissa,
-      sesionesDiana,
-      sesionesKarina,
-      activosGerber,
-      activosMelissa,
-      activosDiana,
-      activosKarina,
-      derivacionesTotal,
-      nuevosIngresos,
+      nuevosIngresosTotal, nuevosIngresosMes,
+      noAsistidas.total, noAsistidas.mes,
+      derivaciones.total, derivaciones.mes,
+      formulariosTotal, alertasSuicidio,
+      activosGerber, sesionesGerber, inasistenciasGerber,
+      activosMelissa, sesionesMelissa, inasistenciasMelissa,
+      activosDiana, sesionesDiana, inasistenciasDiana,
+      activosKarina, sesionesKarina, inasistenciasKarina,
+      totalActivos, totalSesiones, totalInasistencias,
+      culminados.total, culminados.mes, culminados12,
+      retiradx.total, retiradx.mes, tasaRetiro,
+      casosIntervencion,
+      totalProcesados, tasaExito, totalActivos,
+      interes.total, interes.mes,
+      referencias.total, referencias.mes,
+      derivaciones.total, derivaciones.mes,
       new Date()
     ];
 
     mensuales.getRange(nuevaFila, 1, 1, datosReporte.length).setValues([datosReporte]);
 
-    // Actualizar "Sesiones Mes Anterior" para el próximo mes
     actualizarSesionesMesAnterior();
 
-    // Mostrar resumen
     ui.alert(
-      '✅ Reporte Guardado: ' + nombreMes,
+      'Reporte Guardado: ' + nombreMes,
       'RESUMEN DEL REPORTE:\n\n' +
-      '📊 Nuevos ingresos: ' + nuevosIngresos + '\n' +
-      '📊 Culminados este mes: ' + culminadosMes + '\n' +
-      '📊 Retiradx este mes: ' + retiradxMes + '\n' +
-      '📊 Casos en intervención: ' + gestionTotal + '\n' +
-      '📊 Total activos: ' + activosTotal + '\n' +
-      '📊 Tasa de éxito: ' + tasaExito + '\n\n' +
-      '👤 Sesiones por terapeuta (asistencias reales):\n' +
+      'Nuevos ingresos: ' + nuevosIngresosMes + ' (total: ' + nuevosIngresosTotal + ')\n' +
+      'Culminados este mes: ' + culminados.mes + ' (total: ' + culminados.total + ')\n' +
+      'Retiradx este mes: ' + retiradx.mes + ' (total: ' + retiradx.total + ')\n' +
+      'Casos en intervencion: ' + casosIntervencion + '\n' +
+      'Total activos: ' + totalActivos + '\n\n' +
+      'Sesiones por terapeuta (asistencias reales):\n' +
       '   Gerber: ' + sesionesGerber + ' ses. / ' + activosGerber + ' activos\n' +
       '   Melissa: ' + sesionesMelissa + ' ses. / ' + activosMelissa + ' activos\n' +
       '   Diana: ' + sesionesDiana + ' ses. / ' + activosDiana + ' activos\n' +
       '   Karina: ' + sesionesKarina + ' ses. / ' + activosKarina + ' activos\n\n' +
-      '✅ Asistencias e inasistencias reseteadas a 0.\n' +
-      '📁 Guardado en fila: ' + nuevaFila,
+      'Asistencias e inasistencias reseteadas a 0.\n' +
+      'Guardado en fila: ' + nuevaFila,
       ui.ButtonSet.OK
     );
 
-    ss.toast('✅ Reporte de ' + nombreMes + ' guardado correctamente', 'Completado', 5);
+    ss.toast('Reporte de ' + nombreMes + ' guardado correctamente', 'Completado', 5);
 
   } catch (error) {
-    Logger.log('❌ Error guardando reporte específico: ' + error.toString());
-    ui.alert('❌ Error: ' + error.toString());
+    Logger.log('Error guardando reporte especifico: ' + error.toString());
+    ui.alert('Error: ' + error.toString());
   }
 }
 
@@ -4234,16 +4305,20 @@ function actualizarFormulasReporte() {
     const reporte = ss.getSheetByName('Reporte');
 
     if (!reporte) {
-      ss.toast('❌ No se encontró la hoja Reporte', 'Error', 3);
+      ss.toast('No se encontro la hoja Reporte', 'Error', 3);
       return;
     }
 
-    // Actualizar TODAS las fórmulas con IFERROR
+    // Fila 5: Nuevos Ingresos a Terapia Individual
+    reporte.getRange('A5').setValue('Nuevos ingresos a Terapia Individual');
+    reporte.getRange('B5').setFormula('=IFERROR(COUNTA(\'Terapias Individual\'!A:A)-1,0)');
+    reporte.getRange('C5').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Terapias Individual\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+
     // Fila 8: Personas no asistidas
     reporte.getRange('B8').setFormula('=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)');
     reporte.getRange('C8').setFormula('=IFERROR(COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
-    // Fila 11: Derivaciones institucionales — cuenta desde hoja Derivaciones Institucionales
+    // Fila 11: Derivaciones institucionales
     reporte.getRange('B11').setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)');
     reporte.getRange('C11').setFormula('=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
@@ -4252,108 +4327,101 @@ function actualizarFormulasReporte() {
     reporte.getRange('C14').setFormula('=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Sí")+COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Si"),0)');
 
     // Filas 17-20: Casos activos por terapeuta (columna B: casos activos)
-    // Terapias Individual: A=Fecha Ingreso, B=Terapeuta, C=Creamos ID, D=Participante, E=Malestar,
-    //           F=Género, G=Edad, H=No.Sesión, I=Estado, J=Motivo, K=Sesiones Mes Anterior, L=Inasistencias, M=Asistencias
     reporte.getRange('B17').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Gerber",\'Terapias Individual\'!I:I,"En proceso"),0)');
     reporte.getRange('B18').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Melissa",\'Terapias Individual\'!I:I,"En proceso"),0)');
     reporte.getRange('B19').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Diana",\'Terapias Individual\'!I:I,"En proceso"),0)');
     reporte.getRange('B20').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Karina",\'Terapias Individual\'!I:I,"En proceso"),0)');
 
     // Filas 17-20: Sesiones mes (columna C) = Suma de Asistencias (columna M)
-    // Solo cuenta las asistencias reales, no las inasistencias
     reporte.getRange('C17').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)');
     reporte.getRange('C18').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)');
     reporte.getRange('C19').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)');
     reporte.getRange('C20').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)');
 
-    // Fila 21: TOTAL casos activos y sesiones
+    // Filas 17-20: Inasistencias (columna D) = Suma de Inasistencias (columna L)
+    reporte.getRange('D17').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)');
+    reporte.getRange('D18').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)');
+    reporte.getRange('D19').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)');
+    reporte.getRange('D20').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)');
+
+    // Fila 21: TOTAL casos activos, sesiones e inasistencias
     reporte.getRange('B21').setFormula('=IFERROR(SUM(B17:B20),0)');
     reporte.getRange('C21').setFormula('=IFERROR(SUM(C17:C20),0)');
+    reporte.getRange('D21').setFormula('=IFERROR(SUM(D17:D20),0)');
 
-    // Fila 23: header — actualizar columna D a "Tasa culminación"
-    reporte.getRange('D23').setValue('Tasa culminación (12 ses.)');
+    // Fila 23: header
+    reporte.getRange('E23').setValue('Culminados 12+ ses.');
 
-    // Fila 24: Tasa de culminación de Terapia Individual
-    // A24 = etiqueta, B24 = total culminados, C24 = este mes,
-    // D24 = % quienes completaron 12+ sesiones del total que concluyeron (culminados + retiradxs)
-    reporte.getRange('A24').setValue('Tasa de culminación de Terapia Individual');
+    // Fila 24: Procesos Culminados
+    reporte.getRange('A24').setValue('Procesos Culminados');
     reporte.getRange('B24').setFormula('=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)');
     reporte.getRange('C24').setFormula('=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    reporte.getRange('D24').setFormula('=IFERROR(IF((B24+B27)>0,ROUND(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12")/(B24+B27)*100,1)&"%","0%"),"0%")');
+    reporte.getRange('E24').setFormula('=IFERROR(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12"),0)');
 
     // Fila 27: Retiradx
     reporte.getRange('B27').setFormula('=IFERROR(COUNTA(Retiradx!A:A)-1,0)');
     reporte.getRange('C27').setFormula('=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    reporte.getRange('D27').setFormula('=IFERROR(IF((B24+B27)>0,ROUND(B27/(B24+B27)*100,1)&"%","0%"),"0%")');
+    reporte.getRange('E27').setValue('');
 
-    // Fila 30: Intervención de casos
+    // Fila 30: Intervencion de casos
     reporte.getRange('B30').setFormula('=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)');
 
     // Fila 33: Total casos procesados
     reporte.getRange('B33').setFormula('=IFERROR(B24+B27+B30,0)');
 
-    // Fila 34: Tasa de éxito
-    reporte.getRange('B34').setFormula('=IFERROR(IF(B33>0,ROUND(B24/B33*100,1)&"%","0%"),"0%")');
+    // Fila 34: Tasa de exito - eliminada
+    reporte.getRange('A34').setValue('');
+    reporte.getRange('B34').setValue('');
 
     // Fila 35: Casos activos totales
     reporte.getRange('B35').setFormula('=IFERROR(B21,0)');
 
-    // ── SECCIÓN 10: CAPTACIÓN ──────────────────────────────────────────────────
-    // Fila 36 separador; Fila 37 = header CAPTACIÓN; Filas 38-40 = datos
-    // Siempre se escribe para garantizar que exista con los textos correctos
-    reporte.getRange('A36:D36').setValues([['', '', '', '']]);
-    reporte.getRange('A37:D37').setValues([['CAPTACIÓN', 'Total', 'Este mes', '']]);
-    reporte.getRange('A37:D37')
+    // SECCION CAPTACION
+    reporte.getRange('A36:E36').setValues([['', '', '', '', '']]);
+    reporte.getRange('A37:E37').setValues([['CAPTACION', 'Total', 'Este mes', '', '']]);
+    reporte.getRange('A37:E37')
       .setBackground('#1565c0').setFontColor('white').setFontWeight('bold')
       .setHorizontalAlignment('center').setVerticalAlignment('middle').setFontSize(11);
     reporte.setRowHeight(37, 35);
-    reporte.getRange('A38').setValue('Hoja de interés (Terapia Individual)');
+    reporte.getRange('A38').setValue('Hoja de interes (Terapia Individual)');
     reporte.getRange('A39').setValue('Referencias de programas recibidas');
     reporte.getRange('A40').setValue('Derivaciones institucionales recibidas');
     [38, 39, 40].forEach((row, idx) => {
-      reporte.getRange('A' + row + ':D' + row)
+      reporte.getRange('A' + row + ':E' + row)
         .setBackground(idx % 2 === 0 ? '#ffffff' : '#f5f5f5')
         .setFontSize(10).setVerticalAlignment('middle');
       reporte.setRowHeight(row, 28);
     });
 
-    // Fila 38: Hoja de interés — contar por columna C (Nombre Completo, siempre lleno)
+    // Fila 38: Hoja de interes
     reporte.getRange('B38').setFormula('=IFERROR(COUNTA(\'Hoja de interés\'!C:C)-1,0)');
     reporte.getRange('C38').setFormula('=IFERROR(COUNTIFS(\'Hoja de interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Hoja de interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
-    // Fila 39: Referencias — cuenta desde hoja Referencias de programas
+    // Fila 39: Referencias
     reporte.getRange('B39').setFormula('=IFERROR(COUNTA(\'Referencias de programas\'!A:A)-1,0)');
     reporte.getRange('C39').setFormula('=IFERROR(COUNTIFS(\'Referencias de programas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias de programas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
-    // Fila 40: Derivaciones Institucionales (igual que B11)
+    // Fila 40: Derivaciones Institucionales
     reporte.getRange('B40').setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)');
     reporte.getRange('C40').setFormula('=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
-    // Fila 41: Nuevos ingresos a Terapia Individual (por fecha de ingreso)
-    reporte.getRange('A41').setValue('Nuevos ingresos a Terapia Individual');
-    reporte.getRange('B41').setFormula('=IFERROR(COUNTA(\'Terapias Individual\'!A:A)-1,0)');
-    reporte.getRange('C41').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Terapias Individual\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    reporte.getRange('A41:D41')
-      .setBackground('#ffffff')
-      .setFontSize(10).setVerticalAlignment('middle');
-    reporte.setRowHeight(41, 28);
-
     ss.toast(
-      '✅ FORMULAS ACTUALIZADAS\n\n' +
+      'FORMULAS ACTUALIZADAS\n\n' +
       'Todas las formulas del reporte han sido actualizadas:\n' +
-      '• Sesiones mes = SOLO Asistencias reales\n' +
-      '• Nuevos ingresos por fecha de ingreso\n' +
-      '• Protección IFERROR y filtros correctos\n\n' +
-      'El reporte ahora muestra valores correctos.',
+      'Sesiones mes = SOLO Asistencias reales (columna M)\n' +
+      'Inasistencias = Contador de inasistencias (columna L)\n' +
+      'Culminados 12+ ses. = Numero de personas con 12+ sesiones\n' +
+      'Proteccion IFERROR y filtros correctos\n\n' +
+      'El reporte ahora muestra solo numeros exactos, sin porcentajes.',
       'Reporte Actualizado',
       6
     );
 
-    Logger.log('✅ Fórmulas del reporte actualizadas correctamente');
+    Logger.log('Formulas del reporte actualizadas correctamente');
 
   } catch (error) {
-    ss.toast('❌ Error: ' + error.message, 'Error', 5);
-    Logger.log('❌ Error actualizando fórmulas del reporte: ' + error.message);
+    ss.toast('Error: ' + error.message, 'Error', 5);
+    Logger.log('Error actualizando formulas del reporte: ' + error.message);
   }
 }
 
@@ -9265,5 +9333,1103 @@ function rellenarDatosFaltantes() {
 
   // Volver a ocultar la hoja maestra por si el usuario la abrió accidentalmente
   try { _ocultarHojaMaestra(); } catch(e) {}
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// FUNCIONES DE VALIDACIÓN, ANÁLISIS Y UTILIDADES
+// ═══════════════════════════════════════════════════════════════════════
+
+function _contarCasosActivos(terapeuta) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const terapias = ss.getSheetByName('Terapias Individual');
+
+  if (!terapias || terapias.getLastRow() < 2) return 0;
+
+  const datos = terapias.getRange(2, 2, terapias.getLastRow() - 1, 8).getValues();
+  let contador = 0;
+
+  datos.forEach(function(fila) {
+    const terapeutaFila = fila[0]; // Columna B
+    const estado = fila[7]; // Columna I
+
+    if (terapeutaFila === terapeuta && estado === 'En proceso') {
+      contador++;
+    }
+  });
+
+  return contador;
+}
+
+function _contarCulminados(mes, anio) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const culminados = ss.getSheetByName('Procesos Culminados');
+
+  if (!culminados || culminados.getLastRow() < 2) return 0;
+
+  const datos = culminados.getRange(2, 1, culminados.getLastRow() - 1, 1).getValues();
+  let contador = 0;
+
+  const primerDia = new Date(anio, mes - 1, 1);
+  const ultimoDia = new Date(anio, mes, 0);
+
+  datos.forEach(function(fila) {
+    const fecha = fila[0];
+    if (fecha instanceof Date && fecha >= primerDia && fecha <= ultimoDia) {
+      contador++;
+    }
+  });
+
+  return contador;
+}
+
+function _contarNuevosIngresos(mes, anio) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const terapias = ss.getSheetByName('Terapias Individual');
+
+  if (!terapias || terapias.getLastRow() < 2) return 0;
+
+  const datos = terapias.getRange(2, 1, terapias.getLastRow() - 1, 9).getValues();
+  let contador = 0;
+
+  const primerDia = new Date(anio, mes - 1, 1);
+  const ultimoDia = new Date(anio, mes, 0);
+
+  datos.forEach(function(fila) {
+    const fechaIngreso = fila[0]; // Columna A
+    const participante = fila[3]; // Columna D
+
+    if (participante && fechaIngreso instanceof Date) {
+      if (fechaIngreso >= primerDia && fechaIngreso <= ultimoDia) {
+        contador++;
+      }
+    }
+  });
+
+  return contador;
+}
+
+function _contarRetirados(mes, anio) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const retiradx = ss.getSheetByName('Retiradx');
+
+  if (!retiradx || retiradx.getLastRow() < 2) return 0;
+
+  const datos = retiradx.getRange(2, 1, retiradx.getLastRow() - 1, 1).getValues();
+  let contador = 0;
+
+  const primerDia = new Date(anio, mes - 1, 1);
+  const ultimoDia = new Date(anio, mes, 0);
+
+  datos.forEach(function(fila) {
+    const fecha = fila[0];
+    if (fecha instanceof Date && fecha >= primerDia && fecha <= ultimoDia) {
+      contador++;
+    }
+  });
+
+  return contador;
+}
+
+function _contarSesionesMes(terapeuta, mes, anio) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const terapias = ss.getSheetByName('Terapias Individual');
+
+  if (!terapias || terapias.getLastRow() < 2) return 0;
+
+  const datos = terapias.getRange(2, 1, terapias.getLastRow() - 1, 13).getValues();
+  let contador = 0;
+
+  datos.forEach(function(fila) {
+    const terapeutaFila = fila[1]; // Columna B
+    const estado = fila[8]; // Columna I
+    const asistencias = fila[12] || 0; // Columna M
+
+    if (terapeutaFila === terapeuta && estado === 'En proceso') {
+      contador += Number(asistencias);
+    }
+  });
+
+  return contador;
+}
+
+function _generarReporteDetalladoMes(mes, anio) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const terapias = ss.getSheetByName('Terapias Individual');
+
+  if (!terapias) {
+    ss.toast('❌ No se encontró la hoja "Terapias Individual"', 'Error', 3);
+    return;
+  }
+
+  const nombreMes = Utilities.formatDate(new Date(anio, mes - 1, 1), Session.getScriptTimeZone(), 'MMMM yyyy');
+
+  let resultado = '📋 REPORTE DETALLADO - ' + nombreMes.toUpperCase() + '\n';
+  resultado += '═══════════════════════════════════════════════════\n\n';
+
+  // Obtener todos los datos
+  const primerDia = new Date(anio, mes - 1, 1);
+  const ultimoDia = new Date(anio, mes, 0);
+
+  if (terapias.getLastRow() > 1) {
+    const datos = terapias.getRange(2, 1, terapias.getLastRow() - 1, 13).getValues();
+
+    resultado += '1️⃣ NUEVOS INGRESOS DEL MES\n';
+    resultado += '─────────────────────────────────\n';
+
+    let nuevosIngresos = [];
+    datos.forEach(function(fila, idx) {
+      const fechaIngreso = fila[0];
+      const terapeuta = fila[1];
+      const participante = fila[3];
+
+      if (participante && fechaIngreso instanceof Date) {
+        if (fechaIngreso >= primerDia && fechaIngreso <= ultimoDia) {
+          nuevosIngresos.push({
+            fila: idx + 2,
+            fecha: Utilities.formatDate(fechaIngreso, Session.getScriptTimeZone(), 'dd/MM/yyyy'),
+            terapeuta: terapeuta,
+            participante: participante
+          });
+        }
+      }
+    });
+
+    if (nuevosIngresos.length === 0) {
+      resultado += '   ℹ️ No hay nuevos ingresos en este mes\n\n';
+    } else {
+      nuevosIngresos.forEach(function(caso) {
+        resultado += '   • Fila ' + caso.fila + ': ' + caso.fecha + ' - ' + caso.participante + ' (' + caso.terapeuta + ')\n';
+      });
+      resultado += '\n   TOTAL: ' + nuevosIngresos.length + ' nuevos ingresos\n\n';
+    }
+
+    // Sesiones por terapeuta
+    resultado += '2️⃣ SESIONES DEL MES POR TERAPEUTA\n';
+    resultado += '─────────────────────────────────\n';
+
+    const terapeutas = ['Gerber', 'Melissa', 'Diana', 'Karina'];
+    let totalSesiones = 0;
+
+    terapeutas.forEach(function(terapeuta) {
+      let sesiones = 0;
+      let casosActivos = [];
+
+      datos.forEach(function(fila, idx) {
+        const terapeutaFila = fila[1];
+        const participante = fila[3];
+        const estado = fila[8];
+        const asistencias = fila[12] || 0;
+
+        if (terapeutaFila === terapeuta && estado === 'En proceso') {
+          sesiones += Number(asistencias);
+          if (asistencias > 0) {
+            casosActivos.push({
+              fila: idx + 2,
+              participante: participante,
+              asistencias: asistencias
+            });
+          }
+        }
+      });
+
+      resultado += '\n   ' + terapeuta + ': ' + sesiones + ' sesiones\n';
+      if (casosActivos.length > 0) {
+        casosActivos.forEach(function(caso) {
+          resultado += '      • Fila ' + caso.fila + ': ' + caso.participante + ' (' + caso.asistencias + ' asistencias)\n';
+        });
+      }
+
+      totalSesiones += sesiones;
+    });
+
+    resultado += '\n   TOTAL: ' + totalSesiones + ' sesiones en el mes\n\n';
+  }
+
+  // Culminados y Retirados
+  resultado += '3️⃣ PROCESOS FINALIZADOS\n';
+  resultado += '─────────────────────────────────\n';
+
+  const culminados = _contarCulminados(mes, anio);
+  const retirados = _contarRetirados(mes, anio);
+
+  resultado += '   • Procesos Culminados: ' + culminados + '\n';
+  resultado += '   • Retirados/Deserciones: ' + retirados + '\n';
+  resultado += '   • Total Finalizados: ' + (culminados + retirados) + '\n\n';
+
+  // Mostrar en hoja
+  _mostrarResultadoEnHoja(resultado, 'Reporte Detallado ' + nombreMes);
+
+  ss.toast('✅ Reporte detallado generado. Revisa la nueva hoja.', 'Reporte', 5);
+}
+
+function _mostrarResultadoEnHoja(texto, nombreHoja) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Eliminar hoja si existe
+  let hoja = ss.getSheetByName(nombreHoja);
+  if (hoja) {
+    ss.deleteSheet(hoja);
+  }
+
+  // Crear nueva hoja
+  hoja = ss.insertSheet(nombreHoja);
+
+  // Escribir texto línea por línea
+  const lineas = texto.split('\n');
+  const datos = lineas.map(function(linea) { return [linea]; });
+
+  hoja.getRange(1, 1, datos.length, 1).setValues(datos);
+
+  // Formato
+  hoja.setColumnWidth(1, 800);
+  hoja.getRange('A:A').setFontFamily('Courier New').setFontSize(10);
+
+  // Activar hoja
+  ss.setActiveSheet(hoja);
+}
+
+function _validarMesConHistorico(mes, anio) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const mensuales = ss.getSheetByName('Reportes Mensuales');
+
+  if (!mensuales) {
+    ss.toast('❌ No se encontró la hoja "Reportes Mensuales"', 'Error', 3);
+    return;
+  }
+
+  const nombreMes = Utilities.formatDate(new Date(anio, mes - 1, 1), Session.getScriptTimeZone(), 'MMMM yyyy');
+
+  // Buscar el mes en Reportes Mensuales
+  const datos = mensuales.getDataRange().getValues();
+  let filaEncontrada = -1;
+
+  for (let i = 1; i < datos.length; i++) {
+    if (datos[i][0] === nombreMes) {
+      filaEncontrada = i;
+      break;
+    }
+  }
+
+  let resultado = '🔍 VALIDACIÓN - ' + nombreMes.toUpperCase() + '\n';
+  resultado += '═══════════════════════════════════════════════════\n\n';
+
+  if (filaEncontrada === -1) {
+    resultado += '⚠️ ESTE MES NO ESTÁ GUARDADO EN "REPORTES MENSUALES"\n\n';
+    resultado += 'Posibles razones:\n';
+    resultado += '   1. No se ha guardado el reporte mensual de este mes\n';
+    resultado += '   2. El mes aún no ha finalizado\n';
+    resultado += '   3. El nombre del mes no coincide exactamente\n\n';
+    resultado += '💡 Para guardar el reporte actual:\n';
+    resultado += '   Menú → 🏥 Apoyo Emocional → 💾 Guardar Reporte Mensual\n';
+  } else {
+    const fila = datos[filaEncontrada];
+
+    resultado += '✅ MES ENCONTRADO EN REPORTES MENSUALES (fila ' + (filaEncontrada + 1) + ')\n\n';
+
+    // Comparar con datos reales
+    const nuevosIngresosHistorico = fila[2]; // Columna C
+    const nuevosIngresosReal = _contarNuevosIngresos(mes, anio);
+
+    resultado += 'COMPARACIÓN CON DATOS REALES:\n';
+    resultado += '─────────────────────────────────\n';
+    resultado += 'Nuevos Ingresos (Mes):\n';
+    resultado += '   • Histórico: ' + nuevosIngresosHistorico + '\n';
+    resultado += '   • Real: ' + nuevosIngresosReal + '\n';
+    resultado += '   • Coincide: ' + (nuevosIngresosHistorico === nuevosIngresosReal ? '✅' : '❌') + '\n\n';
+
+    if (nuevosIngresosHistorico !== nuevosIngresosReal) {
+      resultado += '⚠️ DISCREPANCIA DETECTADA\n\n';
+      resultado += 'Posibles causas:\n';
+      resultado += '   1. Se agregaron/eliminaron casos después de guardar el reporte\n';
+      resultado += '   2. Las fechas de ingreso fueron modificadas\n';
+      resultado += '   3. El reporte se guardó antes de completar todo el mes\n\n';
+    }
+  }
+
+  _mostrarResultadoEnHoja(resultado, 'Validación ' + nombreMes);
+  ss.toast('✅ Validación completada', 'Validación', 3);
+}
+
+function analizarReporteActual() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    const reporte = ss.getSheetByName('Reporte');
+    if (!reporte) {
+      ss.toast('❌ No se encontró la hoja "Reporte"', 'Error', 3);
+      return;
+    }
+
+    // Obtener mes y año actual
+    const hoy = new Date();
+    const mesActual = hoy.getMonth() + 1; // 0-11, así que sumamos 1
+    const anioActual = hoy.getFullYear();
+    const nombreMes = Utilities.formatDate(hoy, Session.getScriptTimeZone(), 'MMMM yyyy');
+
+    let resultado = '📊 ANÁLISIS DEL REPORTE - ' + nombreMes.toUpperCase() + '\n';
+    resultado += '═══════════════════════════════════════════════════\n\n';
+
+    // 1. NUEVOS INGRESOS
+    resultado += '1️⃣ NUEVOS INGRESOS\n';
+    resultado += '─────────────────────────────────\n';
+    const nuevosIngresosReporte = reporte.getRange('C5').getValue() || 0;
+    const nuevosIngresosReal = _contarNuevosIngresos(mesActual, anioActual);
+    resultado += '   • Según Reporte: ' + nuevosIngresosReporte + '\n';
+    resultado += '   • Conteo Real: ' + nuevosIngresosReal + '\n';
+    resultado += '   • Coincide: ' + (nuevosIngresosReporte === nuevosIngresosReal ? '✅ SÍ' : '❌ NO') + '\n\n';
+
+    // 2. SESIONES POR TERAPEUTA
+    resultado += '2️⃣ SESIONES DEL MES POR TERAPEUTA\n';
+    resultado += '─────────────────────────────────\n';
+    const terapeutas = ['Gerber', 'Melissa', 'Diana', 'Karina'];
+    const filas = [17, 18, 19, 20];
+
+    let totalSesionesReporte = 0;
+    let totalSesionesReal = 0;
+
+    terapeutas.forEach(function(terapeuta, idx) {
+      const sesionesReporte = reporte.getRange('C' + filas[idx]).getValue() || 0;
+      const sesionesReal = _contarSesionesMes(terapeuta, mesActual, anioActual);
+      totalSesionesReporte += sesionesReporte;
+      totalSesionesReal += sesionesReal;
+
+      resultado += '   ' + terapeuta + ':\n';
+      resultado += '      • Según Reporte: ' + sesionesReporte + ' sesiones\n';
+      resultado += '      • Conteo Real (Asistencias): ' + sesionesReal + ' sesiones\n';
+      resultado += '      • Coincide: ' + (sesionesReporte === sesionesReal ? '✅' : '❌') + '\n';
+    });
+
+    resultado += '\n   TOTAL:\n';
+    resultado += '      • Según Reporte: ' + totalSesionesReporte + ' sesiones\n';
+    resultado += '      • Conteo Real: ' + totalSesionesReal + ' sesiones\n';
+    resultado += '      • Coincide: ' + (totalSesionesReporte === totalSesionesReal ? '✅ SÍ' : '❌ NO') + '\n\n';
+
+    // 3. CASOS ACTIVOS
+    resultado += '3️⃣ CASOS ACTIVOS\n';
+    resultado += '─────────────────────────────────\n';
+    terapeutas.forEach(function(terapeuta, idx) {
+      const activosReporte = reporte.getRange('B' + filas[idx]).getValue() || 0;
+      const activosReal = _contarCasosActivos(terapeuta);
+
+      resultado += '   ' + terapeuta + ': ' + activosReporte + ' (Reporte) vs ' + activosReal + ' (Real) ' + (activosReporte === activosReal ? '✅' : '❌') + '\n';
+    });
+
+    // 4. PROCESOS CULMINADOS
+    resultado += '\n4️⃣ PROCESOS CULMINADOS (Este mes)\n';
+    resultado += '─────────────────────────────────\n';
+    const culminadosReporte = reporte.getRange('C24').getValue() || 0;
+    const culminadosReal = _contarCulminados(mesActual, anioActual);
+    resultado += '   • Según Reporte: ' + culminadosReporte + '\n';
+    resultado += '   • Conteo Real: ' + culminadosReal + '\n';
+    resultado += '   • Coincide: ' + (culminadosReporte === culminadosReal ? '✅ SÍ' : '❌ NO') + '\n\n';
+
+    // 5. RETIRADOS/DESERCIONES
+    resultado += '5️⃣ RETIRADOS/DESERCIONES (Este mes)\n';
+    resultado += '─────────────────────────────────\n';
+    const retiradosReporte = reporte.getRange('C27').getValue() || 0;
+    const retiradosReal = _contarRetirados(mesActual, anioActual);
+    resultado += '   • Según Reporte: ' + retiradosReporte + '\n';
+    resultado += '   • Conteo Real: ' + retiradosReal + '\n';
+    resultado += '   • Coincide: ' + (retiradosReporte === retiradosReal ? '✅ SÍ' : '❌ NO') + '\n\n';
+
+    // RESUMEN
+    resultado += '\n═══════════════════════════════════════════════════\n';
+    resultado += '📋 RESUMEN\n';
+    resultado += '═══════════════════════════════════════════════════\n';
+
+    const discrepancias = [];
+    if (nuevosIngresosReporte !== nuevosIngresosReal) discrepancias.push('Nuevos Ingresos');
+    if (totalSesionesReporte !== totalSesionesReal) discrepancias.push('Total Sesiones');
+    if (culminadosReporte !== culminadosReal) discrepancias.push('Culminados');
+    if (retiradosReporte !== retiradosReal) discrepancias.push('Retirados');
+
+    if (discrepancias.length === 0) {
+      resultado += '\n✅ TODOS LOS DATOS COINCIDEN CORRECTAMENTE\n';
+      resultado += '\nEl reporte está funcionando correctamente.\n';
+    } else {
+      resultado += '\n⚠️ SE ENCONTRARON DISCREPANCIAS EN:\n';
+      discrepancias.forEach(function(d) { resultado += '   • ' + d + '\n'; });
+      resultado += '\n🔧 POSIBLES CAUSAS:\n';
+      resultado += '   1. Las fórmulas del reporte no están actualizadas\n';
+      resultado += '   2. Los datos fueron modificados manualmente\n';
+      resultado += '   3. Hay filas vacías o con formato incorrecto\n';
+      resultado += '   4. Las fechas no están en formato correcto\n';
+      resultado += '\n💡 SOLUCIÓN:\n';
+      resultado += '   Usa el menú "Avanzado" → "🔧 Reparar Fórmulas Reporte"\n';
+    }
+
+    // Mostrar resultado
+    _mostrarResultadoEnHoja(resultado, 'Análisis Reporte ' + nombreMes);
+
+    ss.toast('✅ Análisis completado. Revisa la hoja "Análisis Reporte"', 'Análisis', 5);
+
+  } catch (error) {
+    ss.toast('❌ Error: ' + error.toString(), 'Error', 5);
+    Logger.log('❌ Error en análisis: ' + error.toString());
+  }
+}
+
+function generarReporteDetallado() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Solicitar mes y año
+  const respuesta = ui.prompt(
+    '📅 Mes a Analizar',
+    'Ingresa el mes y año (formato: MM/YYYY)\nEjemplo: 04/2026 para Abril 2026',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (respuesta.getSelectedButton() !== ui.Button.OK) return;
+
+  const input = respuesta.getResponseText();
+  const partes = input.split('/');
+
+  if (partes.length !== 2) {
+    ui.alert('❌ Formato incorrecto. Usa MM/YYYY (ejemplo: 04/2026)');
+    return;
+  }
+
+  const mes = parseInt(partes[0]);
+  const anio = parseInt(partes[1]);
+
+  if (isNaN(mes) || isNaN(anio) || mes < 1 || mes > 12) {
+    ui.alert('❌ Mes o año inválido');
+    return;
+  }
+
+  _generarReporteDetalladoMes(mes, anio);
+}
+
+function generarReporteMarzo2026() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    // Confirmar con el usuario
+    const respuesta = ui.alert(
+      '📊 Generar Reporte de Marzo 2026',
+      'Esta función generará un reporte de MARZO 2026 usando todos los datos actuales del sistema.\n\n' +
+      '✅ Contará casos con fecha de ingreso en marzo 2026\n' +
+      '✅ Usará el número de "No. Sesión" para contar sesiones\n' +
+      '✅ Lo guardará en "Reportes Mensuales"\n\n' +
+      '¿Deseas continuar?',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (respuesta !== ui.Button.YES) {
+      ui.alert('❌ Cancelado');
+      return;
+    }
+
+    ss.toast('🔄 Generando reporte de marzo 2026...', 'Generando', 3);
+
+    // Mes y año a procesar
+    const mes = 3; // Marzo
+    const anio = 2026;
+    const primerDia = new Date(anio, mes - 1, 1);
+    const ultimoDia = new Date(anio, mes, 0);
+    const nombreMes = 'Marzo 2026';
+
+    // ═══════════════════════════════════════════════════════════
+    // 1. NUEVOS INGRESOS
+    // ═══════════════════════════════════════════════════════════
+    let nuevosIngresosMes = 0;
+    let nuevosIngresosTotal = 0;
+
+    const terapias = ss.getSheetByName('Terapias Individual');
+    if (terapias && terapias.getLastRow() > 1) {
+      const datos = terapias.getRange(2, 1, terapias.getLastRow() - 1, 9).getValues();
+
+      datos.forEach(fila => {
+        const fechaIngreso = fila[0]; // Columna A
+        const participante = fila[3]; // Columna D
+
+        if (participante && participante.toString().trim() !== '') {
+          nuevosIngresosTotal++;
+
+          if (fechaIngreso instanceof Date && fechaIngreso >= primerDia && fechaIngreso <= ultimoDia) {
+            nuevosIngresosMes++;
+          }
+        }
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 2. PERSONAS NO ASISTIDAS
+    // ═══════════════════════════════════════════════════════════
+    let noAsistidasMes = 0;
+    let noAsistidasTotal = 0;
+
+    const noAsistidas = ss.getSheetByName('Personas no asistidas');
+    if (noAsistidas && noAsistidas.getLastRow() > 1) {
+      const datos = noAsistidas.getRange(2, 1, noAsistidas.getLastRow() - 1, 2).getValues();
+
+      datos.forEach(fila => {
+        const fecha = fila[0];
+        const participante = fila[1];
+
+        if (participante && participante.toString().trim() !== '') {
+          noAsistidasTotal++;
+
+          if (fecha instanceof Date && fecha >= primerDia && fecha <= ultimoDia) {
+            noAsistidasMes++;
+          }
+        }
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 3. DERIVACIONES INSTITUCIONALES
+    // ═══════════════════════════════════════════════════════════
+    let derivacionesMes = 0;
+    let derivacionesTotal = 0;
+
+    const derivaciones = ss.getSheetByName('Derivaciones Institucionales');
+    if (derivaciones && derivaciones.getLastRow() > 1) {
+      const datos = derivaciones.getRange(2, 1, derivaciones.getLastRow() - 1, 2).getValues();
+
+      datos.forEach(fila => {
+        const fecha = fila[0];
+        if (fecha) {
+          derivacionesTotal++;
+
+          if (fecha instanceof Date && fecha >= primerDia && fecha <= ultimoDia) {
+            derivacionesMes++;
+          }
+        }
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 4. FORMULARIO DE BIENESTAR
+    // ═══════════════════════════════════════════════════════════
+    let formulariosTotal = 0;
+    let alertasSuicidio = 0;
+
+    const bienestar = ss.getSheetByName('Formulario de Bienestar');
+    if (bienestar && bienestar.getLastRow() > 1) {
+      formulariosTotal = bienestar.getLastRow() - 1;
+
+      // Contar alertas de suicidio (columna que contiene "Sí" para ideación suicida)
+      const datos = bienestar.getRange(2, 1, bienestar.getLastRow() - 1, bienestar.getLastColumn()).getValues();
+      datos.forEach(fila => {
+        // Buscar en la fila si hay respuesta afirmativa de ideación suicida
+        if (fila.some(celda => celda && celda.toString().toLowerCase().includes('sí'))) {
+          alertasSuicidio++;
+        }
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 5. CASOS ACTIVOS, SESIONES E INASISTENCIAS POR TERAPEUTA
+    // ═══════════════════════════════════════════════════════════
+    const terapeutas = ['Gerber', 'Melissa', 'Diana', 'Karina'];
+    const datosTerapeutas = {};
+
+    terapeutas.forEach(terapeuta => {
+      datosTerapeutas[terapeuta] = {
+        activos: 0,
+        sesiones: 0,
+        inasistencias: 0
+      };
+    });
+
+    if (terapias && terapias.getLastRow() > 1) {
+      const datos = terapias.getRange(2, 1, terapias.getLastRow() - 1, 13).getValues();
+
+      datos.forEach(fila => {
+        const terapeuta = fila[1]; // Columna B
+        const participante = fila[3]; // Columna D
+        const numSesion = fila[7] || 0; // Columna H: No. Sesión
+        const estado = fila[8]; // Columna I: Estado
+        const inasistencias = fila[11] || 0; // Columna L: Inasistencias
+
+        if (participante && participante.toString().trim() !== '' && estado === 'En proceso') {
+          if (terapeutas.includes(terapeuta)) {
+            datosTerapeutas[terapeuta].activos++;
+            datosTerapeutas[terapeuta].sesiones += Number(numSesion);
+            datosTerapeutas[terapeuta].inasistencias += Number(inasistencias);
+          }
+        }
+      });
+    }
+
+    const totalActivos = Object.values(datosTerapeutas).reduce((sum, t) => sum + t.activos, 0);
+    const totalSesiones = Object.values(datosTerapeutas).reduce((sum, t) => sum + t.sesiones, 0);
+    const totalInasistencias = Object.values(datosTerapeutas).reduce((sum, t) => sum + t.inasistencias, 0);
+
+    // ═══════════════════════════════════════════════════════════
+    // 6. PROCESOS CULMINADOS
+    // ═══════════════════════════════════════════════════════════
+    let culminadosMes = 0;
+    let culminadosTotal = 0;
+    let promedioSesiones = 0;
+
+    const culminados = ss.getSheetByName('Procesos Culminados');
+    if (culminados && culminados.getLastRow() > 1) {
+      const datos = culminados.getRange(2, 1, culminados.getLastRow() - 1, 5).getValues();
+
+      datos.forEach(fila => {
+        const fecha = fila[0];
+        const numSesiones = fila[4] || 0; // Columna E: número de sesiones
+
+        if (fecha) {
+          culminadosTotal++;
+
+          if (fecha instanceof Date && fecha >= primerDia && fecha <= ultimoDia) {
+            culminadosMes++;
+          }
+        }
+      });
+
+      // Calcular promedio de sesiones de procesos culminados con >= 12 sesiones
+      const conMas12 = datos.filter(fila => {
+        const numSesiones = fila[4] || 0;
+        return numSesiones >= 12;
+      });
+
+      if (conMas12.length > 0) {
+        const sumaTotal = conMas12.reduce((sum, fila) => sum + (fila[4] || 0), 0);
+        promedioSesiones = Math.round(sumaTotal / conMas12.length);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 7. RETIRADX / DESERCIONES
+    // ═══════════════════════════════════════════════════════════
+    let retiradosMes = 0;
+    let retiradosTotal = 0;
+
+    const retirados = ss.getSheetByName('Retiradx');
+    if (retirados && retirados.getLastRow() > 1) {
+      const datos = retirados.getRange(2, 1, retirados.getLastRow() - 1, 1).getValues();
+
+      datos.forEach(fila => {
+        const fecha = fila[0];
+
+        if (fecha) {
+          retiradosTotal++;
+
+          if (fecha instanceof Date && fecha >= primerDia && fecha <= ultimoDia) {
+            retiradosMes++;
+          }
+        }
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 8. INTERVENCIÓN DE CASOS
+    // ═══════════════════════════════════════════════════════════
+    let casosIntervencion = 0;
+
+    const intervencion = ss.getSheetByName('Intervención de casos');
+    if (intervencion && intervencion.getLastRow() > 1) {
+      casosIntervencion = intervencion.getLastRow() - 1;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 9. RESUMEN GENERAL
+    // ═══════════════════════════════════════════════════════════
+    const totalProcesados = culminadosTotal + retiradosTotal + casosIntervencion;
+    const tasaExito = totalProcesados > 0 ? Math.round((culminadosTotal / totalProcesados) * 100) : 0;
+
+    // Tasas
+    const tasaCulminacion = promedioSesiones;
+    const tasaRetiro = totalProcesados > 0 ? Math.round((retiradosTotal / totalProcesados) * 100) : 0;
+
+    // ═══════════════════════════════════════════════════════════
+    // 10. CAPTACIÓN
+    // ═══════════════════════════════════════════════════════════
+    let hojaInteresTotal = 0;
+    let hojaInteresMes = 0;
+    let referenciasTotal = 0;
+    let referenciasMes = 0;
+    let derivInstRecibTotal = derivacionesTotal;
+    let derivInstRecibMes = derivacionesMes;
+
+    const hojaInteres = ss.getSheetByName('Hoja de interés');
+    if (hojaInteres && hojaInteres.getLastRow() > 1) {
+      const datos = hojaInteres.getRange(2, 1, hojaInteres.getLastRow() - 1, 3).getValues();
+
+      datos.forEach(fila => {
+        const fecha = fila[0];
+        const participante = fila[2];
+
+        if (participante && participante.toString().trim() !== '') {
+          hojaInteresTotal++;
+
+          if (fecha instanceof Date && fecha >= primerDia && fecha <= ultimoDia) {
+            hojaInteresMes++;
+          }
+        }
+      });
+    }
+
+    const referencias = ss.getSheetByName('Referencias de programas');
+    if (referencias && referencias.getLastRow() > 1) {
+      const datos = referencias.getRange(2, 1, referencias.getLastRow() - 1, 2).getValues();
+
+      datos.forEach(fila => {
+        const fecha = fila[0];
+        const participante = fila[1];
+
+        if (participante && participante.toString().trim() !== '') {
+          referenciasTotal++;
+
+          if (fecha instanceof Date && fecha >= primerDia && fecha <= ultimoDia) {
+            referenciasMes++;
+          }
+        }
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 11. GUARDAR EN REPORTES MENSUALES
+    // ═══════════════════════════════════════════════════════════
+    const mensuales = ss.getSheetByName('Reportes Mensuales');
+    if (!mensuales) {
+      ui.alert('❌ No se encontró la hoja "Reportes Mensuales"');
+      return;
+    }
+
+    // Verificar si ya existe un reporte de marzo 2026
+    const datosExistentes = mensuales.getDataRange().getValues();
+    let filaExistente = -1;
+
+    for (let i = 1; i < datosExistentes.length; i++) {
+      if (datosExistentes[i][0] === nombreMes || datosExistentes[i][0] === 'marzo 2026') {
+        filaExistente = i + 1;
+        break;
+      }
+    }
+
+    const datos = [
+      nombreMes,
+      // NUEVOS INGRESOS
+      nuevosIngresosTotal, nuevosIngresosMes,
+      // PERSONAS NO ASISTIDAS
+      noAsistidasTotal, noAsistidasMes,
+      // DERIVACIONES INSTITUCIONALES
+      derivacionesTotal, derivacionesMes,
+      // FORMULARIO DE BIENESTAR
+      formulariosTotal, alertasSuicidio,
+      // CASOS ACTIVOS POR TERAPEUTA (con inasistencias)
+      datosTerapeutas['Gerber'].activos, datosTerapeutas['Gerber'].sesiones, datosTerapeutas['Gerber'].inasistencias,
+      datosTerapeutas['Melissa'].activos, datosTerapeutas['Melissa'].sesiones, datosTerapeutas['Melissa'].inasistencias,
+      datosTerapeutas['Diana'].activos, datosTerapeutas['Diana'].sesiones, datosTerapeutas['Diana'].inasistencias,
+      datosTerapeutas['Karina'].activos, datosTerapeutas['Karina'].sesiones, datosTerapeutas['Karina'].inasistencias,
+      totalActivos, totalSesiones, totalInasistencias,
+      // PROCESOS CULMINADOS
+      culminadosTotal, culminadosMes, tasaCulminacion,
+      // RETIRADX
+      retiradosTotal, retiradosMes, tasaRetiro,
+      // INTERVENCION DE CASOS
+      casosIntervencion,
+      // RESUMEN GENERAL
+      totalProcesados, tasaExito, totalActivos,
+      // CAPTACIÓN
+      hojaInteresTotal, hojaInteresMes,
+      referenciasTotal, referenciasMes,
+      derivInstRecibTotal, derivInstRecibMes,
+      // FECHA
+      new Date()
+    ];
+
+    let mensaje = '';
+
+    if (filaExistente > 0) {
+      // Actualizar fila existente
+      mensuales.getRange(filaExistente, 1, 1, datos.length).setValues([datos]);
+      mensaje = '✅ REPORTE DE MARZO 2026 ACTUALIZADO\n\n' +
+                'Fila actualizada: ' + filaExistente;
+    } else {
+      // Agregar nueva fila
+      const nuevaFila = mensuales.getLastRow() + 1;
+      mensuales.getRange(nuevaFila, 1, 1, datos.length).setValues([datos]);
+      mensaje = '✅ REPORTE DE MARZO 2026 GUARDADO\n\n' +
+                'Nueva fila: ' + nuevaFila;
+    }
+
+    // Mostrar resumen
+    const resumen =
+      '📊 RESUMEN DEL REPORTE DE MARZO 2026\n' +
+      '═══════════════════════════════════════\n\n' +
+      'NUEVOS INGRESOS:\n' +
+      '   • Total: ' + nuevosIngresosTotal + '\n' +
+      '   • Marzo: ' + nuevosIngresosMes + '\n\n' +
+      'CASOS ACTIVOS POR TERAPEUTA:\n' +
+      '   • Gerber: ' + datosTerapeutas['Gerber'].activos + ' casos, ' + datosTerapeutas['Gerber'].sesiones + ' sesiones, ' + datosTerapeutas['Gerber'].inasistencias + ' inasistencias\n' +
+      '   • Melissa: ' + datosTerapeutas['Melissa'].activos + ' casos, ' + datosTerapeutas['Melissa'].sesiones + ' sesiones, ' + datosTerapeutas['Melissa'].inasistencias + ' inasistencias\n' +
+      '   • Diana: ' + datosTerapeutas['Diana'].activos + ' casos, ' + datosTerapeutas['Diana'].sesiones + ' sesiones, ' + datosTerapeutas['Diana'].inasistencias + ' inasistencias\n' +
+      '   • Karina: ' + datosTerapeutas['Karina'].activos + ' casos, ' + datosTerapeutas['Karina'].sesiones + ' sesiones, ' + datosTerapeutas['Karina'].inasistencias + ' inasistencias\n' +
+      '   • TOTAL: ' + totalActivos + ' casos, ' + totalSesiones + ' sesiones, ' + totalInasistencias + ' inasistencias\n\n' +
+      'PROCESOS FINALIZADOS:\n' +
+      '   • Culminados (mes): ' + culminadosMes + '\n' +
+      '   • Retirados (mes): ' + retiradosMes + '\n\n' +
+      'CAPTACIÓN:\n' +
+      '   • Hoja de interés (mes): ' + hojaInteresMes + '\n' +
+      '   • Referencias (mes): ' + referenciasMes + '\n' +
+      '   • Derivaciones (mes): ' + derivacionesMes;
+
+    Logger.log(resumen);
+
+    ui.alert(
+      mensaje + '\n\n' +
+      '📋 DATOS PRINCIPALES:\n\n' +
+      '• Nuevos Ingresos (Marzo): ' + nuevosIngresosMes + '\n' +
+      '• Total Casos Activos: ' + totalActivos + '\n' +
+      '• Total Sesiones: ' + totalSesiones + '\n' +
+      '• Total Inasistencias: ' + totalInasistencias + '\n\n' +
+      'Ve a "Reportes Mensuales" para ver todos los detalles.'
+    );
+
+    ss.toast('✅ Reporte de marzo 2026 generado exitosamente', 'Completado', 5);
+
+  } catch (error) {
+    Logger.log('❌ Error: ' + error.toString());
+    ui.alert('❌ Error', 'Error generando reporte: ' + error.toString(), ui.ButtonSet.OK);
+  }
+}
+
+function limpiarAsistenciasEInasistencias() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    // Confirmar con el usuario
+    const respuesta = ui.alert(
+      '⚠️ Limpiar Asistencias e Inasistencias',
+      '¿Estás seguro de que quieres resetear a 0 las columnas de Asistencias (M) e Inasistencias (L) en Terapias Individual?\n\n' +
+      'Esta acción es necesaria después de guardar el reporte mensual para empezar el nuevo mes limpio.\n\n' +
+      '⚠️ Esta acción NO se puede deshacer.',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (respuesta !== ui.Button.YES) {
+      ss.toast('❌ Operación cancelada', 'Limpieza', 3);
+      return;
+    }
+
+    ss.toast('🔄 Limpiando asistencias e inasistencias...', 'Limpieza', 2);
+
+    const terapias = ss.getSheetByName('Terapias Individual');
+    if (!terapias) {
+      throw new Error('No se encontró la hoja "Terapias Individual"');
+    }
+
+    const ultimaFila = terapias.getLastRow();
+    if (ultimaFila < 2) {
+      ss.toast('⚠️ No hay datos para limpiar', 'Limpieza', 3);
+      return;
+    }
+
+    let contador = 0;
+
+    // Recorrer cada fila y resetear L y M a 0
+    for (let fila = 2; fila <= ultimaFila; fila++) {
+      const participante = terapias.getRange(fila, 4).getValue(); // Columna D: Participante
+
+      // Solo limpiar si hay un participante (fila tiene datos)
+      if (participante && participante.toString().trim() !== '') {
+        // Resetear Inasistencias (L) y Asistencias (M) a 0
+        terapias.getRange(fila, 12).setValue(0); // Columna L: Inasistencias
+        terapias.getRange(fila, 13).setValue(0); // Columna M: Asistencias
+        contador++;
+      }
+    }
+
+    // Actualizar reportes
+    actualizarReportes();
+
+    ss.toast(
+      '✅ LIMPIEZA COMPLETA\n\n' +
+      '✓ ' + contador + ' participantes limpiados\n' +
+      '✓ Asistencias (M) reseteadas a 0\n' +
+      '✓ Inasistencias (L) reseteadas a 0\n' +
+      '✓ Reportes actualizados',
+      'Limpieza',
+      5
+    );
+
+    Logger.log('✅ Limpieza completa: ' + contador + ' participantes');
+
+  } catch (error) {
+    Logger.log('❌ Error en limpieza: ' + error.toString());
+    ss.toast('❌ Error: ' + error.toString(), 'Error', 5);
+    throw error;
+  }
+}
+
+function recrearReporte() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    // Confirmar con el usuario
+    const respuesta = ui.alert(
+      '🔄 Recrear Hoja Reporte',
+      '¿Deseas recrear la hoja "Reporte" con la nueva columna de Inasistencias?\n\n' +
+      'Esto:\n' +
+      '✅ Eliminará la hoja "Reporte" actual\n' +
+      '✅ Creará una nueva con 5 columnas\n' +
+      '✅ Incluirá la columna "Inasistencias"\n' +
+      '✅ Actualizará todas las fórmulas\n\n' +
+      'Las demás hojas NO se tocarán.',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (respuesta !== ui.Button.YES) {
+      ui.alert('❌ Cancelado', 'No se realizaron cambios.', ui.ButtonSet.OK);
+      return;
+    }
+
+    // Eliminar hoja Reporte si existe
+    const reporteViejo = ss.getSheetByName('Reporte');
+    if (reporteViejo) {
+      ss.deleteSheet(reporteViejo);
+      Logger.log('🗑️ Hoja Reporte antigua eliminada');
+    }
+
+    // Crear nueva hoja Reporte
+    ss.toast('Creando nueva hoja Reporte...', 'Paso 1/2', 3);
+    crearReporte();
+    Logger.log('✅ Hoja Reporte recreada con 5 columnas');
+
+    // Actualizar fórmulas
+    ss.toast('Actualizando fórmulas...', 'Paso 2/2', 3);
+    Utilities.sleep(1000);
+    actualizarFormulasReporte();
+    Logger.log('✅ Fórmulas actualizadas');
+
+    // Actualizar reportes
+    actualizarReportes();
+
+    ui.alert(
+      '✅ REPORTE RECREADO EXITOSAMENTE',
+      'La hoja "Reporte" ahora tiene:\n\n' +
+      '✅ 5 columnas (A, B, C, D, E)\n' +
+      '✅ Columna D: Inasistencias\n' +
+      '✅ Todas las fórmulas actualizadas\n' +
+      '✅ Datos recalculados\n\n' +
+      'Ve a la hoja "Reporte" para verificar.',
+      ui.ButtonSet.OK
+    );
+
+    Logger.log('🎉 Proceso completado exitosamente');
+
+  } catch (error) {
+    ui.alert('❌ ERROR', 'Error: ' + error.message, ui.ButtonSet.OK);
+    Logger.log('❌ Error recreando reporte: ' + error.message);
+  }
+}
+
+function resetearSesionesMesAnterior() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    // Confirmar con el usuario
+    const respuesta = ui.alert(
+      '🔄 Resetear Sesiones Mes Anterior',
+      '¿Deseas resetear la columna "Sesiones Mes Anterior" a 0?\n\n' +
+      'Esto:\n' +
+      '✅ Pondrá todos los valores de "Sesiones Mes Anterior" en 0\n' +
+      '✅ Te permitirá empezar el conteo de nuevo\n' +
+      '✅ NO afectará las columnas de Asistencias e Inasistencias\n\n' +
+      '¿Continuar?',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (respuesta !== ui.Button.YES) {
+      ui.alert('❌ Cancelado', 'No se realizaron cambios.', ui.ButtonSet.OK);
+      return;
+    }
+
+    // Obtener la hoja Terapias Individual
+    const terapias = ss.getSheetByName('Terapias Individual');
+    if (!terapias) {
+      ui.alert('❌ Error', 'No se encontró la hoja "Terapias Individual"', ui.ButtonSet.OK);
+      return;
+    }
+
+    const ultimaFila = terapias.getLastRow();
+    if (ultimaFila <= 1) {
+      ui.alert('⚠️ Sin datos', 'No hay registros para actualizar.', ui.ButtonSet.OK);
+      return;
+    }
+
+    ss.toast('Reseteando Sesiones Mes Anterior...', '⏳ Procesando', -1);
+
+    let registrosActualizados = 0;
+
+    // Recorrer todas las filas desde la 2 en adelante
+    for (let fila = 2; fila <= ultimaFila; fila++) {
+      const participante = terapias.getRange(fila, 4).getValue(); // Columna D: Participante
+
+      // Solo actualizar si hay un participante (fila con datos)
+      if (participante && participante.toString().trim() !== '') {
+        // Resetear la columna K (Sesiones Mes Anterior) a 0
+        terapias.getRange(fila, 11).setValue(0);
+        registrosActualizados++;
+      }
+    }
+
+    ss.toast(
+      `✅ Se resetearon ${registrosActualizados} registros exitosamente`,
+      'Completado',
+      5
+    );
+
+    ui.alert(
+      '✅ Reseteo Completado',
+      `Se actualizaron ${registrosActualizados} registros.\n\n` +
+      'La columna "Sesiones Mes Anterior" ahora tiene valor 0 en todos los registros.\n\n' +
+      'Ahora puedes empezar el conteo de nuevo basado en las asistencias reales.',
+      ui.ButtonSet.OK
+    );
+
+    Logger.log(`✅ Sesiones Mes Anterior reseteadas: ${registrosActualizados} registros`);
+
+  } catch (error) {
+    Logger.log('❌ Error al resetear Sesiones Mes Anterior: ' + error.toString());
+    ui.alert(
+      '❌ Error',
+      'Ocurrió un error al resetear las sesiones:\n\n' + error.toString(),
+      ui.ButtonSet.OK
+    );
+  }
+}
+
+function validarMesEspecifico() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const respuesta = ui.prompt(
+    '📅 Validar Mes Específico',
+    'Ingresa el mes y año a validar (formato: MM/YYYY)\nEjemplo: 03/2026 para Marzo 2026',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (respuesta.getSelectedButton() !== ui.Button.OK) return;
+
+  const input = respuesta.getResponseText();
+  const partes = input.split('/');
+
+  if (partes.length !== 2) {
+    ui.alert('❌ Formato incorrecto. Usa MM/YYYY');
+    return;
+  }
+
+  const mes = parseInt(partes[0]);
+  const anio = parseInt(partes[1]);
+
+  if (isNaN(mes) || isNaN(anio) || mes < 1 || mes > 12) {
+    ui.alert('❌ Mes o año inválido');
+    return;
+  }
+
+  _validarMesConHistorico(mes, anio);
 }
 
