@@ -8131,6 +8131,10 @@ function importarDerivacionesInstitucionales() {
       const uuid = iUUID >= 0 ? (f[iUUID] || '').trim() : '';
       if (uuid && uuidsSet.has(uuid)) continue;
 
+      // Solo importar derivaciones a "Terapia individual"
+      const servicioVal = iServicio >= 0 ? (f[iServicio] || '').toString().toLowerCase().trim() : '';
+      if (iServicio >= 0 && !servicioVal.includes('terapia individual')) continue;
+
       const fechaRaw = iFecha >= 0 ? (f[iFecha] || '').trim() : '';
       filasNuevas.push([
         fechaRaw ? new Date(fechaRaw) : new Date(), // A: Fecha
@@ -8349,6 +8353,8 @@ function reimportarDerivaciones() {
   const confirmar = ui.alert(
     '🏛️ Reimportar Derivaciones Institucionales',
     '¿Limpiar y reimportar Derivaciones Institucionales desde KoboToolbox?\n\n' +
+    'Solo se importarán derivaciones a "Terapia individual".\n' +
+    'Escuela para padres y otros servicios serán excluidos.\n\n' +
     '⚠️ El campo "Hoja de Interés" se reseteará a "No".',
     ui.ButtonSet.YES_NO
   );
