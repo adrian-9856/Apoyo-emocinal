@@ -270,42 +270,45 @@ function configurarValidacionesAE() {
 
   if (gruposDisponibles.length > 0) {
     const validationAction = SpreadsheetApp.newDataValidation().requireValueInList(gruposDisponibles).build();
+
     const sheetInteres = ss.getSheetByName('Hoja de Interés');
     if (sheetInteres && sheetInteres.getLastRow() > 1) {
       const numRowsVal = sheetInteres.getLastRow() - 1;
       sheetInteres.getRange(2, 11, numRowsVal, 1).setDataValidation(validationAction);
     }
+
+    // Derivaciones_Institucionales también debe permitir enviar a grupos (col 12)
+    const sheetInst = ss.getSheetByName('Derivaciones_Institucionales');
+    if (sheetInst && sheetInst.getLastRow() > 1) {
+      const numRowsInst = sheetInst.getLastRow() - 1;
+      sheetInst.getRange(2, 12, numRowsInst, 1).setDataValidation(validationAction);
+    }
   }
-    
+
     const valSiNo = SpreadsheetApp.newDataValidation().requireValueInList(['Si', 'No']).build();
-    
-    ['Referencias a grupos', 'Derivaciones_Institucionales'].forEach(nombre => {
-      const sheet = ss.getSheetByName(nombre);
-      if (sheet && sheet.getLastRow() > 1) {
-        const colVal = (nombre === 'Derivaciones_Institucionales') ? 12 : 11;
-        const numRowsVal = sheet.getLastRow() - 1;
-        const rangeVal = sheet.getRange(2, colVal, numRowsVal, 1);
-        
-        // Aplicar Validación
-        rangeVal.setDataValidation(valSiNo);
-        
-        // Aplicar Formato Condicional (Colores Emerald y Rose suaves)
-        const ruleSi = SpreadsheetApp.newConditionalFormatRule()
-          .whenTextEqualTo('Si')
-          .setBackground('#D1FAE5') // Emerald 100
-          .setFontColor('#065F46') // Emerald 800
-          .setRanges([rangeVal])
-          .build();
-        const ruleNo = SpreadsheetApp.newConditionalFormatRule()
-          .whenTextEqualTo('No')
-          .setBackground('#FFE4E6') // Rose 100
-          .setFontColor('#991B1B') // Rose 800
-          .setRanges([rangeVal])
-          .build();
-          
-        sheet.setConditionalFormatRules([ruleSi, ruleNo]);
-      }
-    });
+
+    // Solo Referencias a grupos mantiene la validación Si/No en col 11
+    const sheetRef = ss.getSheetByName('Referencias a grupos');
+    if (sheetRef && sheetRef.getLastRow() > 1) {
+      const numRowsVal = sheetRef.getLastRow() - 1;
+      const rangeVal = sheetRef.getRange(2, 11, numRowsVal, 1);
+      rangeVal.setDataValidation(valSiNo);
+
+      const ruleSi = SpreadsheetApp.newConditionalFormatRule()
+        .whenTextEqualTo('Si')
+        .setBackground('#D1FAE5')
+        .setFontColor('#065F46')
+        .setRanges([rangeVal])
+        .build();
+      const ruleNo = SpreadsheetApp.newConditionalFormatRule()
+        .whenTextEqualTo('No')
+        .setBackground('#FFE4E6')
+        .setFontColor('#991B1B')
+        .setRanges([rangeVal])
+        .build();
+
+      sheetRef.setConditionalFormatRules([ruleSi, ruleNo]);
+    }
 }
 
 function verificarInstalacionAE() {
@@ -967,8 +970,13 @@ function onEdit(e) {
     moverARetiradx(sheet, row);
   }
 
-  // Ahora Acción está en la columna 11 (K) SOLO en Hoja de Interés
+  // Ahora Acción está en la columna 11 (K) en Hoja de Interés
   if (col === 11 && value && row > 1 && sheet.getName() === 'Hoja de Interés' && value !== 'Si' && value !== 'No') {
+    enviarAHojaGrupoAE(sheet, row, value);
+  }
+
+  // En Derivaciones_Institucionales la columna de acción es la 12 (L) por la columna extra "Organización"
+  if (col === 12 && value && row > 1 && sheet.getName() === 'Derivaciones_Institucionales' && value !== 'Si' && value !== 'No') {
     enviarAHojaGrupoAE(sheet, row, value);
   }
 
@@ -1163,11 +1171,19 @@ function enviarAHojaGrupoAE(sheetSrc, row, targetName) {
   const sheetDest = ss.getSheetByName(targetName);
   if (!sheetDest) { toastSafeAE('❌ El grupo no existe.'); return; }
 
-  const ui = SpreadsheetApp.getUi();
-  const confirm = ui.alert('🚀 Enviar a Grupo', '¿Deseas enviar a ' + sheetSrc.getRange(row, 3).getValue() + ' a "' + targetName + '"?', ui.ButtonSet.YES_NO);
-  if (confirm != ui.Button.YES) { sheetSrc.getRange(row, 11).clearContent(); return; }
+  // Mapeo dinámico según la hoja de origen (Institucionales tiene columna extra "Organización")
+  const esInstitucional = sheetSrc.getName() === 'Derivaciones_Institucionales';
+  const colAccionSrc = esInstitucional ? 12 : 11;
+  const colNombreSrc = esInstitucional ? 4 : 3;
+  const idxID = esInstitucional ? 2 : 1;
+  const idxNombre = esInstitucional ? 3 : 2;
+  const idxTel = esInstitucional ? 6 : 5;
 
-  const dataRow = sheetSrc.getRange(row, 1, 1, 10).getValues()[0];
+  const ui = SpreadsheetApp.getUi();
+  const confirm = ui.alert('🚀 Enviar a Grupo', '¿Deseas enviar a ' + sheetSrc.getRange(row, colNombreSrc).getValue() + ' a "' + targetName + '"?', ui.ButtonSet.YES_NO);
+  if (confirm != ui.Button.YES) { sheetSrc.getRange(row, colAccionSrc).clearContent(); return; }
+
+  const dataRow = sheetSrc.getRange(row, 1, 1, sheetSrc.getLastColumn()).getValues()[0];
   const headersDest = sheetDest.getRange(1, 1, 1, sheetDest.getLastColumn()).getValues()[0];
   
   // VERIFICACIÓN DE CUPO MÁXIMO
@@ -1190,7 +1206,7 @@ function enviarAHojaGrupoAE(sheetSrc, row, targetName) {
             'El grupo "' + targetName + '" ya ha alcanzado su cupo máximo (' + inscritos + '/' + cupo + ').\n\n¿Deseas enviar a esta persona de todas formas?', 
             ui.ButtonSet.YES_NO);
           if (warning != ui.Button.YES) {
-            sheetSrc.getRange(row, 11).clearContent();
+            sheetSrc.getRange(row, colAccionSrc).clearContent();
             return;
           }
         }
@@ -1213,8 +1229,8 @@ function enviarAHojaGrupoAE(sheetSrc, row, targetName) {
     }
   }
 
-  // Se envía: Año (2026), ID (col 1), Nombre (col 2), Tel (col 5)
-  sheetDest.getRange(nextRow, 1, 1, 4).setValues([[2026, dataRow[1], dataRow[2], dataRow[5]]]);
+  // Se envía: Año (2026), ID, Nombre, Tel (índices dependen del origen)
+  sheetDest.getRange(nextRow, 1, 1, 4).setValues([[2026, dataRow[idxID], dataRow[idxNombre], dataRow[idxTel]]]);
 
   // ✅ CORRECCIÓN: Insertar checkboxes SOLO en columnas de ASISTENCIA (no en evolución)
   if (colAsistencia > 0 && numSesiones > 0) {
@@ -1240,7 +1256,7 @@ function enviarAHojaGrupoAE(sheetSrc, row, targetName) {
   }
 
   // EN LUGAR DE BORRAR, SOLO MARCÁMOS
-  sheetSrc.getRange(row, 11).clearDataValidations().setValue('✅ Enviado a: ' + targetName).setBackground('#C8E6C9');
+  sheetSrc.getRange(row, colAccionSrc).clearDataValidations().setValue('✅ Enviado a: ' + targetName).setBackground('#C8E6C9');
   
   actualizarReportesAE(); 
 }
