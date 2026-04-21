@@ -100,6 +100,7 @@ function onOpen() {
       .addItem('🪄 Auto-completar Datos', 'autoCompletarDatosAE')
       .addItem('📈 Actualizar Reportes', 'actualizarReportesAE')
       .addItem('🛠️ Reparar Resumen de Grupos', 'repararResumenGruposAE')
+      .addItem('🔄 Reinstalar Resumen de Grupos', 'reinstalarResumenGruposAE')
       .addItem('🔄 Reinstalar Derivaciones Institucionales', 'reinstalarDerivacionesAE')
       .addItem('🩺 Probar Conexión Kobo (DEBUG)', 'diagnosticoKoboAE')
       .addItem('🧹 Limpiar Memoria Técnica', 'limpiarPropiedadesSistemaAE'))
@@ -1046,6 +1047,96 @@ function repararResumenGruposAE() {
   sheet.getRange(2, 4, lastRowFinal - 1, 8).setHorizontalAlignment('center');
 
   toastSafeAE('✅ Resumen de Grupos reparado: Retiradx, Graduadx, fórmulas y formato corregidos.');
+}
+
+function reinstalarResumenGruposAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const confirm = ui.alert(
+    '🔄 Reinstalar Resumen de Grupos',
+    'Esto eliminará la hoja "Resumen de Grupos" y la recreará desde cero, ' +
+    'detectando todos los grupos existentes.\n\n¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirm != ui.Button.YES) return;
+
+  // 1. Eliminar hoja vieja
+  const hojaVieja = ss.getSheetByName('Resumen de Grupos');
+  if (hojaVieja) {
+    try { ss.deleteSheet(hojaVieja); } catch (e) {
+      Logger.log('Error eliminando Resumen: ' + e.message);
+    }
+  }
+
+  // 2. Crear hoja nueva
+  const sheet = ss.insertSheet('Resumen de Grupos');
+  const headersRes = ['Nombre del Grupo', 'Tipo', 'Responsable', 'Sesiones', 'Inscritos', 'Retiradx', 'Graduadx', '% Asistencia', 'Estado', 'Fecha Creación', 'Cupo Máximo'];
+  sheet.getRange(1, 1, 1, headersRes.length).setValues([headersRes])
+    .setBackground('#1e1b4b').setFontColor('white').setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  const anchos = [300, 200, 150, 90, 90, 90, 90, 120, 100, 140, 100];
+  anchos.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  sheet.setFrozenRows(1);
+
+  // 3. Detectar todos los grupos existentes (hojas que tienen "(2026)" en el nombre)
+  const exclude = ['Referencias a grupos', 'Hoja de Interés', 'Resumen de Grupos', 'Retiradx',
+    'Graduadx', 'Reporte General', 'Copy of CREAMOS ID nuevo', 'Derivaciones_Institucionales',
+    '⚙️ CONFIGURACIÓN', 'LOG_KOBO', 'TEMPORAL_LIMPIEZA'];
+
+  const grupoSheets = ss.getSheets().filter(s => {
+    const name = s.getName();
+    return !exclude.includes(name) && !name.includes('TEMPORAL');
+  });
+
+  if (grupoSheets.length === 0) {
+    toastSafeAE('✅ Resumen reinstalado (no se encontraron grupos).', 'Listo');
+    return;
+  }
+
+  // 4. Para cada grupo, detectar datos y escribir fila
+  grupoSheets.forEach(hojaGrupo => {
+    const gn = hojaGrupo.getName();
+    const maxR = hojaGrupo.getMaxRows();
+    const headersGrupo = hojaGrupo.getRange(1, 1, 1, hojaGrupo.getLastColumn()).getValues()[0];
+
+    // Detectar tipo: contar columnas de sesión (S1, S2...)
+    const sesiones = headersGrupo.filter(h => String(h).match(/^S\d+\s/));
+    const numSesiones = sesiones.length;
+
+    // Extraer nombre base para buscar en Retiradx/Graduadx
+    const matchBase = gn.match(/^(.+?)\s*\d*\s*\(\d{4}\)/);
+    const buscar = matchBase ? matchBase[1].trim() : gn.replace(/\s*\([^)]*\)\s*$/g, '').trim();
+
+    const newRowNum = sheet.getLastRow() + 1;
+    sheet.getRange(newRowNum, 1, 1, 11).setValues([[
+      gn, '', '', numSesiones, '', '', '', '', hojaGrupo.isSheetHidden() ? 'Finalizado' : 'Activo', '', ''
+    ]]);
+
+    // Fórmulas
+    // E: Inscritos
+    sheet.getRange(newRowNum, 5).setFormula('=IFERROR(COUNTIFS(\'' + gn + '\'!C:C,"<>",\'' + gn + '\'!C:C,"<>Nombre Completo"),0)');
+    // F: Retiradx
+    sheet.getRange(newRowNum, 6).setFormula('=IFERROR(COUNTIFS(Retiradx!E:E,"*' + buscar + '*"),0)');
+    // G: Graduadx
+    sheet.getRange(newRowNum, 7).setFormula('=IFERROR(COUNTIFS(Graduadx!D:D,"*' + buscar + '*"),0)');
+    // H: % Asistencia
+    sheet.getRange(newRowNum, 8).setFormula('=IFERROR(AVERAGE(\'' + gn + '\'!E2:E' + maxR + '),0)');
+  });
+
+  // 5. Formatos
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 6, lastRow - 1, 1).setNumberFormat('0');
+    sheet.getRange(2, 7, lastRow - 1, 1).setNumberFormat('0');
+    sheet.getRange(2, 8, lastRow - 1, 1).setNumberFormat('0%');
+    sheet.getRange(2, 10, lastRow - 1, 1).setNumberFormat('dd/MM/yyyy');
+    sheet.getRange(2, 4, lastRow - 1, 8).setHorizontalAlignment('center');
+  }
+
+  alertSafeAE('✅ Resumen Reinstalado',
+    'Se detectaron ' + grupoSheets.length + ' grupos y se generaron todas las fórmulas.\n\n' +
+    'Columnas Tipo, Responsable, Fecha y Cupo quedan vacías para que las llenes manualmente o las próximas cohortes las llenen automáticamente.');
 }
 
 function mostrarDialogoCerrarGrupoAE() {
