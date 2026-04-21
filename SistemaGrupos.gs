@@ -100,6 +100,7 @@ function onOpen() {
       .addItem('🪄 Auto-completar Datos', 'autoCompletarDatosAE')
       .addItem('📈 Actualizar Reportes', 'actualizarReportesAE')
       .addItem('🛠️ Reparar Resumen de Grupos', 'repararResumenGruposAE')
+      .addItem('🔄 Reinstalar Derivaciones Institucionales', 'reinstalarDerivacionesAE')
       .addItem('🩺 Probar Conexión Kobo (DEBUG)', 'diagnosticoKoboAE')
       .addItem('🧹 Limpiar Memoria Técnica', 'limpiarPropiedadesSistemaAE'))
     .addToUi();
@@ -197,34 +198,27 @@ function crearHojasBaseAE() {
     'Acción': '⚡ Seleccione un grupo de esta lista para enviar a la persona automáticamente.'
   };
 
-  ['Referencias a grupos', 'Hoja de Interés', 'Derivaciones_Institucionales'].forEach(nombre => {
+  ['Referencias a grupos', 'Hoja de Interés'].forEach(nombre => {
     let hoja = prepararHoja(nombre);
-    
-    // Headers específicos
+
     let localHeaders = [...headersInteres];
-    if (nombre === 'Referencias a grupos' || nombre === 'Derivaciones_Institucionales') {
-      localHeaders[localHeaders.length - 1] = 'Hoja de Interés'; 
-    }
-    
-    // Si es Institucional, agregamos la columna de Origen
-    if (nombre === 'Derivaciones_Institucionales') {
-      localHeaders.splice(1, 0, 'Organización / Quien Deriva');
+    if (nombre === 'Referencias a grupos') {
+      localHeaders[localHeaders.length - 1] = 'Hoja de Interés';
     }
 
     hoja.getRange(1, 1, 1, localHeaders.length).setValues([localHeaders]);
     aplicarEstiloHeader(hoja.getRange(1, 1, 1, localHeaders.length));
-    
-    // AGREGAR TOOLTIPS (NOTITAS)
+
     localHeaders.forEach((h, i) => {
       if (notasInteres[h]) hoja.getRange(1, i + 1).setNote(notasInteres[h]);
     });
-    
+
     hoja.setFrozenRows(1);
-    const mColsHeader = localHeaders.length;
-    if (mColsHeader > 0) {
-      hoja.getRange(1, 1, 1, mColsHeader).setBackground('#3F51B5').setFontColor('white');
-    }
+    hoja.getRange(1, 1, 1, localHeaders.length).setBackground('#3F51B5').setFontColor('white');
   });
+
+  // Derivaciones_Institucionales con formato propio
+  crearHojaDerivacionesInstAE(prepararHoja, aplicarEstiloHeader);
 
   // 2. Resumen de Grupos
   let hojaResumen = prepararHoja('Resumen de Grupos');
@@ -248,6 +242,57 @@ function crearHojasBaseAE() {
   const headersRetiradx = ['Fecha Retiro', 'Creamos ID', 'Nombre Completo', 'Teléfono', 'Grupo de Origen', '% Asistencia', 'Motivo Retiradx'];
   hojaRetiradx.getRange(1, 1, 1, headersRetiradx.length).setValues([headersRetiradx]);
   aplicarEstiloHeader(hojaRetiradx.getRange(1, 1, 1, headersRetiradx.length), '#b71c1c');
+}
+
+function crearHojaDerivacionesInstAE(prepararHojaFn, aplicarEstiloFn) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const prepararHoja = prepararHojaFn || function(nombre) {
+    let hoja = ss.getSheetByName(nombre);
+    if (!hoja) hoja = ss.insertSheet(nombre);
+    return hoja;
+  };
+  const aplicarEstiloHeader = aplicarEstiloFn || function(range, color) {
+    range.setBackground(color || '#312E81')
+         .setFontColor('white').setFontWeight('bold')
+         .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  };
+
+  const hoja = prepararHoja('Derivaciones_Institucionales');
+  const headersDeriv = [
+    'Fecha', 'Nombre de quien deriva', 'Tel. quien deriva', 'Organización',
+    'Nombre Completo', 'Edad', 'Teléfono', 'Dirección',
+    'Motivo de derivación', 'Servicio al que deriva', '_uuid', 'Hoja de Interés'
+  ];
+
+  hoja.getRange(1, 1, 1, headersDeriv.length).setValues([headersDeriv]);
+  aplicarEstiloHeader(hoja.getRange(1, 1, 1, headersDeriv.length), '#3F51B5');
+  hoja.setFrozenRows(1);
+
+  const anchos = [120, 180, 120, 180, 200, 60, 120, 180, 200, 180, 140, 120];
+  anchos.forEach((w, i) => hoja.setColumnWidth(i + 1, w));
+}
+
+function reinstalarDerivacionesAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const confirm = ui.alert(
+    '🔄 Reinstalar Derivaciones Institucionales',
+    'Esto eliminará la hoja actual de Derivaciones_Institucionales y la recreará con las columnas correctas.\n\n' +
+    '⚠️ Se perderán los datos existentes. ¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirm != ui.Button.YES) return;
+
+  const hojaVieja = ss.getSheetByName('Derivaciones_Institucionales');
+  if (hojaVieja) {
+    try { ss.deleteSheet(hojaVieja); } catch (e) {
+      Logger.log('Error eliminando hoja: ' + e.message);
+    }
+  }
+
+  crearHojaDerivacionesInstAE();
+  configurarValidacionesAE();
+  toastSafeAE('✅ Hoja Derivaciones_Institucionales reinstalada con columnas correctas.', 'Listo');
 }
 
 function configurarValidacionesAE() {
@@ -402,7 +447,10 @@ function importarDesdeKoboAE(url, targetSheetName) {
       interes: getI(['Tipo de apoyo solicitado', '¿A qué programa se refiere?', 'servicio', 'programas te interesan', 'Programa', 'apoyo', 'interesa', 'Datos del derivado / Servicio al que deriva']),
       notas: getI(['Breve motivo de la referencia', 'Motivo', 'Notas', 'Comentarios', 'observaciones', 'Datos del derivado / Motivo de derivación']),
       fecha_envio: getI(['_submission_time', 'start', 'end', 'fecha', 'timestamp']),
-      organizacion: getI(['Nombre de organización', 'Nombre de quien deriva', 'Datos de la Organización'])
+      organizacion: getI(['Nombre de organización', 'Datos de la Organización', 'Organización']),
+      nombreDeriva: getI(['Nombre de quien deriva', 'Nombre de organización', 'Datos de la Organización']),
+      telDeriva: getI(['Tel. quien deriva', 'Teléfono de quien deriva', 'Datos de la Organización / Teléfono']),
+      uuid: getI(['_uuid', 'uuid', '_id'])
     };
 
     if (map.nombre === -1) map.nombre = getI(['Participante', 'Datos del derivado / Nombre completo']);
@@ -415,7 +463,15 @@ function importarDesdeKoboAE(url, targetSheetName) {
     let firmasExistentes = [];
     if (sheet.getLastRow() > 1) {
       const fullData = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+      const esDeriv = (nombreHoja === 'Derivaciones_Institucionales');
       firmasExistentes = fullData.map(r => {
+        if (esDeriv) {
+          // Derivaciones: col5=Nombre(idx4), col7=Tel(idx6), col11=_uuid(idx10)
+          const uuid = String(r[10] || '').trim().toUpperCase();
+          const nom = String(r[4] || '').trim().toUpperCase();
+          const tel = String(r[6] || '').trim().replace(/\D/g, '');
+          return uuid ? 'ID:' + uuid : 'SIG:' + nom + '|' + tel;
+        }
         const id = String(r[1] || '').trim().toUpperCase();
         const nom = String(r[2] || '').trim().toUpperCase();
         const tel = String(r[5] || '').trim().replace(/\D/g, '');
@@ -427,15 +483,23 @@ function importarDesdeKoboAE(url, targetSheetName) {
 
     dataRows.forEach(row => {
       const creamosID = map.id !== -1 ? String(row[row.length > map.id ? map.id : 0]).trim().toUpperCase() : '';
-      
+      const uuidVal = map.uuid !== -1 ? String(row[map.uuid] || '').trim().toUpperCase() : '';
+
       let nombreTmp = '';
       if (map.nombre !== -1) {
         nombreTmp = cleanValue(row[map.nombre]);
         if (map.apellidos !== -1) nombreTmp += ' ' + cleanValue(row[map.apellidos]);
       }
-      
+
       const telTmp = map.tel !== -1 ? String(row[map.tel] || '').replace(/\D/g, '') : '';
-      const firmaEntrante = creamosID ? 'ID:' + creamosID : 'SIG:' + nombreTmp.toUpperCase().trim() + '|' + telTmp;
+
+      // Para Derivaciones usar _uuid como identificador principal
+      let firmaEntrante;
+      if (nombreHoja === 'Derivaciones_Institucionales' && uuidVal) {
+        firmaEntrante = 'ID:' + uuidVal;
+      } else {
+        firmaEntrante = creamosID ? 'ID:' + creamosID : 'SIG:' + nombreTmp.toUpperCase().trim() + '|' + telTmp;
+      }
 
       // REGLA: Si ya existe, saltar
       if (firmasExistentes.includes(firmaEntrante)) return;
@@ -535,24 +599,39 @@ function importarDesdeKoboAE(url, targetSheetName) {
         serviciosFinal = 'Apoyo Emocional, Grupos (' + extractGroupName(serviciosVal) + ')';
       }
       
-      const newRow = [
-        fechaEnvioReal, 
-        creamosID,
-        nombreFinal,
-        generoFinal,
-        edadFinal, 
-        map.tel !== -1 ? row[map.tel] : '',
-        map.dpi !== -1 ? row[map.dpi] : '',
-        cleanGeneric(map.zona !== -1 ? row[map.zona] : ''),
-        serviciosFinal,
-        map.notas !== -1 ? row[map.notas] : '',
-        ''
-      ];
-
-      // Si es la hoja Institucional, insertar la columna de Organización en la posición 2
+      let newRow;
       if (nombreHoja === 'Derivaciones_Institucionales') {
-        const orgVal = map.organizacion !== -1 ? row[map.organizacion] : 'S/D';
-        newRow.splice(1, 0, orgVal);
+        // Formato: Fecha | Nombre de quien deriva | Tel. quien deriva | Organización |
+        //          Nombre Completo | Edad | Teléfono | Dirección | Motivo de derivación |
+        //          Servicio al que deriva | _uuid | Hoja de Interés
+        newRow = [
+          fechaEnvioReal,
+          map.nombreDeriva !== -1 ? cleanValue(row[map.nombreDeriva]) : '',
+          map.telDeriva !== -1 ? String(row[map.telDeriva] || '') : '',
+          map.organizacion !== -1 ? cleanValue(row[map.organizacion]) : 'S/D',
+          nombreFinal,
+          edadFinal,
+          map.tel !== -1 ? row[map.tel] : '',
+          cleanGeneric(map.zona !== -1 ? row[map.zona] : ''),
+          map.notas !== -1 ? row[map.notas] : '',
+          serviciosFinal,
+          uuidVal,
+          ''
+        ];
+      } else {
+        newRow = [
+          fechaEnvioReal,
+          creamosID,
+          nombreFinal,
+          generoFinal,
+          edadFinal,
+          map.tel !== -1 ? row[map.tel] : '',
+          map.dpi !== -1 ? row[map.dpi] : '',
+          cleanGeneric(map.zona !== -1 ? row[map.zona] : ''),
+          serviciosFinal,
+          map.notas !== -1 ? row[map.notas] : '',
+          ''
+        ];
       }
 
       sheet.appendRow(newRow);
