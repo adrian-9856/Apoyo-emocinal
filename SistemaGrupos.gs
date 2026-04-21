@@ -222,13 +222,21 @@ function crearHojasBaseAE() {
 
   // 2. Resumen de Grupos
   let hojaResumen = prepararHoja('Resumen de Grupos');
-  const headersResumen = ['Nombre del Grupo', 'Tipo', 'Responsable', 'Sesiones', 'Inscritos', '% Asistencia', 'Estado', 'Fecha Creación', 'Cupo Máximo'];
+  const headersResumen = ['Nombre del Grupo', 'Tipo', 'Responsable', 'Sesiones', 'Inscritos', 'Retiradx', 'Graduadx', '% Asistencia', 'Estado', 'Fecha Creación', 'Cupo Máximo'];
   hojaResumen.getRange(1, 1, 1, headersResumen.length).setValues([headersResumen]);
-  aplicarEstiloHeader(hojaResumen.getRange(1, 1, 1, headersResumen.length), '#1e1b4b'); // Dark Indigo
-  
+  aplicarEstiloHeader(hojaResumen.getRange(1, 1, 1, headersResumen.length), '#1e1b4b');
+
   hojaResumen.setColumnWidth(1, 300);
   hojaResumen.setColumnWidth(2, 200);
-  hojaResumen.setColumnWidth(9, 120); // Ancho para cupo
+  hojaResumen.setColumnWidth(3, 150);
+  hojaResumen.setColumnWidth(4, 90);
+  hojaResumen.setColumnWidth(5, 90);
+  hojaResumen.setColumnWidth(6, 90);
+  hojaResumen.setColumnWidth(7, 90);
+  hojaResumen.setColumnWidth(8, 120);
+  hojaResumen.setColumnWidth(9, 100);
+  hojaResumen.setColumnWidth(10, 140);
+  hojaResumen.setColumnWidth(11, 100);
   hojaResumen.setFrozenRows(1);
 
   // 3. Graduadx
@@ -899,20 +907,21 @@ function crearNuevoGrupoAE() {
 
   const hojaResumen = ss.getSheetByName('Resumen de Grupos');
   if (hojaResumen) {
-    // Asegurar que existan todos los encabezados
-    const headersRes = ['Nombre del Grupo', 'Tipo', 'Responsable', 'Sesiones', 'Inscritos', '% Asistencia', 'Estado', 'Fecha Creación', 'Cupo Máximo'];
+    const headersRes = ['Nombre del Grupo', 'Tipo', 'Responsable', 'Sesiones', 'Inscritos', 'Retiradx', 'Graduadx', '% Asistencia', 'Estado', 'Fecha Creación', 'Cupo Máximo'];
     hojaResumen.getRange(1, 1, 1, headersRes.length).setValues([headersRes])
       .setBackground('#1e1b4b').setFontColor('white').setFontWeight('bold');
 
     hojaResumen.appendRow([
-      grupoNombre + ' (' + nombreModalidad + ')',  nombreTipo,  responsable,  numSesiones, 
+      grupoNombre + ' (' + nombreModalidad + ')',  nombreTipo,  responsable,  numSesiones,
       '=COUNTIFS(\'' + grupoNombre + '\'!C:C, "<>", \'' + grupoNombre + '\'!C:C, "<>Nombre Completo")',
+      '=IFERROR(COUNTIFS(Retiradx!E:E,"*' + grupoNombre + '*"),0)',
+      '=IFERROR(COUNTIFS(Graduadx!D:D,"*' + grupoNombre + '*"),0)',
       '=IFERROR(AVERAGE(\'' + grupoNombre + '\'!E2:E' + (numRows + 1) + '), 0)',
       'Activo', new Date(), cupoMax
     ]);
-    
-    // Aplicar formato de porcentaje a la columna F
-    hojaResumen.getRange(hojaResumen.getLastRow(), 6).setNumberFormat('0%');
+
+    const newRow = hojaResumen.getLastRow();
+    hojaResumen.getRange(newRow, 8).setNumberFormat('0%');
   }
   
   configurarValidacionesAE();
@@ -939,26 +948,44 @@ function repararResumenGruposAE() {
     return;
   }
 
-  // 1. Forzar encabezados correctos
-  const headersRes = ['Nombre del Grupo', 'Tipo', 'Responsable', 'Sesiones', 'Inscritos', '% Asistencia', 'Estado', 'Fecha Creación', 'Cupo Máximo'];
+  const headersRes = ['Nombre del Grupo', 'Tipo', 'Responsable', 'Sesiones', 'Inscritos', 'Retiradx', 'Graduadx', '% Asistencia', 'Estado', 'Fecha Creación', 'Cupo Máximo'];
   sheet.getRange(1, 1, 1, headersRes.length).setValues([headersRes])
     .setBackground('#1e1b4b').setFontColor('white').setFontWeight('bold')
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
 
-  // 2. Aplicar formato de % a toda la columna F (Asistencia)
   const lastRow = sheet.getLastRow();
+
+  // Anchos de columna
+  sheet.setColumnWidth(1, 300);
+  sheet.setColumnWidth(2, 200);
+  sheet.setColumnWidth(3, 150);
+  sheet.setColumnWidth(4, 90);
+  sheet.setColumnWidth(5, 90);
+  sheet.setColumnWidth(6, 90);
+  sheet.setColumnWidth(7, 90);
+  sheet.setColumnWidth(8, 120);
+  sheet.setColumnWidth(9, 100);
+  sheet.setColumnWidth(10, 140);
+  sheet.setColumnWidth(11, 100);
+
   if (lastRow > 1) {
-    sheet.getRange(2, 6, lastRow - 1, 1).setNumberFormat('0%');
-    // También ajustamos anchos
-    sheet.setColumnWidth(1, 400); // Nombre
-    sheet.setColumnWidth(2, 200); // Tipo
-    sheet.setColumnWidth(3, 150); // Responsable
-    sheet.setColumnWidth(6, 120); // % Asistencia
-    sheet.setColumnWidth(8, 180); // Fecha
-    sheet.setColumnWidth(9, 120); // Cupo
+    // Formato % en columna H (% Asistencia)
+    sheet.getRange(2, 8, lastRow - 1, 1).setNumberFormat('0%');
+
+    // Recalcular fórmulas de Retiradx y Graduadx para cada grupo
+    for (let i = 2; i <= lastRow; i++) {
+      const nombreGrupo = String(sheet.getRange(i, 1).getValue());
+      // Extraer nombre base del grupo (sin modalidad entre paréntesis al final)
+      const match = nombreGrupo.match(/^(.+?)\s*\([^)]*\)\s*$/);
+      const buscar = match ? match[1].trim() : nombreGrupo.trim();
+      if (!buscar) continue;
+
+      sheet.getRange(i, 6).setFormula('=IFERROR(COUNTIFS(Retiradx!E:E,"*' + buscar + '*"),0)');
+      sheet.getRange(i, 7).setFormula('=IFERROR(COUNTIFS(Graduadx!D:D,"*' + buscar + '*"),0)');
+    }
   }
-  
-  toastSafeAE('✅ Resumen de Grupos reparado con éxito.');
+
+  toastSafeAE('✅ Resumen de Grupos reparado con Retiradx y Graduadx.');
 }
 
 function mostrarDialogoCerrarGrupoAE() {
@@ -988,7 +1015,7 @@ function cerrarGrupoAE(nombreGrupo) {
     for (let i = 1; i < resumenData.length; i++) {
       if (resumenData[i][0] && resumenData[i][0].includes(nombreGrupo)) {
         responsable = resumenData[i][2];
-        sheetResumen.getRange(i + 1, 7).setValue('Finalizado'); // Columna Estado
+        sheetResumen.getRange(i + 1, 9).setValue('Finalizado'); // Columna I = Estado
         break;
       }
     }
