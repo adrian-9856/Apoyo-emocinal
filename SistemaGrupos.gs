@@ -948,44 +948,104 @@ function repararResumenGruposAE() {
     return;
   }
 
-  const headersRes = ['Nombre del Grupo', 'Tipo', 'Responsable', 'Sesiones', 'Inscritos', 'Retiradx', 'Graduadx', '% Asistencia', 'Estado', 'Fecha Creación', 'Cupo Máximo'];
-  sheet.getRange(1, 1, 1, headersRes.length).setValues([headersRes])
-    .setBackground('#1e1b4b').setFontColor('white').setFontWeight('bold')
-    .setHorizontalAlignment('center').setVerticalAlignment('middle');
-
   const lastRow = sheet.getLastRow();
+  const headersNuevos = ['Nombre del Grupo', 'Tipo', 'Responsable', 'Sesiones', 'Inscritos', 'Retiradx', 'Graduadx', '% Asistencia', 'Estado', 'Fecha Creación', 'Cupo Máximo'];
 
-  // Anchos de columna
-  sheet.setColumnWidth(1, 300);
-  sheet.setColumnWidth(2, 200);
-  sheet.setColumnWidth(3, 150);
-  sheet.setColumnWidth(4, 90);
-  sheet.setColumnWidth(5, 90);
-  sheet.setColumnWidth(6, 90);
-  sheet.setColumnWidth(7, 90);
-  sheet.setColumnWidth(8, 120);
-  sheet.setColumnWidth(9, 100);
-  sheet.setColumnWidth(10, 140);
-  sheet.setColumnWidth(11, 100);
-
+  // ── Migrar datos del formato viejo (9 cols) al nuevo (11 cols) ──
+  // Formato viejo: A:Nombre B:Tipo C:Responsable D:Sesiones E:Inscritos F:%Asistencia G:Estado H:Fecha I:Cupo
+  // Formato nuevo: A:Nombre B:Tipo C:Responsable D:Sesiones E:Inscritos F:Retiradx G:Graduadx H:%Asistencia I:Estado J:Fecha K:Cupo
   if (lastRow > 1) {
-    // Formato % en columna H (% Asistencia)
-    sheet.getRange(2, 8, lastRow - 1, 1).setNumberFormat('0%');
+    const headersActuales = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const esFormatoViejo = (headersActuales[5] === '% Asistencia' || headersActuales[5] === '% Asis')
+                        || (headersActuales.indexOf('Retiradx') === -1 && headersActuales.indexOf('Graduadx') === -1);
 
-    // Recalcular fórmulas de Retiradx y Graduadx para cada grupo
-    for (let i = 2; i <= lastRow; i++) {
-      const nombreGrupo = String(sheet.getRange(i, 1).getValue());
-      // Extraer nombre base del grupo (sin modalidad entre paréntesis al final)
-      const match = nombreGrupo.match(/^(.+?)\s*\([^)]*\)\s*$/);
-      const buscar = match ? match[1].trim() : nombreGrupo.trim();
-      if (!buscar) continue;
+    if (esFormatoViejo) {
+      Logger.log('Migrando Resumen de Grupos de formato viejo (9 cols) a nuevo (11 cols)...');
+      for (let i = lastRow; i >= 2; i--) {
+        const rowData = sheet.getRange(i, 1, 1, sheet.getLastColumn()).getValues()[0];
+        // Viejo: [0]Nombre [1]Tipo [2]Responsable [3]Sesiones [4]Inscritos [5]%Asis [6]Estado [7]Fecha [8]Cupo
+        const nombre      = rowData[0] || '';
+        const tipo        = rowData[1] || '';
+        const responsable = rowData[2] || '';
+        const sesiones    = rowData[3] || '';
+        const inscritos   = rowData[4] || '';
+        const estado      = rowData[6] || 'Activo';
+        const fecha       = rowData[7] || '';
+        const cupo        = rowData[8] || '';
 
-      sheet.getRange(i, 6).setFormula('=IFERROR(COUNTIFS(Retiradx!E:E,"*' + buscar + '*"),0)');
-      sheet.getRange(i, 7).setFormula('=IFERROR(COUNTIFS(Graduadx!D:D,"*' + buscar + '*"),0)');
+        // Escribir en formato nuevo (Retiradx y Graduadx se calculan después)
+        sheet.getRange(i, 1, 1, 11).setValues([[
+          nombre, tipo, responsable, sesiones, inscritos,
+          '', '', '', estado, fecha, cupo
+        ]]);
+      }
+      Logger.log('Migración completada.');
     }
   }
 
-  toastSafeAE('✅ Resumen de Grupos reparado con Retiradx y Graduadx.');
+  // ── Escribir headers nuevos ──
+  sheet.getRange(1, 1, 1, headersNuevos.length).setValues([headersNuevos])
+    .setBackground('#1e1b4b').setFontColor('white').setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  // ── Anchos de columna ──
+  const anchos = [300, 200, 150, 90, 90, 90, 90, 120, 100, 140, 100];
+  anchos.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+
+  const lastRowFinal = sheet.getLastRow();
+  if (lastRowFinal < 2) {
+    toastSafeAE('✅ Resumen de Grupos reparado (sin datos).');
+    return;
+  }
+
+  // ── Reconstruir fórmulas de Inscritos, Retiradx, Graduadx y % Asistencia ──
+  const exclude = ['Referencias a grupos', 'Hoja de Interés', 'Resumen de Grupos', 'Retiradx', 'Graduadx',
+    'Reporte General', 'Copy of CREAMOS ID nuevo', 'Derivaciones_Institucionales',
+    '⚙️ CONFIGURACIÓN', 'LOG_KOBO', 'TEMPORAL_LIMPIEZA'];
+
+  for (let i = 2; i <= lastRowFinal; i++) {
+    const nombreCelda = String(sheet.getRange(i, 1).getValue()).trim();
+    if (!nombreCelda) continue;
+
+    // Buscar el nombre exacto de la hoja del grupo
+    const grupoSheets = ss.getSheets().filter(s => !exclude.includes(s.getName()));
+    let hojaGrupo = null;
+    for (const s of grupoSheets) {
+      if (nombreCelda.includes(s.getName()) || s.getName().includes(nombreCelda.replace(/\s*\([^)]*\)\s*$/, '').trim())) {
+        hojaGrupo = s;
+        break;
+      }
+    }
+
+    // Extraer nombre base para buscar en Retiradx/Graduadx
+    const matchBase = nombreCelda.match(/^(.+?)\s*\d*\s*\(\d{4}\)/);
+    const buscar = matchBase ? matchBase[1].trim() : nombreCelda.replace(/\s*\([^)]*\)\s*$/g, '').trim();
+
+    if (hojaGrupo) {
+      const gn = hojaGrupo.getName();
+      const maxR = hojaGrupo.getMaxRows();
+      // E: Inscritos
+      sheet.getRange(i, 5).setFormula('=IFERROR(COUNTIFS(\'' + gn + '\'!C:C,"<>",\'' + gn + '\'!C:C,"<>Nombre Completo"),0)');
+      // H: % Asistencia
+      sheet.getRange(i, 8).setFormula('=IFERROR(AVERAGE(\'' + gn + '\'!E2:E' + maxR + '),0)');
+    }
+
+    // F: Retiradx (busca grupo en columna E de Retiradx = "Grupo de Origen")
+    sheet.getRange(i, 6).setFormula('=IFERROR(COUNTIFS(Retiradx!E:E,"*' + buscar + '*"),0)');
+    // G: Graduadx (busca grupo en columna D de Graduadx = "Grupo")
+    sheet.getRange(i, 7).setFormula('=IFERROR(COUNTIFS(Graduadx!D:D,"*' + buscar + '*"),0)');
+  }
+
+  // ── Formatos ──
+  sheet.getRange(2, 6, lastRowFinal - 1, 1).setNumberFormat('0');   // Retiradx = número
+  sheet.getRange(2, 7, lastRowFinal - 1, 1).setNumberFormat('0');   // Graduadx = número
+  sheet.getRange(2, 8, lastRowFinal - 1, 1).setNumberFormat('0%');  // % Asistencia
+  sheet.getRange(2, 10, lastRowFinal - 1, 1).setNumberFormat('dd/MM/yyyy'); // Fecha
+
+  // Centrar columnas numéricas
+  sheet.getRange(2, 4, lastRowFinal - 1, 8).setHorizontalAlignment('center');
+
+  toastSafeAE('✅ Resumen de Grupos reparado: Retiradx, Graduadx, fórmulas y formato corregidos.');
 }
 
 function mostrarDialogoCerrarGrupoAE() {
