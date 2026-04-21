@@ -1051,14 +1051,19 @@ function repararResumenGruposAE() {
 
 function reinstalarResumenGruposAE() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
-  const confirm = ui.alert(
-    '🔄 Reinstalar Resumen de Grupos',
-    'Esto eliminará la hoja "Resumen de Grupos" y la recreará desde cero, ' +
-    'detectando todos los grupos existentes.\n\n¿Continuar?',
-    ui.ButtonSet.YES_NO
-  );
-  if (confirm != ui.Button.YES) return;
+
+  try {
+    const ui = SpreadsheetApp.getUi();
+    const confirm = ui.alert(
+      '🔄 Reinstalar Resumen de Grupos',
+      'Esto eliminará la hoja "Resumen de Grupos" y la recreará desde cero, ' +
+      'detectando todos los grupos existentes.\n\n¿Continuar?',
+      ui.ButtonSet.YES_NO
+    );
+    if (confirm != ui.Button.YES) return;
+  } catch (e) {
+    Logger.log('Sin UI disponible, ejecutando directamente...');
+  }
 
   // 1. Eliminar hoja vieja
   const hojaVieja = ss.getSheetByName('Resumen de Grupos');
