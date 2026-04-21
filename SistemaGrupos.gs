@@ -456,6 +456,39 @@ function importarDesdeKoboAE(url, targetSheetName) {
     if (map.nombre === -1) map.nombre = getI(['Participante', 'Datos del derivado / Nombre completo']);
     if (map.edad === -1) map.edad = getI(['Datos del derivado / Edad']);
 
+    // Mapeo dedicado para Derivaciones_Institucionales con campos exactos del CSV de KoboToolbox
+    // CSV headers: Fecha, Datos de la Organización / Nombre de quien deriva,
+    //   Datos de la Organización / Teléfono, Datos de la Organización / Nombre de organización,
+    //   Datos de la Organización / Otro, Datos del derivado / Nombre completo,
+    //   Datos del derivado / Edad, Datos del derivado / Teléfono,
+    //   Datos del derivado / Dirección, Datos del derivado / Motivo de derivación,
+    //   Datos del derivado / Servicio al que deriva, Datos del derivado / Otro
+    const getExact = (pattern) => headers.findIndex(h => normalize(h) === normalize(pattern));
+    const getFlexible = (patterns) => {
+      let idx = -1;
+      for (const p of patterns) {
+        idx = getExact(p);
+        if (idx !== -1) return idx;
+      }
+      return getI(patterns);
+    };
+
+    const mapDeriv = {
+      fecha: getFlexible(['Fecha', '_submission_time', 'start']),
+      nombreDeriva: getFlexible(['Datos de la Organización / Nombre de quien deriva', 'Nombre de quien deriva']),
+      telDeriva: getFlexible(['Datos de la Organización / Teléfono', 'Tel. quien deriva']),
+      organizacion: getFlexible(['Datos de la Organización / Nombre de organización', 'Nombre de organización', 'Organización']),
+      orgOtro: getFlexible(['Datos de la Organización / Otro']),
+      nombreCompleto: getFlexible(['Datos del derivado / Nombre completo', 'Nombre completo', 'Nombre Completo']),
+      edad: getFlexible(['Datos del derivado / Edad', 'Edad']),
+      telefono: getFlexible(['Datos del derivado / Teléfono', 'Teléfono']),
+      direccion: getFlexible(['Datos del derivado / Dirección', 'Dirección', 'Zona']),
+      motivo: getFlexible(['Datos del derivado / Motivo de derivación', 'Motivo de derivación', 'Motivo']),
+      servicio: getFlexible(['Datos del derivado / Servicio al que deriva', 'Servicio al que deriva']),
+      derivOtro: getFlexible(['Datos del derivado / Otro']),
+      uuid: getFlexible(['_uuid', 'uuid', '_id'])
+    };
+
     const keywordsGrupos = ['grupo', 'escuela', 'padres', 'madres', 'psicoeducativ', 'autoayuda', 'relajarte', 'autopercepc', 'ocupacional'];
     const keywordsNegativas = ['terapia individual', 'psicoterapia individual'];
 
@@ -481,34 +514,43 @@ function importarDesdeKoboAE(url, targetSheetName) {
 
     let nuevos = 0;
 
+    const esDeriv = (nombreHoja === 'Derivaciones_Institucionales');
+
     dataRows.forEach(row => {
-      const creamosID = map.id !== -1 ? String(row[row.length > map.id ? map.id : 0]).trim().toUpperCase() : '';
-      const uuidVal = map.uuid !== -1 ? String(row[map.uuid] || '').trim().toUpperCase() : '';
+      // ── Extraer campos según tipo de hoja ──
+      let nombreTmp, telTmp, firmaEntrante, uuidVal;
 
-      let nombreTmp = '';
-      if (map.nombre !== -1) {
-        nombreTmp = cleanValue(row[map.nombre]);
-        if (map.apellidos !== -1) nombreTmp += ' ' + cleanValue(row[map.apellidos]);
-      }
-
-      const telTmp = map.tel !== -1 ? String(row[map.tel] || '').replace(/\D/g, '') : '';
-
-      // Para Derivaciones usar _uuid como identificador principal
-      let firmaEntrante;
-      if (nombreHoja === 'Derivaciones_Institucionales' && uuidVal) {
-        firmaEntrante = 'ID:' + uuidVal;
+      if (esDeriv) {
+        // Derivaciones: usar mapDeriv con campos exactos del CSV
+        nombreTmp = mapDeriv.nombreCompleto !== -1 ? cleanValue(row[mapDeriv.nombreCompleto]) : '';
+        telTmp = mapDeriv.telefono !== -1 ? String(row[mapDeriv.telefono] || '').replace(/\D/g, '') : '';
+        uuidVal = mapDeriv.uuid !== -1 ? String(row[mapDeriv.uuid] || '').trim().toUpperCase() : '';
+        firmaEntrante = uuidVal ? 'ID:' + uuidVal : 'SIG:' + nombreTmp.toUpperCase().trim() + '|' + telTmp;
       } else {
+        const creamosID = map.id !== -1 ? String(row[row.length > map.id ? map.id : 0]).trim().toUpperCase() : '';
+        uuidVal = '';
+        nombreTmp = '';
+        if (map.nombre !== -1) {
+          nombreTmp = cleanValue(row[map.nombre]);
+          if (map.apellidos !== -1) nombreTmp += ' ' + cleanValue(row[map.apellidos]);
+        }
+        telTmp = map.tel !== -1 ? String(row[map.tel] || '').replace(/\D/g, '') : '';
         firmaEntrante = creamosID ? 'ID:' + creamosID : 'SIG:' + nombreTmp.toUpperCase().trim() + '|' + telTmp;
       }
 
-      // REGLA: Si ya existe, saltar
       if (firmasExistentes.includes(firmaEntrante)) return;
       if (!nombreTmp && !telTmp) return;
 
-      const serviciosVal = String(map.interes !== -1 ? row[map.interes] : '');
-      const notasVal = String(map.notas !== -1 ? row[map.notas] : '');
-      
-      // Combinar texto de servicios, notas y cualquier otro campo que contenga las palabras
+      // ── Contexto para filtrado de grupos ──
+      let serviciosVal, notasVal;
+      if (esDeriv) {
+        serviciosVal = mapDeriv.servicio !== -1 ? String(row[mapDeriv.servicio] || '') : '';
+        notasVal = mapDeriv.motivo !== -1 ? String(row[mapDeriv.motivo] || '') : '';
+      } else {
+        serviciosVal = String(map.interes !== -1 ? row[map.interes] : '');
+        notasVal = String(map.notas !== -1 ? row[map.notas] : '');
+      }
+
       let contextoValores = [serviciosVal, notasVal];
       
       headers.forEach((h, i) => {
@@ -546,26 +588,24 @@ function importarDesdeKoboAE(url, targetSheetName) {
       }
 
       let nombreFinal = nombreTmp || 'SIN NOMBRE';
-      if (nombreFinal === 'SIN NOMBRE' || nombreFinal === '' && map.nombrePreferido !== -1 && row[map.nombrePreferido]) {
+      if (!esDeriv && (nombreFinal === 'SIN NOMBRE' || nombreFinal === '') && map.nombrePreferido !== -1 && row[map.nombrePreferido]) {
         nombreFinal = cleanValue(row[map.nombrePreferido]);
       }
 
-      let generoFinal = map.genero !== -1 ? String(row[map.genero]) : '';
-      if (generoFinal.includes('/')) generoFinal = generoFinal.split('/')[0].trim();
-
       // Cálculo de EDAD exacta y en número entero
-      let edadFinal = cleanGeneric(map.edad !== -1 ? row[map.edad] : '');
+      const edadRaw = esDeriv
+        ? (mapDeriv.edad !== -1 ? row[mapDeriv.edad] : '')
+        : (map.edad !== -1 ? row[map.edad] : '');
+      let edadFinal = cleanGeneric(edadRaw);
       if (edadFinal) {
-        // ¿Es formato de fecha o tiene guiones/slashes?
         if (edadFinal.includes('-') || edadFinal.includes('/')) {
           let fechaNac = new Date(edadFinal);
           if (!isNaN(fechaNac.getTime())) {
             let diff_ms = Date.now() - fechaNac.getTime();
-            let age_dt = new Date(diff_ms); 
+            let age_dt = new Date(diff_ms);
             edadFinal = Math.abs(age_dt.getUTCFullYear() - 1970);
           }
-        } 
-        // Convertirlo a puro número entero
+        }
         if (typeof edadFinal === 'string') {
            edadFinal = parseInt(edadFinal.replace(/\D/g, ''));
            if (isNaN(edadFinal)) edadFinal = '';
@@ -574,51 +614,77 @@ function importarDesdeKoboAE(url, targetSheetName) {
 
       // EXTRAER FECHA REAL DE ENVÍO DE KOBO
       let fechaEnvioReal = new Date();
-      if (map.fecha_envio !== -1 && row[map.fecha_envio]) {
-        let fTmp = new Date(row[map.fecha_envio]);
-        if (!isNaN(fTmp.getTime())) fechaEnvioReal = fTmp;
-      }
-
-      // ESTRUCTURACIÓN PERFECTA DE SERVICIOS (A COPIA EXACTA DE LOS EJEMPLOS)
-      let serviciosExactos = [];
-      if (contextoTotal.includes('ocupacional')) serviciosExactos.push('Apoyo Emocional, Grupos Psicoeducativos: Terapia Ocupacional');
-      if (contextoTotal.includes('autopercepc') || contextoTotal.includes('auto percep')) serviciosExactos.push('Apoyo Emocional, Grupo de Autopercepción');
-      if (contextoTotal.includes('relajarte') || contextoTotal.includes('relaj') || contextoTotal.includes('arte')) serviciosExactos.push('Apoyo Emocional, Grupos Terapeuticos: RelajArte');
-      
-      if (contextoTotal.includes('escuela para madres') || contextoTotal.includes('madres')) serviciosExactos.push('Apoyo Emocional, Grupos: Escuela para madres');
-      if (contextoTotal.includes('escuela para padres') || (contextoTotal.includes('padres') && !contextoTotal.includes('madres'))) serviciosExactos.push('Apoyo Emocional, Grupos: Escuela para padres');
-      if (contextoTotal.includes('otros grupos')) serviciosExactos.push('Apoyo Emocional, Otros grupos');
-
-      if (contextoTotal.includes('grupo de apoyo emocional') || (contextoTotal.includes('apoyo emocional') && serviciosExactos.length === 0)) serviciosExactos.push('Apoyo Emocional, Grupo de apoyo emocional');
-      
-      let serviciosFinal = '';
-      if (serviciosExactos.length > 0) {
-        serviciosFinal = serviciosExactos.join(' | ');
+      if (esDeriv) {
+        if (mapDeriv.fecha !== -1 && row[mapDeriv.fecha]) {
+          let fTmp = new Date(row[mapDeriv.fecha]);
+          if (!isNaN(fTmp.getTime())) fechaEnvioReal = fTmp;
+        }
       } else {
-        // Formato genérico de respaldo
-        serviciosFinal = 'Apoyo Emocional, Grupos (' + extractGroupName(serviciosVal) + ')';
+        if (map.fecha_envio !== -1 && row[map.fecha_envio]) {
+          let fTmp = new Date(row[map.fecha_envio]);
+          if (!isNaN(fTmp.getTime())) fechaEnvioReal = fTmp;
+        }
       }
-      
+
       let newRow;
-      if (nombreHoja === 'Derivaciones_Institucionales') {
-        // Formato: Fecha | Nombre de quien deriva | Tel. quien deriva | Organización |
-        //          Nombre Completo | Edad | Teléfono | Dirección | Motivo de derivación |
-        //          Servicio al que deriva | _uuid | Hoja de Interés
+      if (esDeriv) {
+        // ── Derivaciones_Institucionales ──
+        // Columnas: Fecha | Nombre de quien deriva | Tel. quien deriva | Organización |
+        //           Nombre Completo | Edad | Teléfono | Dirección |
+        //           Motivo de derivación | Servicio al que deriva | _uuid | Hoja de Interés
+        //
+        // Campos CSV de KoboToolbox:
+        //   Datos de la Organización / Nombre de quien deriva
+        //   Datos de la Organización / Teléfono
+        //   Datos de la Organización / Nombre de organización (+ Otro)
+        //   Datos del derivado / Nombre completo
+        //   Datos del derivado / Edad
+        //   Datos del derivado / Teléfono
+        //   Datos del derivado / Dirección
+        //   Datos del derivado / Motivo de derivación
+        //   Datos del derivado / Servicio al que deriva (+ Otro)
+
+        let orgNombre = mapDeriv.organizacion !== -1 ? cleanValue(row[mapDeriv.organizacion]) : '';
+        const orgOtro = mapDeriv.orgOtro !== -1 ? cleanValue(row[mapDeriv.orgOtro]) : '';
+        if (orgOtro && orgOtro !== orgNombre) orgNombre = orgNombre ? orgNombre + ' - ' + orgOtro : orgOtro;
+
+        let servicioVal = mapDeriv.servicio !== -1 ? String(row[mapDeriv.servicio] || '') : '';
+        const derivOtro = mapDeriv.derivOtro !== -1 ? cleanValue(row[mapDeriv.derivOtro]) : '';
+        if (derivOtro && derivOtro !== servicioVal) servicioVal = servicioVal ? servicioVal + ' - ' + derivOtro : derivOtro;
+
         newRow = [
           fechaEnvioReal,
-          map.nombreDeriva !== -1 ? cleanValue(row[map.nombreDeriva]) : '',
-          map.telDeriva !== -1 ? String(row[map.telDeriva] || '') : '',
-          map.organizacion !== -1 ? cleanValue(row[map.organizacion]) : 'S/D',
+          mapDeriv.nombreDeriva !== -1 ? cleanValue(row[mapDeriv.nombreDeriva]) : '',
+          mapDeriv.telDeriva !== -1 ? String(row[mapDeriv.telDeriva] || '') : '',
+          orgNombre || 'S/D',
           nombreFinal,
           edadFinal,
-          map.tel !== -1 ? row[map.tel] : '',
-          cleanGeneric(map.zona !== -1 ? row[map.zona] : ''),
-          map.notas !== -1 ? row[map.notas] : '',
-          serviciosFinal,
+          mapDeriv.telefono !== -1 ? String(row[mapDeriv.telefono] || '') : '',
+          mapDeriv.direccion !== -1 ? cleanValue(row[mapDeriv.direccion]) : '',
+          mapDeriv.motivo !== -1 ? String(row[mapDeriv.motivo] || '') : '',
+          servicioVal,
           uuidVal,
           ''
         ];
       } else {
+        // ── Referencias / Hoja de Interés ──
+        let generoFinal = map.genero !== -1 ? String(row[map.genero]) : '';
+        if (generoFinal.includes('/')) generoFinal = generoFinal.split('/')[0].trim();
+
+        let serviciosExactos = [];
+        if (contextoTotal.includes('ocupacional')) serviciosExactos.push('Apoyo Emocional, Grupos Psicoeducativos: Terapia Ocupacional');
+        if (contextoTotal.includes('autopercepc') || contextoTotal.includes('auto percep')) serviciosExactos.push('Apoyo Emocional, Grupo de Autopercepción');
+        if (contextoTotal.includes('relajarte') || contextoTotal.includes('relaj') || contextoTotal.includes('arte')) serviciosExactos.push('Apoyo Emocional, Grupos Terapeuticos: RelajArte');
+        if (contextoTotal.includes('escuela para madres') || contextoTotal.includes('madres')) serviciosExactos.push('Apoyo Emocional, Grupos: Escuela para madres');
+        if (contextoTotal.includes('escuela para padres') || (contextoTotal.includes('padres') && !contextoTotal.includes('madres'))) serviciosExactos.push('Apoyo Emocional, Grupos: Escuela para padres');
+        if (contextoTotal.includes('otros grupos')) serviciosExactos.push('Apoyo Emocional, Otros grupos');
+        if (contextoTotal.includes('grupo de apoyo emocional') || (contextoTotal.includes('apoyo emocional') && serviciosExactos.length === 0)) serviciosExactos.push('Apoyo Emocional, Grupo de apoyo emocional');
+
+        let serviciosFinal = serviciosExactos.length > 0
+          ? serviciosExactos.join(' | ')
+          : 'Apoyo Emocional, Grupos (' + extractGroupName(serviciosVal) + ')';
+
+        const creamosID = map.id !== -1 ? String(row[row.length > map.id ? map.id : 0]).trim().toUpperCase() : '';
         newRow = [
           fechaEnvioReal,
           creamosID,
