@@ -35,57 +35,61 @@ function onOpen() {
   try {
     const ui = SpreadsheetApp.getUi();
 
-    // ── Submenú Validación: análisis y verificación de reportes ──
+    // ── Submenú: Reimportación de hojas desde KoboToolbox ──
+    const menuReimportar = ui.createMenu('📥 Reimportar Hojas')
+      .addItem('📄 Hoja de Interés', 'reimportarHojaInteres')
+      .addItem('🔗 Referencias de Programas', 'reimportarReferencias')
+      .addItem('🏛️ Derivaciones Institucionales', 'reimportarDerivaciones')
+      .addItem('📋 Intervención de Casos', 'reimportarIntervencionCasos');
+
+    // ── Submenú: Importación y captación automática ──
+    const menuImportacion = ui.createMenu('📥 Importación y Captación')
+      .addItem('📥 Importar Captación Ahora', 'importarHojasCaptacionSilencioso')
+      .addItem('📜 Importar Históricos 2024-2026', 'importarFormularioInteresHistorico')
+      .addSeparator()
+      .addItem('✅ Activar auto-captación (cada 10 min)', 'instalarAutoImportCaptacion')
+      .addItem('🛑 Desactivar auto-captación', 'desactivarAutoImportCaptacion')
+      .addSeparator()
+      .addItem('🆘 Verificar Alertas Bienestar', 'verificarAlertasRapido')
+      .addItem('⚡ Importar Bienestar Ahora', 'importarDatosAutomatico');
+
+    // ── Submenú: Configuración de emails ──
+    const menuEmails = ui.createMenu('📧 Configuración de Emails')
+      .addItem('📧 Configurar Email Director', 'configurarEmail')
+      .addItem('👥 Configurar Emails Terapeutas', 'configurarEmailsTerapeutas')
+      .addSeparator()
+      .addItem('✉️ Probar Email Director', 'probarEmail')
+      .addItem('🧪 Probar Emails Terapeutas', 'probarEmailsTerapeutas');
+
+    // ── Submenú: Automatización (triggers) ──
+    const menuAutomatizacion = ui.createMenu('⏰ Automatización')
+      .addItem('📅 Activar Reporte Diario (8AM)', 'instalarTriggerAutoReporteMensual')
+      .addItem('🛑 Desactivar Reporte Diario', 'desactivarAutoReporteMensual')
+      .addItem('🔄 Reinstalar Hoja en Vivo', 'crearHojaReporteMensualAutomatizado')
+      .addSeparator()
+      .addItem('⏰ Activar Alertas Automáticas', 'instalarTriggerTiempo')
+      .addItem('✏️ Activar Validaciones al Editar', 'instalarTriggerOnEdit');
+
+    // ── Submenú: Validación de reportes ──
     const menuValidacion = ui.createMenu('🔍 Validación de Reportes')
       .addItem('📊 Analizar Reporte Actual', 'analizarReporteActual')
       .addItem('📅 Validar Mes Específico', 'validarMesEspecifico')
       .addItem('📋 Generar Reporte Detallado', 'generarReporteDetallado');
 
-    // ── Submenú de reimportación individual ──
-    const menuReimportar = ui.createMenu('📥 Reimportar Hojas')
-      .addItem('📋 Intervención de Casos', 'reimportarIntervencionCasos')
-      .addItem('📄 Hoja de Interés', 'reimportarHojaInteres')
-      .addItem('🔗 Referencias de Programas', 'reimportarReferencias')
-      .addItem('🏛️ Derivaciones Institucionales', 'reimportarDerivaciones');
-
-    // ── Submenú Avanzado: todo lo técnico / configuración ──
-    const menuAvanzado = ui.createMenu('⚙️ Avanzado')
-      // Instalación
-      .addItem('🔴 Instalación Completa', 'instalacionCompleta')
-      .addItem('✅ Verificar Instalación', 'verificarInstalacion')
-      .addSeparator()
-      // Captación
-      .addItem('📥 Importar Captación Ahora', 'importarHojasCaptacionSilencioso')
-      .addItem('📜 Importar Históricos 2024-2026', 'importarFormularioInteresHistorico')
-      .addItem('✅ Activar auto-captación (10 min)', 'instalarAutoImportCaptacion')
-      .addItem('🛑 Desactivar auto-captación', 'desactivarAutoImportCaptacion')
-      .addSeparator()
-      // Bienestar
-      .addItem('🆘 Verificar Alertas Bienestar', 'verificarAlertasRapido')
-      .addItem('⚡ Importar Bienestar Ahora', 'importarDatosAutomatico')
-      .addSeparator()
-      // Configuración emails
-      .addItem('📧 Configurar Email Director', 'configurarEmail')
-      .addItem('👥 Configurar Emails Terapeutas', 'configurarEmailsTerapeutas')
-      .addItem('🧪 Probar Emails Terapeutas', 'probarEmailsTerapeutas')
-      .addItem('✉️ Probar Email Director', 'probarEmail')
-      .addSeparator()
-      // Triggers
-      .addItem('⏰ Instalar Triggers de Tiempo', 'instalarTriggerTiempo')
-      .addItem('✏️ Instalar Trigger onEdit', 'instalarTriggerOnEdit')
-      .addItem('📅 Activar Auto-Guardado Mensual', 'instalarTriggerAutoReporteMensual')
-      .addItem('🛑 Desactivar Auto-Guardado Mensual', 'desactivarAutoReporteMensual')
-      .addItem('🔄 Reinstalar Hoja en Vivo (Automatizado)', 'crearHojaReporteMensualAutomatizado')
-      .addSeparator()
-      // Mantenimiento
+    // ── Submenú: Mantenimiento y reparación ──
+    const menuMantenimiento = ui.createMenu('🔧 Mantenimiento')
       .addItem('🔧 Reparación Completa', 'reparacionCompleta')
       .addItem('📊 Actualizar Headers Reportes Mensuales', 'actualizarHeadersReportesMensuales')
+      .addSeparator()
       .addItem('🔄 Resetear Sesiones Mes Anterior', 'resetearSesionesMesAnterior')
       .addItem('🧹 Limpiar Asistencias e Inasistencias', 'limpiarAsistenciasEInasistencias')
       .addSeparator()
+      .addItem('🔴 Instalación Completa', 'instalacionCompleta')
+      .addItem('✅ Verificar Instalación', 'verificarInstalacion')
+      .addSeparator()
       .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos');
 
-    // ── Menú principal simplificado ──
+    // ── Menú principal ──
     ui.createMenu('🏥 Apoyo Emocional')
       .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodo')
       .addSubMenu(menuReimportar)
@@ -96,8 +100,11 @@ function onOpen() {
       .addItem('📊 Ver Reporte Mensual Automatizado', 'crearHojaReporteMensualAutomatizado')
       .addItem('🗂️ Pasar Reporte al Historial', 'pasarReporteAlHistorial')
       .addSeparator()
+      .addSubMenu(menuImportacion)
+      .addSubMenu(menuEmails)
+      .addSubMenu(menuAutomatizacion)
       .addSubMenu(menuValidacion)
-      .addSubMenu(menuAvanzado)
+      .addSubMenu(menuMantenimiento)
       .addToUi();
 
     // Ejecutar mantenimiento automático al abrir
