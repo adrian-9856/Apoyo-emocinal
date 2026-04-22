@@ -75,6 +75,7 @@ function onOpen() {
       .addItem('✏️ Instalar Trigger onEdit', 'instalarTriggerOnEdit')
       .addItem('📅 Activar Auto-Guardado Mensual', 'instalarTriggerAutoReporteMensual')
       .addItem('🛑 Desactivar Auto-Guardado Mensual', 'desactivarAutoReporteMensual')
+      .addItem('🔄 Reinstalar Hoja en Vivo (Automatizado)', 'crearHojaReporteMensualAutomatizado')
       .addSeparator()
       // Mantenimiento / diagnóstico
       .addItem('🔤 Reparar Nombres de Hojas', 'repararNombresHojasConAviso')
@@ -100,6 +101,9 @@ function onOpen() {
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
       .addItem('📅 Guardar Reporte de Mes Anterior', 'guardarReporteMesEspecifico')
       .addItem('📅 Generar Reporte Marzo 2026', 'generarReporteMarzo2026')
+      .addSeparator()
+      .addItem('📊 Ver Reporte Mensual Automatizado', 'crearHojaReporteMensualAutomatizado')
+      .addItem('🗂️ Pasar Reporte al Historial', 'pasarReporteAlHistorial')
       .addSeparator()
       .addSubMenu(menuValidacion)
       .addSubMenu(menuAvanzado)
@@ -3772,115 +3776,52 @@ function guardarReporteMesEspecifico() {
 }
 
 /**
- * Auto-actualiza la fila del mes actual en Reportes Mensuales.
- * Se ejecuta diariamente vía trigger.
+ * Actualización automática diaria (trigger 8:00 AM).
  *
- * Lógica de gracia de 3 días:
- *   - Días 1-3 del mes → actualiza el MES ANTERIOR por última vez
- *   - Resto del mes → actualiza el MES ACTUAL
+ * Siempre escribe en "Reporte Mensual Automatizado" (hoja en vivo, fila 2)
+ * con los datos del MES ACTUAL según las fórmulas del Reporte.
  *
- * Siempre hace upsert (actualiza si existe, crea si no existe).
- * NO resetea sesiones (eso es solo al guardar manualmente al cierre).
+ * Período de gracia días 1-3:
+ *   - Envía email de aviso al director/a para que verifiquen y cierren
+ *     el mes anterior antes de que se congele.
+ *   - NO toca "Reportes Mensuales"; el cierre es siempre manual.
  */
 function autoActualizarReporteMensual() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const reporte = ss.getSheetByName('Reporte');
-    const mensuales = ss.getSheetByName('Reportes Mensuales');
-    if (!reporte || !mensuales) return;
+    if (!reporte) return;
 
     const hoy = new Date();
     const dia = hoy.getDate();
+    const mesActualLabel = Utilities.formatDate(
+      new Date(hoy.getFullYear(), hoy.getMonth(), 1),
+      Session.getScriptTimeZone(), 'MMMM yyyy'
+    );
 
-    // Determinar mes objetivo según período de gracia
-    let fechaTarget;
-    if (dia <= 3) {
-      // Gracia: actualizar mes anterior (últimos días para registros tardíos)
-      fechaTarget = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
-    } else {
-      // Normal: actualizar mes en curso
-      fechaTarget = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    }
-    const mesLabel = Utilities.formatDate(fechaTarget, Session.getScriptTimeZone(), 'MMMM yyyy');
+    // ── 1. Leer datos del Reporte actual ──
+    const fila = _leerDatosReporte_(reporte, mesActualLabel);
 
-    // ── Leer datos del Reporte (igual que guardarReporteMensual) ──
-    const nuevosIngresosTotal   = reporte.getRange('B5').getValue();
-    const nuevosIngresosMes     = reporte.getRange('C5').getValue();
-    const noAsistidasTotal      = reporte.getRange('B8').getValue();
-    const noAsistidasMes        = reporte.getRange('C8').getValue();
-    const derivacionesTotal     = reporte.getRange('B11').getValue();
-    const derivacionesMes       = reporte.getRange('C11').getValue();
-    const formulariosTotal      = reporte.getRange('B14').getValue();
-    const alertasSuicidio       = reporte.getRange('C14').getValue();
-    const activosGerber         = reporte.getRange('B17').getValue();
-    const sesionesGerber        = reporte.getRange('C17').getValue();
-    const inasistenciasGerber   = reporte.getRange('D17').getValue();
-    const activosMelissa        = reporte.getRange('B18').getValue();
-    const sesionesMelissa       = reporte.getRange('C18').getValue();
-    const inasistenciasMelissa  = reporte.getRange('D18').getValue();
-    const activosDiana          = reporte.getRange('B19').getValue();
-    const sesionesDiana         = reporte.getRange('C19').getValue();
-    const inasistenciasDiana    = reporte.getRange('D19').getValue();
-    const activosKarina         = reporte.getRange('B20').getValue();
-    const sesionesKarina        = reporte.getRange('C20').getValue();
-    const inasistenciasKarina   = reporte.getRange('D20').getValue();
-    const totalActivos          = reporte.getRange('B21').getValue();
-    const totalSesiones         = reporte.getRange('C21').getValue();
-    const totalInasistencias    = reporte.getRange('D21').getValue();
-    const culminadosTotal       = reporte.getRange('B24').getValue();
-    const culminadosMes         = reporte.getRange('C24').getValue();
-    const tasaCulminacion       = reporte.getRange('E24').getValue();
-    const retiradxTotal         = reporte.getRange('B27').getValue();
-    const retiradxMes           = reporte.getRange('C27').getValue();
-    const tasaRetiro            = reporte.getRange('E27').getValue();
-    const casosIntervencion     = reporte.getRange('B30').getValue();
-    const totalProcesados       = reporte.getRange('B33').getValue();
-    const tasaExito             = reporte.getRange('B34').getValue();
-    const casosActivosTotales   = reporte.getRange('B35').getValue();
-    const hojaInteresTotal      = reporte.getRange('B38').getValue();
-    const hojaInteresMes        = reporte.getRange('C38').getValue();
-    const referenciasTotal      = reporte.getRange('B39').getValue();
-    const referenciasMes        = reporte.getRange('C39').getValue();
-    const derivInstRecibTotal   = reporte.getRange('B40').getValue();
-    const derivInstRecibMes     = reporte.getRange('C40').getValue();
-
-    const fila = [
-      mesLabel,
-      nuevosIngresosTotal, nuevosIngresosMes,
-      noAsistidasTotal, noAsistidasMes,
-      derivacionesTotal, derivacionesMes,
-      formulariosTotal, alertasSuicidio,
-      activosGerber, sesionesGerber, inasistenciasGerber,
-      activosMelissa, sesionesMelissa, inasistenciasMelissa,
-      activosDiana, sesionesDiana, inasistenciasDiana,
-      activosKarina, sesionesKarina, inasistenciasKarina,
-      totalActivos, totalSesiones, totalInasistencias,
-      culminadosTotal, culminadosMes, tasaCulminacion,
-      retiradxTotal, retiradxMes, tasaRetiro,
-      casosIntervencion,
-      totalProcesados, tasaExito, casosActivosTotales,
-      hojaInteresTotal, hojaInteresMes,
-      referenciasTotal, referenciasMes,
-      derivInstRecibTotal, derivInstRecibMes,
-      new Date()
-    ];
-
-    // ── Upsert: buscar fila existente para este mes ──
-    const datosActuales = mensuales.getDataRange().getValues();
-    let filaExistente = -1;
-    for (let i = 1; i < datosActuales.length; i++) {
-      if (String(datosActuales[i][0]).toLowerCase() === mesLabel.toLowerCase()) {
-        filaExistente = i + 1;
-        break;
+    // ── 2. Actualizar hoja en vivo ──
+    let liveSheet = ss.getSheetByName('Reporte Mensual Automatizado');
+    if (!liveSheet) liveSheet = crearHojaReporteMensualAutomatizado();
+    if (liveSheet) {
+      if (liveSheet.getLastRow() < 2) {
+        liveSheet.appendRow(fila);
+      } else {
+        liveSheet.getRange(2, 1, 1, fila.length).setValues([fila]);
       }
+      Logger.log('Reporte en vivo actualizado: ' + mesActualLabel);
     }
 
-    if (filaExistente > 0) {
-      mensuales.getRange(filaExistente, 1, 1, fila.length).setValues([fila]);
-      Logger.log('Auto-reporte: fila actualizada para ' + mesLabel + ' (fila ' + filaExistente + ')');
-    } else {
-      mensuales.appendRow(fila);
-      Logger.log('Auto-reporte: fila nueva creada para ' + mesLabel);
+    // ── 3. Período de gracia: email de aviso ──
+    if (dia >= 1 && dia <= 3) {
+      const mesAnteriorLabel = Utilities.formatDate(
+        new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1),
+        Session.getScriptTimeZone(), 'MMMM yyyy'
+      );
+      const diasRestantes = 4 - dia; // días antes de que se cierre la gracia
+      _enviarEmailGraciaMensual_(mesAnteriorLabel, diasRestantes);
     }
 
   } catch (e) {
@@ -3923,6 +3864,307 @@ function desactivarAutoReporteMensual() {
       : '⚠️ No había trigger activo de auto-guardado.',
     'Auto-Reporte', 4
   );
+}
+
+// =====================================================================
+// REPORTE MENSUAL AUTOMATIZADO — hoja en vivo + historial manual
+// =====================================================================
+
+const HEADERS_REPORTE_AUTO = [
+  'Mes',
+  'Nuevos Ingresos (Total)', 'Nuevos Ingresos (Mes)',
+  'No Asistidas (Total)', 'No Asistidas (Mes)',
+  'Derivaciones (Total)', 'Derivaciones (Mes)',
+  'Formularios Total', 'Alertas Suicidio',
+  'Activos Gerber', 'Sesiones Gerber', 'Inasistencias Gerber',
+  'Activos Melissa', 'Sesiones Melissa', 'Inasistencias Melissa',
+  'Activos Diana', 'Sesiones Diana', 'Inasistencias Diana',
+  'Activos Karina', 'Sesiones Karina', 'Inasistencias Karina',
+  'Total Activos', 'Total Sesiones', 'Total Inasistencias',
+  'Culminados (Total)', 'Culminados (Mes)', '% Culminación',
+  'Retiradx (Total)', 'Retiradx (Mes)', '% Retiro',
+  'Casos Intervención', 'Total Procesados', '% Éxito', 'Activos Acumulados',
+  'Hoja Interés (Total)', 'Hoja Interés (Mes)',
+  'Referencias (Total)', 'Referencias (Mes)',
+  'Deriv. Inst. (Total)', 'Deriv. Inst. (Mes)',
+  'Última Actualización'
+];
+
+/** Lee las 41 celdas del Reporte y devuelve la fila lista para escribir. */
+function _leerDatosReporte_(reporte, mesLabel) {
+  return [
+    mesLabel,
+    reporte.getRange('B5').getValue(),   // nuevosIngresosTotal
+    reporte.getRange('C5').getValue(),   // nuevosIngresosMes
+    reporte.getRange('B8').getValue(),   // noAsistidasTotal
+    reporte.getRange('C8').getValue(),   // noAsistidasMes
+    reporte.getRange('B11').getValue(),  // derivacionesTotal
+    reporte.getRange('C11').getValue(),  // derivacionesMes
+    reporte.getRange('B14').getValue(),  // formulariosTotal
+    reporte.getRange('C14').getValue(),  // alertasSuicidio
+    reporte.getRange('B17').getValue(),  // activosGerber
+    reporte.getRange('C17').getValue(),  // sesionesGerber
+    reporte.getRange('D17').getValue(),  // inasistenciasGerber
+    reporte.getRange('B18').getValue(),  // activosMelissa
+    reporte.getRange('C18').getValue(),  // sesionesMelissa
+    reporte.getRange('D18').getValue(),  // inasistenciasMelissa
+    reporte.getRange('B19').getValue(),  // activosDiana
+    reporte.getRange('C19').getValue(),  // sesionesDiana
+    reporte.getRange('D19').getValue(),  // inasistenciasDiana
+    reporte.getRange('B20').getValue(),  // activosKarina
+    reporte.getRange('C20').getValue(),  // sesionesKarina
+    reporte.getRange('D20').getValue(),  // inasistenciasKarina
+    reporte.getRange('B21').getValue(),  // totalActivos
+    reporte.getRange('C21').getValue(),  // totalSesiones
+    reporte.getRange('D21').getValue(),  // totalInasistencias
+    reporte.getRange('B24').getValue(),  // culminadosTotal
+    reporte.getRange('C24').getValue(),  // culminadosMes
+    reporte.getRange('E24').getValue(),  // tasaCulminacion
+    reporte.getRange('B27').getValue(),  // retiradxTotal
+    reporte.getRange('C27').getValue(),  // retiradxMes
+    reporte.getRange('E27').getValue(),  // tasaRetiro
+    reporte.getRange('B30').getValue(),  // casosIntervencion
+    reporte.getRange('B33').getValue(),  // totalProcesados
+    reporte.getRange('B34').getValue(),  // tasaExito
+    reporte.getRange('B35').getValue(),  // casosActivosTotales
+    reporte.getRange('B38').getValue(),  // hojaInteresTotal
+    reporte.getRange('C38').getValue(),  // hojaInteresMes
+    reporte.getRange('B39').getValue(),  // referenciasTotal
+    reporte.getRange('C39').getValue(),  // referenciasMes
+    reporte.getRange('B40').getValue(),  // derivInstRecibTotal
+    reporte.getRange('C40').getValue(),  // derivInstRecibMes
+    new Date()
+  ];
+}
+
+/**
+ * Crea (o recrea) la hoja "Reporte Mensual Automatizado".
+ * Row 1: encabezados en negrita con fondo azul oscuro.
+ * Row 2: datos del mes actual — se sobreescribe diariamente.
+ * Devuelve la hoja.
+ */
+function crearHojaReporteMensualAutomatizado() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const NOMBRE = 'Reporte Mensual Automatizado';
+
+  // Si ya existe, solo nos aseguramos de que tenga los headers correctos
+  let sheet = ss.getSheetByName(NOMBRE);
+  if (!sheet) {
+    sheet = ss.insertSheet(NOMBRE);
+  }
+
+  // Encabezados
+  const ncols = HEADERS_REPORTE_AUTO.length;
+  sheet.clearContents();
+  sheet.clearFormats();
+
+  const headerRange = sheet.getRange(1, 1, 1, ncols);
+  headerRange.setValues([HEADERS_REPORTE_AUTO]);
+  headerRange.setFontWeight('bold')
+    .setBackground('#1a237e')
+    .setFontColor('#ffffff')
+    .setWrap(true);
+
+  // Etiqueta EN VIVO en A1 con estilo llamativo
+  sheet.getRange('A1').setValue('📊 Mes (EN VIVO)');
+
+  // Ancho de columnas
+  sheet.setColumnWidth(1, 160);
+  for (let c = 2; c <= ncols; c++) sheet.setColumnWidth(c, 120);
+  sheet.setFrozenRows(1);
+
+  // Rellenar fila 2 con datos actuales si hay hoja Reporte
+  const reporte = ss.getSheetByName('Reporte');
+  if (reporte) {
+    const hoy = new Date();
+    const mesLabel = Utilities.formatDate(
+      new Date(hoy.getFullYear(), hoy.getMonth(), 1),
+      Session.getScriptTimeZone(), 'MMMM yyyy'
+    );
+    const fila = _leerDatosReporte_(reporte, mesLabel);
+    sheet.getRange(2, 1, 1, fila.length).setValues([fila]);
+    sheet.getRange(2, 1, 1, ncols).setBackground('#e8eaf6');
+  }
+
+  // Banda de identificación visual en la hoja
+  sheet.getRange(1, 1, 1, 1)
+    .setNote('Esta hoja se actualiza automáticamente cada día a las 8:00 AM.\n' +
+             'Para congelar el mes en el historial usa: Menú → Pasar Reporte al Historial.');
+
+  ss.toast('Hoja "' + NOMBRE + '" lista.', 'Reporte Automatizado', 4);
+  return sheet;
+}
+
+/**
+ * Envía un email HTML al director/a durante los días de gracia (1-3 del mes).
+ * Avisa que el mes anterior está pendiente de revisión y cierre manual.
+ */
+function _enviarEmailGraciaMensual_(mesAnteriorLabel, diasRestantes) {
+  try {
+    const emailDir = PropertiesService.getDocumentProperties().getProperty('EMAIL_DIRECTOR')
+      || PropertiesService.getScriptProperties().getProperty('EMAIL_DIRECTORA');
+    if (!emailDir) {
+      Logger.log('Email de gracia: no hay dirección configurada (EMAIL_DIRECTOR / EMAIL_DIRECTORA).');
+      return;
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const url = ss.getUrl();
+    const diasTexto = diasRestantes === 1 ? '1 día' : diasRestantes + ' días';
+    const fechaCierre = Utilities.formatDate(
+      new Date(new Date().getFullYear(), new Date().getMonth(), 4),
+      Session.getScriptTimeZone(), 'dd/MM/yyyy'
+    );
+
+    const asunto = '⏰ [Apoyo Emocional] Cierre de ' + mesAnteriorLabel
+      + ' — quedan ' + diasTexto;
+
+    const cuerpo = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0; }
+  .header { background: #1a237e; color: #fff; padding: 20px 30px; }
+  .header h1 { margin: 0; font-size: 20px; }
+  .header p  { margin: 4px 0 0; font-size: 13px; opacity: .85; }
+  .content   { padding: 24px 30px; }
+  .alert-box { background: #fff3e0; border-left: 5px solid #ff6d00;
+               padding: 14px 18px; border-radius: 4px; margin-bottom: 20px; }
+  .alert-box strong { color: #e65100; font-size: 16px; }
+  .checklist { background: #f5f5f5; border-radius: 6px; padding: 16px 20px; margin-bottom: 20px; }
+  .checklist h3 { margin: 0 0 10px; color: #1a237e; font-size: 15px; }
+  .checklist li { margin: 6px 0; font-size: 14px; }
+  .btn { display: inline-block; background: #1a237e; color: #fff !important;
+         padding: 12px 28px; border-radius: 6px; text-decoration: none;
+         font-weight: bold; font-size: 15px; margin: 10px 0; }
+  .footer { background: #f5f5f5; padding: 14px 30px; font-size: 12px; color: #777; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>📊 Sistema de Apoyo Emocional</h1>
+  <p>Notificación automática — Cierre mensual</p>
+</div>
+<div class="content">
+
+  <div class="alert-box">
+    <strong>⏰ Quedan ${diasTexto} para cerrar el mes de ${mesAnteriorLabel}</strong><br>
+    El <strong>${fechaCierre}</strong> el sistema pasará automáticamente al nuevo mes.
+    Después de esa fecha el mes anterior ya no se podrá editar en el reporte vivo.
+  </div>
+
+  <p>Antes de que se cierre el período de gracia, por favor verifica que los siguientes
+  datos del mes de <strong>${mesAnteriorLabel}</strong> estén completos en el sistema:</p>
+
+  <div class="checklist">
+    <h3>✅ Lista de verificación — ${mesAnteriorLabel}</h3>
+    <ul>
+      <li>Todos los ingresos nuevos del mes registrados en <em>Hoja de interés</em></li>
+      <li>Asistencias e inasistencias de cada terapeuta actualizadas</li>
+      <li>Procesos culminados y retiradx del mes registrados</li>
+      <li>Casos en intervención al día</li>
+      <li>Derivaciones institucionales recibidas importadas desde KoboToolbox</li>
+      <li>Referencias de programas actualizadas</li>
+      <li>Alertas de bienestar y formularios verificados</li>
+    </ul>
+  </div>
+
+  <p>Una vez hayas verificado que todo está completo, congela el mes presionando el botón
+  <strong>"Pasar Reporte al Historial"</strong> en el menú del sistema:</p>
+
+  <a href="${url}" class="btn">📂 Abrir Sistema → Pasar al Historial</a>
+
+  <p style="margin-top:20px; color:#555; font-size:13px;">
+    Si los datos ya están completos y el mes fue cerrado, puedes ignorar este mensaje.<br>
+    El reporte mensual automatizado se actualiza cada día a las 8:00 AM.
+  </p>
+
+</div>
+<div class="footer">
+  Mensaje generado automáticamente por el Sistema de Apoyo Emocional.<br>
+  No respondas a este correo.
+</div>
+</body>
+</html>`;
+
+    GmailApp.sendEmail(emailDir, asunto, '', { htmlBody: cuerpo });
+    Logger.log('Email de gracia enviado a ' + emailDir + ' para ' + mesAnteriorLabel);
+
+  } catch (e) {
+    Logger.log('Error enviando email de gracia: ' + e.message);
+  }
+}
+
+/**
+ * Copia la fila actual de "Reporte Mensual Automatizado" al historial
+ * "Reportes Mensuales". Hace upsert: actualiza si el mes ya existe,
+ * agrega al final si no existe. Pide confirmación al usuario.
+ */
+function pasarReporteAlHistorial() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let ui;
+  try { ui = SpreadsheetApp.getUi(); } catch (e) { ui = null; }
+
+  try {
+    const liveSheet = ss.getSheetByName('Reporte Mensual Automatizado');
+    const mensuales = ss.getSheetByName('Reportes Mensuales');
+
+    if (!liveSheet || liveSheet.getLastRow() < 2) {
+      if (ui) ui.alert('⚠️ No hay datos en "Reporte Mensual Automatizado".\n' +
+        'Activa el auto-guardado mensual primero.');
+      return;
+    }
+    if (!mensuales) {
+      if (ui) ui.alert('⚠️ No se encontró la hoja "Reportes Mensuales".');
+      return;
+    }
+
+    const filaViva = liveSheet.getRange(2, 1, 1, HEADERS_REPORTE_AUTO.length).getValues()[0];
+    const mesLabel = filaViva[0] ? String(filaViva[0]) : '';
+    if (!mesLabel) {
+      if (ui) ui.alert('⚠️ La fila en vivo no tiene mes asignado. Actualiza primero.');
+      return;
+    }
+
+    // Confirmar con usuario
+    if (ui) {
+      const resp = ui.alert(
+        '🗂️ Pasar al Historial',
+        '¿Deseas guardar el reporte de "' + mesLabel + '" en Reportes Mensuales?\n\n' +
+        'Si ya existe una fila para ese mes, será reemplazada.\n' +
+        'Esta acción es manual — las sesiones NO se resetean.',
+        ui.ButtonSet.YES_NO
+      );
+      if (resp !== ui.Button.YES) return;
+    }
+
+    // Upsert en Reportes Mensuales
+    const datos = mensuales.getDataRange().getValues();
+    let filaExistente = -1;
+    for (let i = 1; i < datos.length; i++) {
+      if (String(datos[i][0]).toLowerCase() === mesLabel.toLowerCase()) {
+        filaExistente = i + 1;
+        break;
+      }
+    }
+
+    if (filaExistente > 0) {
+      mensuales.getRange(filaExistente, 1, 1, filaViva.length).setValues([filaViva]);
+      Logger.log('Historial: fila actualizada para ' + mesLabel + ' (fila ' + filaExistente + ')');
+    } else {
+      mensuales.appendRow(filaViva);
+      Logger.log('Historial: fila nueva para ' + mesLabel);
+    }
+
+    if (ui) ui.alert('✅ Reporte de "' + mesLabel + '" guardado en el historial correctamente.');
+    ss.toast('Historial actualizado: ' + mesLabel, 'Reporte Mensual', 5);
+
+  } catch (e) {
+    Logger.log('Error en pasarReporteAlHistorial: ' + e.message);
+    if (ui) ui.alert('❌ Error: ' + e.message);
+  }
 }
 
 /**
