@@ -77,19 +77,11 @@ function onOpen() {
       .addItem('🛑 Desactivar Auto-Guardado Mensual', 'desactivarAutoReporteMensual')
       .addItem('🔄 Reinstalar Hoja en Vivo (Automatizado)', 'crearHojaReporteMensualAutomatizado')
       .addSeparator()
-      // Mantenimiento / diagnóstico
-      .addItem('🔤 Reparar Nombres de Hojas', 'repararNombresHojasConAviso')
-      .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
-      .addItem('🔧 Reparar Fórmulas Reporte', 'actualizarFormulasReporte')
+      // Mantenimiento
+      .addItem('🔧 Reparación Completa', 'reparacionCompleta')
       .addItem('📊 Actualizar Headers Reportes Mensuales', 'actualizarHeadersReportesMensuales')
       .addItem('🔄 Resetear Sesiones Mes Anterior', 'resetearSesionesMesAnterior')
       .addItem('🧹 Limpiar Asistencias e Inasistencias', 'limpiarAsistenciasEInasistencias')
-      .addItem('🔍 Diagnóstico CSV Hoja de interés', 'diagnosticarFormularioInteres')
-      .addItem('📋 Mostrar todas las columnas CSV', 'mostrarColumnasCSVInteres')
-      .addItem('📋 Mostrar columnas CSV Histórico', 'mostrarColumnasCSVHistorico')
-      .addItem('🔬 Ver valores Terapia Individual', 'mostrarValoresTerapiaIndividual')
-      .addItem('🔍 Diagnóstico CSV Referencias y Derivaciones', 'diagnosticarReferenciasYDerivaciones')
-      .addItem('📦 Migrar datos antiguos a Hoja de interés', 'migrarDatosAntiguosInteres')
       .addSeparator()
       .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos');
 
@@ -99,8 +91,7 @@ function onOpen() {
       .addSubMenu(menuReimportar)
       .addSeparator()
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
-      .addItem('📅 Guardar Reporte de Mes Anterior', 'guardarReporteMesEspecifico')
-      .addItem('📅 Generar Reporte Marzo 2026', 'generarReporteMarzo2026')
+      .addItem('📅 Guardar Reporte de Mes Específico', 'guardarReporteMesEspecifico')
       .addSeparator()
       .addItem('📊 Ver Reporte Mensual Automatizado', 'crearHojaReporteMensualAutomatizado')
       .addItem('🗂️ Pasar Reporte al Historial', 'pasarReporteAlHistorial')
@@ -4210,8 +4201,52 @@ function actualizarSesionesMesAnterior() {
 }
 
 // =====================================================================
-// FUNCIÓN DE REPARACIÓN
+// FUNCIONES DE REPARACIÓN
 // =====================================================================
+
+/**
+ * Reparación completa del sistema: nombres de hojas, validaciones,
+ * fórmulas del reporte. Consolida las 3 reparaciones individuales.
+ */
+function reparacionCompleta() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  try {
+    ss.toast('🔧 Ejecutando reparación completa...', 'Reparación', 3);
+
+    // 1. Reparar nombres de hojas
+    try {
+      repararNombresHojas();
+      Logger.log('✅ Paso 1/3: Nombres de hojas reparados');
+    } catch (e) { Logger.log('⚠️ Paso 1/3 (nombres): ' + e.message); }
+
+    // 2. Reparar validaciones (limpia y reconfigura)
+    repararValidaciones();
+    Logger.log('✅ Paso 2/3: Validaciones reparadas');
+
+    // 3. Actualizar fórmulas del reporte
+    try {
+      actualizarFormulasReporte();
+      Logger.log('✅ Paso 3/3: Fórmulas actualizadas');
+    } catch (e) { Logger.log('⚠️ Paso 3/3 (fórmulas): ' + e.message); }
+
+    try {
+      SpreadsheetApp.getUi().alert(
+        '✅ Reparación Completa',
+        'Se ejecutaron las siguientes reparaciones:\n\n' +
+        '1. Nombres de hojas corregidos\n' +
+        '2. Validaciones limpiadas y reconfiguradas\n' +
+        '3. Fórmulas del reporte actualizadas\n\n' +
+        'Revisa que todo funcione correctamente.',
+        SpreadsheetApp.getUi().ButtonSet.OK
+      );
+    } catch (e) {
+      ss.toast('✅ Reparación completa finalizada', 'Listo', 5);
+    }
+  } catch (e) {
+    Logger.log('Error en reparacionCompleta: ' + e.message);
+    try { SpreadsheetApp.getUi().alert('❌ Error: ' + e.message); } catch (e2) {}
+  }
+}
 
 function repararValidaciones() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();

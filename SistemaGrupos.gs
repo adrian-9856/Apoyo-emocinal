@@ -95,6 +95,9 @@ function onOpen() {
       .addItem('⚙️ Configurar URL Kobo', 'configurarKoboURLAE')
       .addSeparator()
       .addItem('⏱️ Configurar Auto-Actualización (1 min)', 'gestionarActivadoresAEToggle'))
+    .addSeparator()
+    .addItem('📊 Ver Reporte Mensual Automatizado', 'crearHojaReporteMensualAutomatizadoAE')
+    .addItem('🗂️ Pasar Reporte al Historial', 'pasarReporteAlHistorialAE')
     .addSubMenu(ui.createMenu('🛠️ Herramientas')
       .addItem('🔍 Buscar ID (Fantasma)', 'buscarIDFantasmaAE')
       .addItem('🪄 Auto-completar Datos', 'autoCompletarDatosAE')
@@ -102,7 +105,8 @@ function onOpen() {
       .addItem('🛠️ Reparar Resumen de Grupos', 'repararResumenGruposAE')
       .addItem('🔄 Reinstalar Resumen de Grupos', 'reinstalarResumenGruposAE')
       .addItem('🔄 Reinstalar Derivaciones Institucionales', 'reinstalarDerivacionesAE')
-      .addItem('🩺 Probar Conexión Kobo (DEBUG)', 'diagnosticoKoboAE')
+      .addItem('📅 Activar Auto-Guardado Mensual', 'instalarTriggerAutoReporteMensualAE')
+      .addItem('🛑 Desactivar Auto-Guardado Mensual', 'desactivarAutoReporteMensualAE')
       .addItem('🧹 Limpiar Memoria Técnica', 'limpiarPropiedadesSistemaAE'))
     .addToUi();
 }
@@ -1934,7 +1938,9 @@ function ejecutarImportacionAutomaticaAE() {
 
 function eliminarActivadoresAE() {
   ScriptApp.getProjectTriggers().forEach(t => {
-    ScriptApp.deleteTrigger(t);
+    if (t.getHandlerFunction() === 'importarTodoAE') {
+      ScriptApp.deleteTrigger(t);
+    }
   });
 }
 
@@ -1998,4 +2004,318 @@ function eliminarDuplicadosManualAE() {
 
 function rescatarDatosInteresAE() {
   toastSafeAE('Iniciando rescate de datos.');
+}
+
+// =====================================================================
+// REPORTE MENSUAL AUTOMATIZADO — GRUPOS
+// =====================================================================
+
+const HEADERS_REPORTE_GRUPOS = [
+  'Mes',
+  'Grupos Activos', 'Total Participantes',
+  'Referencias (Total)', 'Referencias (Mes)',
+  'Deriv. Inst. (Total)', 'Deriv. Inst. (Mes)',
+  'Hoja Interés (Total)', 'Hoja Interés (Mes)',
+  'Graduadx (Total)', 'Graduadx (Mes)',
+  'Retiradx (Total)', 'Retiradx (Mes)',
+  'Total Sesiones',
+  'Última Actualización'
+];
+
+/** Cuenta registros cuya columna de fecha cae dentro del rango [inicio, fin]. */
+function _contarEnRangoAE_(hoja, colFecha, inicio, fin) {
+  if (!hoja || hoja.getLastRow() < 2) return { total: 0, mes: 0 };
+  const total = hoja.getLastRow() - 1;
+  let mes = 0;
+  const datos = hoja.getRange(2, colFecha, total, 1).getValues();
+  datos.forEach(function(f) {
+    const d = f[0];
+    if (d instanceof Date && d >= inicio && d <= fin) mes++;
+  });
+  return { total: total, mes: mes };
+}
+
+/** Lee todas las métricas del sistema de grupos y devuelve la fila lista. */
+function _leerDatosReporteGrupos_(ss, mesLabel) {
+  const hoy = new Date();
+  const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0, 23, 59, 59);
+
+  // Resumen de Grupos → grupos activos, participantes, sesiones
+  const resumen = ss.getSheetByName('Resumen de Grupos');
+  let gruposActivos = 0, totalParticipantes = 0, totalSesiones = 0;
+  if (resumen && resumen.getLastRow() > 1) {
+    const datosR = resumen.getRange(2, 1, resumen.getLastRow() - 1, 11).getValues();
+    datosR.forEach(function(row) {
+      const estado = String(row[8] || '').toLowerCase();
+      if (estado === 'activo') {
+        gruposActivos++;
+        totalParticipantes += parseInt(row[4]) || 0;  // col E: Inscritos
+        totalSesiones += parseInt(row[3]) || 0;        // col D: Sesiones
+      }
+    });
+  }
+
+  // Captación
+  const refs = _contarEnRangoAE_(ss.getSheetByName('Referencias a grupos'), 1, primerDia, ultimoDia);
+  const deriv = _contarEnRangoAE_(ss.getSheetByName('Derivaciones_Institucionales'), 1, primerDia, ultimoDia);
+  const interes = _contarEnRangoAE_(ss.getSheetByName('Hoja de Interés'), 1, primerDia, ultimoDia);
+
+  // Resultados
+  const grad = _contarEnRangoAE_(ss.getSheetByName('Graduadx'), 1, primerDia, ultimoDia);
+  const ret = _contarEnRangoAE_(ss.getSheetByName('Retiradx'), 1, primerDia, ultimoDia);
+
+  return [
+    mesLabel,
+    gruposActivos, totalParticipantes,
+    refs.total, refs.mes,
+    deriv.total, deriv.mes,
+    interes.total, interes.mes,
+    grad.total, grad.mes,
+    ret.total, ret.mes,
+    totalSesiones,
+    new Date()
+  ];
+}
+
+/**
+ * Crea (o recrea) la hoja "Reporte Mensual Automatizado" para Grupos.
+ * Row 1: encabezados. Row 2: datos en vivo del mes actual.
+ */
+function crearHojaReporteMensualAutomatizadoAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const NOMBRE = 'Reporte Mensual Automatizado';
+
+  let sheet = ss.getSheetByName(NOMBRE);
+  if (!sheet) sheet = ss.insertSheet(NOMBRE);
+
+  const ncols = HEADERS_REPORTE_GRUPOS.length;
+  sheet.clearContents();
+  sheet.clearFormats();
+
+  const headerRange = sheet.getRange(1, 1, 1, ncols);
+  headerRange.setValues([HEADERS_REPORTE_GRUPOS]);
+  headerRange.setFontWeight('bold')
+    .setBackground('#1a237e')
+    .setFontColor('#ffffff')
+    .setWrap(true);
+
+  sheet.getRange('A1').setValue('Mes (EN VIVO)');
+  sheet.setColumnWidth(1, 160);
+  for (let c = 2; c <= ncols; c++) sheet.setColumnWidth(c, 130);
+  sheet.setFrozenRows(1);
+
+  // Rellenar con datos actuales
+  const hoy = new Date();
+  const mesLabel = Utilities.formatDate(
+    new Date(hoy.getFullYear(), hoy.getMonth(), 1),
+    Session.getScriptTimeZone(), 'MMMM yyyy'
+  );
+  const fila = _leerDatosReporteGrupos_(ss, mesLabel);
+  sheet.getRange(2, 1, 1, fila.length).setValues([fila]);
+  sheet.getRange(2, 1, 1, ncols).setBackground('#e8eaf6');
+
+  sheet.getRange(1, 1, 1, 1)
+    .setNote('Se actualiza automáticamente cada día a las 8:00 AM.\n' +
+             'Para congelar el mes: Menú → Pasar Reporte al Historial.');
+
+  toastSafeAE('Hoja "' + NOMBRE + '" lista.');
+  return sheet;
+}
+
+/**
+ * Actualización automática diaria (trigger 8:00 AM) — GRUPOS.
+ * Escribe en "Reporte Mensual Automatizado" y envía email de gracia días 1-3.
+ */
+function autoActualizarReporteMensualAE() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const hoy = new Date();
+    const dia = hoy.getDate();
+    const mesActualLabel = Utilities.formatDate(
+      new Date(hoy.getFullYear(), hoy.getMonth(), 1),
+      Session.getScriptTimeZone(), 'MMMM yyyy'
+    );
+
+    const fila = _leerDatosReporteGrupos_(ss, mesActualLabel);
+
+    let liveSheet = ss.getSheetByName('Reporte Mensual Automatizado');
+    if (!liveSheet) liveSheet = crearHojaReporteMensualAutomatizadoAE();
+    if (liveSheet) {
+      if (liveSheet.getLastRow() < 2) {
+        liveSheet.appendRow(fila);
+      } else {
+        liveSheet.getRange(2, 1, 1, fila.length).setValues([fila]);
+      }
+      Logger.log('Reporte grupos en vivo actualizado: ' + mesActualLabel);
+    }
+
+    if (dia >= 1 && dia <= 3) {
+      const mesAnteriorLabel = Utilities.formatDate(
+        new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1),
+        Session.getScriptTimeZone(), 'MMMM yyyy'
+      );
+      _enviarEmailGraciaMensualAE_(mesAnteriorLabel, 4 - dia);
+    }
+
+  } catch (e) {
+    Logger.log('Error en autoActualizarReporteMensualAE: ' + e.message);
+  }
+}
+
+/** Email de gracia para grupos — avisa que el mes anterior se va a congelar. */
+function _enviarEmailGraciaMensualAE_(mesAnteriorLabel, diasRestantes) {
+  try {
+    const emailDir = PropertiesService.getDocumentProperties().getProperty('EMAIL_DIRECTOR')
+      || PropertiesService.getScriptProperties().getProperty('EMAIL_DIRECTORA');
+    if (!emailDir) {
+      Logger.log('Email de gracia (grupos): no hay dirección configurada.');
+      return;
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const url = ss.getUrl();
+    const diasTexto = diasRestantes === 1 ? '1 día' : diasRestantes + ' días';
+    const fechaCierre = Utilities.formatDate(
+      new Date(new Date().getFullYear(), new Date().getMonth(), 4),
+      Session.getScriptTimeZone(), 'dd/MM/yyyy'
+    );
+
+    const asunto = '[Grupos] Cierre de ' + mesAnteriorLabel + ' — quedan ' + diasTexto;
+
+    const cuerpo = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+      '<style>' +
+      'body{font-family:Arial,sans-serif;color:#333;margin:0;padding:0}' +
+      '.header{background:#1a237e;color:#fff;padding:20px 30px}' +
+      '.header h1{margin:0;font-size:20px}' +
+      '.content{padding:24px 30px}' +
+      '.alert-box{background:#fff3e0;border-left:5px solid #ff6d00;padding:14px 18px;border-radius:4px;margin-bottom:20px}' +
+      '.alert-box strong{color:#e65100;font-size:16px}' +
+      '.checklist{background:#f5f5f5;border-radius:6px;padding:16px 20px;margin-bottom:20px}' +
+      '.checklist h3{margin:0 0 10px;color:#1a237e;font-size:15px}' +
+      '.checklist li{margin:6px 0;font-size:14px}' +
+      '.btn{display:inline-block;background:#1a237e;color:#fff !important;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:15px;margin:10px 0}' +
+      '.footer{background:#f5f5f5;padding:14px 30px;font-size:12px;color:#777}' +
+      '</style></head><body>' +
+      '<div class="header"><h1>Apoyo Emocional — Sistema de Grupos</h1>' +
+      '<p>Notificación automática — Cierre mensual de grupos</p></div>' +
+      '<div class="content">' +
+      '<div class="alert-box"><strong>Quedan ' + diasTexto + ' para cerrar el mes de ' + mesAnteriorLabel + '</strong><br>' +
+      'El <strong>' + fechaCierre + '</strong> el sistema pasará al nuevo mes.</div>' +
+      '<p>Antes del cierre, por favor verifica que los datos del mes de <strong>' + mesAnteriorLabel + '</strong> estén completos:</p>' +
+      '<div class="checklist"><h3>Lista de verificación — ' + mesAnteriorLabel + '</h3><ul>' +
+      '<li>Asistencias de cada grupo registradas</li>' +
+      '<li>Graduadx del mes ingresados</li>' +
+      '<li>Retiradx del mes ingresados</li>' +
+      '<li>Derivaciones institucionales importadas desde KoboToolbox</li>' +
+      '<li>Referencias a grupos actualizadas</li>' +
+      '<li>Notas de sesión registradas para cada grupo</li>' +
+      '</ul></div>' +
+      '<p>Una vez verificado, congela el mes con <strong>"Pasar Reporte al Historial"</strong>:</p>' +
+      '<a href="' + url + '" class="btn">Abrir Sistema de Grupos</a>' +
+      '<p style="margin-top:20px;color:#555;font-size:13px;">' +
+      'Si los datos ya están completos, puedes ignorar este mensaje.</p>' +
+      '</div><div class="footer">Mensaje generado automáticamente. No respondas a este correo.</div>' +
+      '</body></html>';
+
+    GmailApp.sendEmail(emailDir, asunto, '', { htmlBody: cuerpo });
+    Logger.log('Email de gracia (grupos) enviado a ' + emailDir);
+
+  } catch (e) {
+    Logger.log('Error enviando email de gracia (grupos): ' + e.message);
+  }
+}
+
+/**
+ * Copia la fila actual de "Reporte Mensual Automatizado" al historial
+ * "Reportes Mensuales". Upsert con confirmación.
+ */
+function pasarReporteAlHistorialAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let ui;
+  try { ui = SpreadsheetApp.getUi(); } catch (e) { ui = null; }
+
+  try {
+    const liveSheet = ss.getSheetByName('Reporte Mensual Automatizado');
+    if (!liveSheet || liveSheet.getLastRow() < 2) {
+      if (ui) ui.alert('No hay datos en "Reporte Mensual Automatizado".\nActiva el auto-guardado primero.');
+      return;
+    }
+
+    // Crear hoja de historial si no existe
+    let mensuales = ss.getSheetByName('Reportes Mensuales');
+    if (!mensuales) {
+      mensuales = ss.insertSheet('Reportes Mensuales');
+      mensuales.getRange(1, 1, 1, HEADERS_REPORTE_GRUPOS.length).setValues([HEADERS_REPORTE_GRUPOS]);
+      mensuales.getRange(1, 1, 1, HEADERS_REPORTE_GRUPOS.length)
+        .setFontWeight('bold').setBackground('#1a237e').setFontColor('#ffffff');
+      mensuales.setFrozenRows(1);
+    }
+
+    const ncols = HEADERS_REPORTE_GRUPOS.length;
+    const filaViva = liveSheet.getRange(2, 1, 1, ncols).getValues()[0];
+    const mesLabel = filaViva[0] ? String(filaViva[0]) : '';
+    if (!mesLabel) {
+      if (ui) ui.alert('La fila en vivo no tiene mes asignado.');
+      return;
+    }
+
+    if (ui) {
+      const resp = ui.alert(
+        'Pasar al Historial',
+        '¿Guardar el reporte de "' + mesLabel + '" en Reportes Mensuales?\n\n' +
+        'Si ya existe será reemplazado.',
+        ui.ButtonSet.YES_NO
+      );
+      if (resp !== ui.Button.YES) return;
+    }
+
+    // Upsert
+    const datos = mensuales.getDataRange().getValues();
+    let filaExistente = -1;
+    for (let i = 1; i < datos.length; i++) {
+      if (String(datos[i][0]).toLowerCase() === mesLabel.toLowerCase()) {
+        filaExistente = i + 1;
+        break;
+      }
+    }
+
+    if (filaExistente > 0) {
+      mensuales.getRange(filaExistente, 1, 1, filaViva.length).setValues([filaViva]);
+    } else {
+      mensuales.appendRow(filaViva);
+    }
+
+    if (ui) ui.alert('Reporte de "' + mesLabel + '" guardado en el historial.');
+    toastSafeAE('Historial actualizado: ' + mesLabel);
+
+  } catch (e) {
+    Logger.log('Error en pasarReporteAlHistorialAE: ' + e.message);
+    if (ui) ui.alert('Error: ' + e.message);
+  }
+}
+
+function instalarTriggerAutoReporteMensualAE() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'autoActualizarReporteMensualAE') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  ScriptApp.newTrigger('autoActualizarReporteMensualAE')
+    .timeBased()
+    .atHour(8)
+    .everyDays(1)
+    .create();
+  toastSafeAE('Auto-guardado mensual de grupos activado (8:00 AM diario).');
+}
+
+function desactivarAutoReporteMensualAE() {
+  let borrados = 0;
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'autoActualizarReporteMensualAE') {
+      ScriptApp.deleteTrigger(t);
+      borrados++;
+    }
+  });
+  toastSafeAE(borrados > 0 ? 'Auto-guardado mensual desactivado.' : 'No había trigger activo.');
 }
