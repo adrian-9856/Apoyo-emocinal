@@ -73,6 +73,8 @@ function onOpen() {
       // Triggers
       .addItem('⏰ Instalar Triggers de Tiempo', 'instalarTriggerTiempo')
       .addItem('✏️ Instalar Trigger onEdit', 'instalarTriggerOnEdit')
+      .addItem('📅 Activar Auto-Guardado Mensual', 'instalarTriggerAutoReporteMensual')
+      .addItem('🛑 Desactivar Auto-Guardado Mensual', 'desactivarAutoReporteMensual')
       .addSeparator()
       // Mantenimiento / diagnóstico
       .addItem('🔤 Reparar Nombres de Hojas', 'repararNombresHojasConAviso')
@@ -3713,6 +3715,8 @@ function guardarReporteMesEspecifico() {
     const interes = contarEnRango(hojaInteres, 1, primerDia, ultimoDia);
     const hojaReferencias = ss.getSheetByName('Referencias de programas');
     const referencias = contarEnRango(hojaReferencias, 1, primerDia, ultimoDia);
+    const hojaDerivInst = ss.getSheetByName('Derivaciones Institucionales');
+    const derivInstRecib = contarEnRango(hojaDerivInst, 1, primerDia, ultimoDia);
 
     // Guardar en Reportes Mensuales (41 columnas)
     const nuevaFila = mensuales.getLastRow() + 1;
@@ -3733,7 +3737,7 @@ function guardarReporteMesEspecifico() {
       totalProcesados, tasaExito, totalActivos,
       interes.total, interes.mes,
       referencias.total, referencias.mes,
-      derivaciones.total, derivaciones.mes,
+      derivInstRecib.total, derivInstRecib.mes,
       new Date()
     ];
 
@@ -3765,6 +3769,160 @@ function guardarReporteMesEspecifico() {
     Logger.log('Error guardando reporte especifico: ' + error.toString());
     ui.alert('Error: ' + error.toString());
   }
+}
+
+/**
+ * Auto-actualiza la fila del mes actual en Reportes Mensuales.
+ * Se ejecuta diariamente vía trigger.
+ *
+ * Lógica de gracia de 3 días:
+ *   - Días 1-3 del mes → actualiza el MES ANTERIOR por última vez
+ *   - Resto del mes → actualiza el MES ACTUAL
+ *
+ * Siempre hace upsert (actualiza si existe, crea si no existe).
+ * NO resetea sesiones (eso es solo al guardar manualmente al cierre).
+ */
+function autoActualizarReporteMensual() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const reporte = ss.getSheetByName('Reporte');
+    const mensuales = ss.getSheetByName('Reportes Mensuales');
+    if (!reporte || !mensuales) return;
+
+    const hoy = new Date();
+    const dia = hoy.getDate();
+
+    // Determinar mes objetivo según período de gracia
+    let fechaTarget;
+    if (dia <= 3) {
+      // Gracia: actualizar mes anterior (últimos días para registros tardíos)
+      fechaTarget = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+    } else {
+      // Normal: actualizar mes en curso
+      fechaTarget = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    }
+    const mesLabel = Utilities.formatDate(fechaTarget, Session.getScriptTimeZone(), 'MMMM yyyy');
+
+    // ── Leer datos del Reporte (igual que guardarReporteMensual) ──
+    const nuevosIngresosTotal   = reporte.getRange('B5').getValue();
+    const nuevosIngresosMes     = reporte.getRange('C5').getValue();
+    const noAsistidasTotal      = reporte.getRange('B8').getValue();
+    const noAsistidasMes        = reporte.getRange('C8').getValue();
+    const derivacionesTotal     = reporte.getRange('B11').getValue();
+    const derivacionesMes       = reporte.getRange('C11').getValue();
+    const formulariosTotal      = reporte.getRange('B14').getValue();
+    const alertasSuicidio       = reporte.getRange('C14').getValue();
+    const activosGerber         = reporte.getRange('B17').getValue();
+    const sesionesGerber        = reporte.getRange('C17').getValue();
+    const inasistenciasGerber   = reporte.getRange('D17').getValue();
+    const activosMelissa        = reporte.getRange('B18').getValue();
+    const sesionesMelissa       = reporte.getRange('C18').getValue();
+    const inasistenciasMelissa  = reporte.getRange('D18').getValue();
+    const activosDiana          = reporte.getRange('B19').getValue();
+    const sesionesDiana         = reporte.getRange('C19').getValue();
+    const inasistenciasDiana    = reporte.getRange('D19').getValue();
+    const activosKarina         = reporte.getRange('B20').getValue();
+    const sesionesKarina        = reporte.getRange('C20').getValue();
+    const inasistenciasKarina   = reporte.getRange('D20').getValue();
+    const totalActivos          = reporte.getRange('B21').getValue();
+    const totalSesiones         = reporte.getRange('C21').getValue();
+    const totalInasistencias    = reporte.getRange('D21').getValue();
+    const culminadosTotal       = reporte.getRange('B24').getValue();
+    const culminadosMes         = reporte.getRange('C24').getValue();
+    const tasaCulminacion       = reporte.getRange('E24').getValue();
+    const retiradxTotal         = reporte.getRange('B27').getValue();
+    const retiradxMes           = reporte.getRange('C27').getValue();
+    const tasaRetiro            = reporte.getRange('E27').getValue();
+    const casosIntervencion     = reporte.getRange('B30').getValue();
+    const totalProcesados       = reporte.getRange('B33').getValue();
+    const tasaExito             = reporte.getRange('B34').getValue();
+    const casosActivosTotales   = reporte.getRange('B35').getValue();
+    const hojaInteresTotal      = reporte.getRange('B38').getValue();
+    const hojaInteresMes        = reporte.getRange('C38').getValue();
+    const referenciasTotal      = reporte.getRange('B39').getValue();
+    const referenciasMes        = reporte.getRange('C39').getValue();
+    const derivInstRecibTotal   = reporte.getRange('B40').getValue();
+    const derivInstRecibMes     = reporte.getRange('C40').getValue();
+
+    const fila = [
+      mesLabel,
+      nuevosIngresosTotal, nuevosIngresosMes,
+      noAsistidasTotal, noAsistidasMes,
+      derivacionesTotal, derivacionesMes,
+      formulariosTotal, alertasSuicidio,
+      activosGerber, sesionesGerber, inasistenciasGerber,
+      activosMelissa, sesionesMelissa, inasistenciasMelissa,
+      activosDiana, sesionesDiana, inasistenciasDiana,
+      activosKarina, sesionesKarina, inasistenciasKarina,
+      totalActivos, totalSesiones, totalInasistencias,
+      culminadosTotal, culminadosMes, tasaCulminacion,
+      retiradxTotal, retiradxMes, tasaRetiro,
+      casosIntervencion,
+      totalProcesados, tasaExito, casosActivosTotales,
+      hojaInteresTotal, hojaInteresMes,
+      referenciasTotal, referenciasMes,
+      derivInstRecibTotal, derivInstRecibMes,
+      new Date()
+    ];
+
+    // ── Upsert: buscar fila existente para este mes ──
+    const datosActuales = mensuales.getDataRange().getValues();
+    let filaExistente = -1;
+    for (let i = 1; i < datosActuales.length; i++) {
+      if (String(datosActuales[i][0]).toLowerCase() === mesLabel.toLowerCase()) {
+        filaExistente = i + 1;
+        break;
+      }
+    }
+
+    if (filaExistente > 0) {
+      mensuales.getRange(filaExistente, 1, 1, fila.length).setValues([fila]);
+      Logger.log('Auto-reporte: fila actualizada para ' + mesLabel + ' (fila ' + filaExistente + ')');
+    } else {
+      mensuales.appendRow(fila);
+      Logger.log('Auto-reporte: fila nueva creada para ' + mesLabel);
+    }
+
+  } catch (e) {
+    Logger.log('Error en autoActualizarReporteMensual: ' + e.message);
+  }
+}
+
+function instalarTriggerAutoReporteMensual() {
+  // Eliminar triggers anteriores del mismo handler para no duplicar
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'autoActualizarReporteMensual') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  // Trigger diario a las 8:00 AM
+  ScriptApp.newTrigger('autoActualizarReporteMensual')
+    .timeBased()
+    .atHour(8)
+    .everyDays(1)
+    .create();
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    '✅ Auto-guardado mensual activado.\n' +
+    'Se actualizará cada día a las 8:00 AM.\n' +
+    'Días 1-3 del mes: gracia para cerrar el mes anterior.',
+    'Auto-Reporte Mensual', 5
+  );
+}
+
+function desactivarAutoReporteMensual() {
+  let borrados = 0;
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'autoActualizarReporteMensual') {
+      ScriptApp.deleteTrigger(t);
+      borrados++;
+    }
+  });
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    borrados > 0
+      ? '🛑 Auto-guardado mensual desactivado.'
+      : '⚠️ No había trigger activo de auto-guardado.',
+    'Auto-Reporte', 4
+  );
 }
 
 /**
