@@ -80,6 +80,7 @@ function onOpen() {
     const menuMantenimiento = ui.createMenu('🔧 Mantenimiento')
       .addItem('🔧 Reparación Completa', 'reparacionCompleta')
       .addItem('📊 Actualizar Headers Reportes Mensuales', 'actualizarHeadersReportesMensuales')
+      .addItem('🛠️ Reparar Filas Reportes Mensuales', 'repararFilasReportesMensuales')
       .addSeparator()
       .addItem('🔄 Resetear Sesiones Mes Anterior', 'resetearSesionesMesAnterior')
       .addItem('🧹 Limpiar Asistencias e Inasistencias', 'limpiarAsistenciasEInasistencias')
@@ -760,6 +761,115 @@ function actualizarHeadersReportesMensuales() {
   } catch (error) {
     Logger.log('Error actualizando headers: ' + error.message);
     SpreadsheetApp.getActiveSpreadsheet().toast('Error: ' + error.message, 'Error', 5);
+  }
+}
+
+/**
+ * Repara la hoja Reportes Mensuales:
+ * 1. Actualiza los headers al formato de 41 columnas
+ * 2. Detecta filas en formato viejo y las alinea donde sea posible
+ * 3. Color-codea cada fila según su calidad de datos:
+ *    🟢 Verde  = formato nuevo completo
+ *    🟡 Amarillo = formato parcial / datos incompletos
+ *    🟠 Naranja = datos con valores sospechosos corregidos
+ */
+function repararFilasReportesMensuales() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let ui;
+  try { ui = SpreadsheetApp.getUi(); } catch(e) { ui = null; }
+
+  try {
+    const sheet = ss.getSheetByName('Reportes Mensuales');
+    if (!sheet) {
+      if (ui) ui.alert('No existe la hoja "Reportes Mensuales".');
+      return;
+    }
+
+    // Paso 1: Actualizar headers
+    actualizarHeadersReportesMensuales();
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      if (ui) ui.alert('No hay filas de datos para reparar.');
+      return;
+    }
+
+    const datos = sheet.getRange(2, 1, lastRow - 1, 41).getValues();
+    let reparadas = 0, incompletas = 0, correctas = 0;
+
+    for (let i = 0; i < datos.length; i++) {
+      const fila = datos[i];
+      const rowNum = i + 2;
+      const mes = String(fila[0] || '');
+      if (!mes) continue;
+
+      const fechaGuardado = fila[40]; // col 41
+      const totalActivos  = fila[21]; // col 22
+      const activosKarina = fila[18]; // col 19
+      const sesionesKarina = fila[19]; // col 20
+      const totalSesiones = fila[22]; // col 23
+
+      const tieneFormato41 = fechaGuardado instanceof Date || String(fechaGuardado).includes('/');
+      const valorSospechoso = activosKarina > 60 ||
+                              (totalActivos === 0 && (fila[9] > 0 || fila[12] > 0)) ||
+                              (fila[14] > 50 && sesionesKarina === 0); // inasistencias > 50 con 0 sesiones
+
+      if (tieneFormato41 && !valorSospechoso) {
+        // Fila completa y correcta → verde
+        sheet.getRange(rowNum, 1, 1, 41).setBackground('#d4edda');
+        correctas++;
+        continue;
+      }
+
+      if (valorSospechoso) {
+        // Fila con valores imposibles (ej: marzo guardado con función vieja)
+        // Conservar datos confiables, limpiar los sospechosos
+        const filaNueva = fila.slice(); // copia
+
+        // Limpiar valores claramente imposibles
+        if (activosKarina > 60) filaNueva[18] = ''; // Activos Karina
+        if (totalActivos === 0 && fila[9] > 0) {
+          // Recalcular total activos de lo que hay
+          const sumActivos = (Number(fila[9]) || 0) + (Number(fila[12]) || 0) +
+                             (Number(fila[15]) || 0) + (Number(filaNueva[18]) || 0);
+          filaNueva[21] = sumActivos > 0 ? sumActivos : '';
+        }
+        if (Number(fila[22]) === 0 && Number(fila[10]) > 0) {
+          // Recalcular total sesiones
+          const sumSes = (Number(fila[10]) || 0) + (Number(fila[13]) || 0) +
+                         (Number(fila[16]) || 0) + (Number(fila[19]) || 0);
+          filaNueva[22] = sumSes > 0 ? sumSes : '';
+        }
+        // Limpiar inasistencias imposibles (más que sesiones del mismo terapeuta)
+        if (Number(fila[11]) > Number(fila[10]) * 2) filaNueva[11] = ''; // Inasist Gerber
+        if (Number(fila[14]) > Number(fila[13]) * 2) filaNueva[14] = ''; // Inasist Melissa
+        if (Number(fila[17]) > Number(fila[16]) * 2) filaNueva[17] = ''; // Inasist Diana
+        if (Number(fila[20]) > Number(fila[19]) * 2) filaNueva[20] = ''; // Inasist Karina
+
+        sheet.getRange(rowNum, 1, 1, 41).setValues([filaNueva]);
+        sheet.getRange(rowNum, 1, 1, 41).setBackground('#ffe0b2'); // naranja
+        sheet.getRange(rowNum, 1).setNote('⚠️ Fila reparada automáticamente. Algunos valores imposibles fueron limpiados. Verifica los datos.');
+        reparadas++;
+        continue;
+      }
+
+      // Fila sin fecha de guardado pero sin valores imposibles → formato antiguo incompleto
+      sheet.getRange(rowNum, 1, 1, 41).setBackground('#fff9c4'); // amarillo
+      sheet.getRange(rowNum, 1).setNote('📋 Datos en formato anterior (incompletos). Los campos en blanco no estaban disponibles en ese momento.');
+      incompletas++;
+    }
+
+    const msg = '✅ Reparación completada:\n\n' +
+      '🟢 Correctas: ' + correctas + '\n' +
+      '🟡 Incompletas (formato viejo): ' + incompletas + '\n' +
+      '🟠 Reparadas (valores corregidos): ' + reparadas;
+
+    if (ui) ui.alert('Reparación de Reportes Mensuales', msg, ui.ButtonSet.OK);
+    ss.toast('Listo: ' + correctas + ' correctas, ' + incompletas + ' antiguas, ' + reparadas + ' reparadas', 'Reportes Mensuales', 7);
+
+  } catch (e) {
+    Logger.log('Error en repararFilasReportesMensuales: ' + e.message);
+    if (ui) ui.alert('Error: ' + e.message);
   }
 }
 
