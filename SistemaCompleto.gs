@@ -3165,11 +3165,13 @@ function actualizarReportes() {
     const fB5  = reporte.getRange('B5').getFormula();
     const fB38 = reporte.getRange('B38').getFormula();
     const fD24 = reporte.getRange('D24').getFormula();
+    const fC17 = reporte.getRange('C17').getFormula();
     const necesitaReparacion = !fB5 || !fB5.startsWith('=') ||
                                (fB11 && !fB11.includes('Lista de Espera\'!I')) ||  // B11 debe contar Lista de Espera
                                !reporte.getRange('A37').getValue() ||
                                (fB38 && fB38.includes('!B:B')) ||    // fórmula vieja cuenta col B
-                               (fD24 && fD24.includes('AVERAGE'));   // D24 aún usa AVERAGE en vez de COUNTIF
+                               (fD24 && fD24.includes('AVERAGE')) || // D24 aún usa AVERAGE en vez de COUNTIF
+                               (fC17 && fC17.includes('"En proceso"')); // sesiones no deben filtrar por estado
     if (necesitaReparacion) {
       Logger.log('🔧 actualizarReportes: reparando fórmulas desactualizadas...');
       actualizarFormulasReporte();
@@ -3653,14 +3655,22 @@ function guardarReporteMesEspecifico() {
           if (fechaIngreso instanceof Date && fechaIngreso >= primerDia && fechaIngreso <= ultimoDia) {
             nuevosIngresosMes++;
           }
+
+          // Sesiones e inasistencias se cuentan para TODOS los casos con terapeuta,
+          // sin importar estado — así los retiros del mes no restan sesiones ya realizadas.
+          if (terapeuta === 'Gerber') { sesionesGerber += asistencias; inasistenciasGerber += inasistencias; }
+          else if (terapeuta === 'Melissa') { sesionesMelissa += asistencias; inasistenciasMelissa += inasistencias; }
+          else if (terapeuta === 'Diana') { sesionesDiana += asistencias; inasistenciasDiana += inasistencias; }
+          else if (terapeuta === 'Karina') { sesionesKarina += asistencias; inasistenciasKarina += inasistencias; }
         }
 
+        // Activos: solo se cuenta si sigue "En proceso" al momento del cierre
         if (estado === 'En proceso') {
           totalActivos++;
-          if (terapeuta === 'Gerber') { activosGerber++; sesionesGerber += asistencias; inasistenciasGerber += inasistencias; }
-          else if (terapeuta === 'Melissa') { activosMelissa++; sesionesMelissa += asistencias; inasistenciasMelissa += inasistencias; }
-          else if (terapeuta === 'Diana') { activosDiana++; sesionesDiana += asistencias; inasistenciasDiana += inasistencias; }
-          else if (terapeuta === 'Karina') { activosKarina++; sesionesKarina += asistencias; inasistenciasKarina += inasistencias; }
+          if (terapeuta === 'Gerber') activosGerber++;
+          else if (terapeuta === 'Melissa') activosMelissa++;
+          else if (terapeuta === 'Diana') activosDiana++;
+          else if (terapeuta === 'Karina') activosKarina++;
         }
       });
     }
@@ -4775,16 +4785,19 @@ function actualizarFormulasReporte() {
     reporte.getRange('B20').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Karina",\'Terapias Individual\'!I:I,"En proceso"),0)');
 
     // Filas 17-20: Sesiones mes (columna C) = Suma de Asistencias (columna M)
-    reporte.getRange('C17').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)');
-    reporte.getRange('C18').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)');
-    reporte.getRange('C19').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)');
-    reporte.getRange('C20').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!M2:M500)),0)');
+    // NOTA: Se cuentan TODAS las filas con terapeuta asignado, no solo "En proceso",
+    // para que los retiros y culminados del mes no resten sesiones ya realizadas.
+    reporte.getRange('C17').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!M2:M500)),0)');
+    reporte.getRange('C18').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!M2:M500)),0)');
+    reporte.getRange('C19').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!M2:M500)),0)');
+    reporte.getRange('C20').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!M2:M500)),0)');
 
     // Filas 17-20: Inasistencias (columna D) = Suma de Inasistencias (columna L)
-    reporte.getRange('D17').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)');
-    reporte.getRange('D18').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)');
-    reporte.getRange('D19').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)');
-    reporte.getRange('D20').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!I2:I500="En proceso")*(\'Terapias Individual\'!L2:L500)),0)');
+    // Igual que sesiones: se cuentan todas, sin filtrar por estado.
+    reporte.getRange('D17').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!L2:L500)),0)');
+    reporte.getRange('D18').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!L2:L500)),0)');
+    reporte.getRange('D19').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!L2:L500)),0)');
+    reporte.getRange('D20').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!L2:L500)),0)');
 
     // Fila 21: TOTAL casos activos, sesiones e inasistencias
     reporte.getRange('B21').setFormula('=IFERROR(SUM(B17:B20),0)');
