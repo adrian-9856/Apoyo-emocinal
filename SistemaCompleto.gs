@@ -72,6 +72,7 @@ function onOpen() {
 
     // ── Submenú: Validación de reportes ──
     const menuValidacion = ui.createMenu('🔍 Validación de Reportes')
+      .addItem('🩺 Diagnóstico Completo del Reporte', 'diagnosticoCompleto')
       .addItem('📊 Analizar Reporte Actual', 'analizarReporteActual')
       .addItem('📅 Validar Mes Específico', 'validarMesEspecifico')
       .addItem('📋 Generar Reporte Detallado', 'generarReporteDetallado');
@@ -11003,4 +11004,118 @@ function validarMesEspecifico() {
 
   _validarMesConHistorico(mes, anio);
 }
+
+/**
+ * Diagnóstico completo de la hoja Reporte: verifica formulas, datos y propone soluciones
+ */
+function diagnosticoCompleto() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const reporte = ss.getSheetByName('Reporte');
+  const terapias = ss.getSheetByName('Terapias Individual');
+
+  if (!reporte || !terapias) {
+    ui.alert('❌ Error: No se encontraron las hojas Reporte o Terapias Individual');
+    return;
+  }
+
+  let diagnostico = '📊 DIAGNÓSTICO COMPLETO DEL REPORTE\n';
+  diagnostico += '═════════════════════════════════════════════════\n\n';
+
+  // 1. Verificar fórmulas críticas
+  diagnostico += '1️⃣ ESTADO DE FORMULAS CRÍTICAS\n';
+  diagnostico += '─────────────────────────────────\n';
+
+  const formulasAChecar = {
+    'C17 (Sesiones Gerber)': reporte.getRange('C17').getFormula(),
+    'C18 (Sesiones Melissa)': reporte.getRange('C18').getFormula(),
+    'C19 (Sesiones Diana)': reporte.getRange('C19').getFormula(),
+    'C20 (Sesiones Karina)': reporte.getRange('C20').getFormula(),
+    'B17 (Activos Gerber)': reporte.getRange('B17').getFormula(),
+  };
+
+  let formulasOK = true;
+  for (let celda in formulasAChecar) {
+    const formula = formulasAChecar[celda];
+    const tieneError = formula.includes('"En proceso"') && formula.includes('M2:M500');
+    if (tieneError) {
+      diagnostico += '❌ ' + celda + ' aún tiene filtro "En proceso" INCORRECTO\n';
+      formulasOK = false;
+    } else if (!formula.includes('SUMPRODUCT') && !formula.includes('COUNTIF')) {
+      diagnostico += '⚠️  ' + celda + ' - Fórmula inusual\n';
+    } else {
+      diagnostico += '✅ ' + celda + ' - Correcta\n';
+    }
+  }
+
+  diagnostico += '\n';
+
+  // 2. Verificar datos en Terapias Individual
+  diagnostico += '2️⃣ DATOS EN TERAPIAS INDIVIDUAL\n';
+  diagnostico += '─────────────────────────────────\n';
+
+  if (terapias.getLastRow() < 2) {
+    diagnostico += '⚠️  No hay datos en Terapias Individual\n\n';
+  } else {
+    const datosRange = terapias.getRange(2, 1, Math.min(terapias.getLastRow() - 1, 10), 13).getValues();
+    diagnostico += '   Total de filas: ' + (terapias.getLastRow() - 1) + '\n';
+    diagnostico += '   Últimas 10 filas:\n';
+    datosRange.forEach((fila, idx) => {
+      const participante = fila[3] || 'SIN NOMBRE';
+      const terapeuta = fila[1] || 'SIN TERAPEUTA';
+      const estado = fila[8] || 'SIN ESTADO';
+      const asistencias = fila[12] || 0;
+      diagnostico += `      Fila ${idx + 2}: ${participante} | ${terapeuta} | ${estado} | Asistencias: ${asistencias}\n`;
+    });
+  }
+
+  diagnostico += '\n';
+
+  // 3. Verificar valores en Reporte
+  diagnostico += '3️⃣ VALORES ACTUALES EN REPORTE (Mes actual)\n';
+  diagnostico += '─────────────────────────────────\n';
+
+  const valoresReporte = {
+    'Nuevos Ingresos (Total)': reporte.getRange('B5').getValue(),
+    'Nuevos Ingresos (Mes)': reporte.getRange('C5').getValue(),
+    'Activos Gerber': reporte.getRange('B17').getValue(),
+    'Sesiones Gerber': reporte.getRange('C17').getValue(),
+    'Sesiones Melissa': reporte.getRange('C18').getValue(),
+    'Sesiones Diana': reporte.getRange('C19').getValue(),
+    'Sesiones Karina': reporte.getRange('C20').getValue(),
+    'Total Activos': reporte.getRange('B21').getValue(),
+    'Total Sesiones': reporte.getRange('C21').getValue(),
+  };
+
+  for (let metrica in valoresReporte) {
+    diagnostico += '   • ' + metrica + ': ' + valoresReporte[metrica] + '\n';
+  }
+
+  diagnostico += '\n';
+
+  // 4. Recomendaciones
+  diagnostico += '4️⃣ RECOMENDACIONES\n';
+  diagnostico += '─────────────────────────────────\n';
+
+  if (!formulasOK) {
+    diagnostico += '🔧 EJECUTAR: Menú → Mantenimiento → Reparación Completa\n';
+    diagnostico += '   Esto corregirá las fórmulas desactualizadas\n\n';
+  } else {
+    diagnostico += '✅ Las fórmulas están correctas\n';
+  }
+
+  diagnostico += '\n5️⃣ EXPLICACIÓN: Cómo funciona el Reporte\n';
+  diagnostico += '─────────────────────────────────\n';
+  diagnostico += '• La hoja "Reporte" tiene FÓRMULAS que se actualizan cada segundo\n';
+  diagnostico += '• Toma datos de "Terapias Individual" (columnas L, M) y otras hojas\n';
+  diagnostico += '• Cuando guardas un reporte mensual:\n';
+  diagnostico += '  1. Los datos se guardan en "Reportes Mensuales" (historial)\n';
+  diagnostico += '  2. Luego se resetan L, M en "Terapias Individual" a 0\n';
+  diagnostico += '  3. El Reporte automáticamente muestra 0 para el nuevo mes\n';
+  diagnostico += '• NO necesitas hacer nada más - es automático\n';
+
+  Logger.log(diagnostico);
+  ui.alert(diagnostico);
+}
+
 
