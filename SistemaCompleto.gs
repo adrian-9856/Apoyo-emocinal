@@ -83,13 +83,14 @@ function onOpen() {
       .addItem('📊 Actualizar Headers Reportes Mensuales', 'actualizarHeadersReportesMensuales')
       .addItem('🛠️ Reparar Filas Reportes Mensuales', 'repararFilasReportesMensuales')
       .addSeparator()
+      .addItem('🧹 Limpiar Datos para Nuevo Mes', 'limpiarDatosParaNuevoMes')
       .addItem('🔄 Resetear Sesiones Mes Anterior', 'resetearSesionesMesAnterior')
       .addItem('🧹 Limpiar Asistencias e Inasistencias', 'limpiarAsistenciasEInasistencias')
       .addSeparator()
       .addItem('🔴 Instalación Completa', 'instalacionCompleta')
       .addItem('✅ Verificar Instalación', 'verificarInstalacion')
       .addSeparator()
-      .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos');
+      .addItem('🗑️ Limpiar Todos los Datos', 'limpiarTodosLosDatos');
 
     // ── Menú principal ──
     ui.createMenu('🏥 Apoyo Emocional')
@@ -3534,9 +3535,74 @@ function instalarTriggerOnEdit() {
   }
 }
 
+/**
+ * Limpia todas las hojas de trabajo para empezar un nuevo mes limpio.
+ * Se llama después de guardar el reporte en el historial.
+ */
+function limpiarDatosParaNuevoMes() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    ss.toast('🧹 Limpiando datos para nuevo mes...', 'Limpieza', -1);
+
+    // Hojas de trabajo que deben limpiarse (mantener headers, eliminar datos)
+    const hojasALimpiar = [
+      'Terapias Individual',
+      'Personas no asistidas',
+      'Derivaciones Institucionales',
+      'Procesos Culminados',
+      'Retiradx',
+      'Intervención de casos'
+    ];
+
+    hojasALimpiar.forEach(nombreHoja => {
+      const hoja = ss.getSheetByName(nombreHoja);
+      if (hoja && hoja.getLastRow() > 1) {
+        // Eliminar todas las filas de datos (mantener header en fila 1)
+        const ultimaFila = hoja.getLastRow();
+        const filasAEliminar = ultimaFila - 1;
+        if (filasAEliminar > 0) {
+          hoja.deleteRows(2, filasAEliminar);
+          Logger.log('✅ Limpiada: ' + nombreHoja + ' (' + filasAEliminar + ' filas eliminadas)');
+        }
+      }
+    });
+
+    // Resetear Terapias Individual especialmente (limpiar columnas de contadores)
+    const terapias = ss.getSheetByName('Terapias Individual');
+    if (terapias && terapias.getLastRow() > 1) {
+      const ultimaFila = terapias.getLastRow();
+      // Limpiar columnas L (Inasistencias) y M (Asistencias) de cualquier dato residual
+      terapias.getRange(2, 12, ultimaFila - 1, 2).clearContent();
+    }
+
+    // Actualizar fórmulas del reporte para asegurar cálculos correctos
+    actualizarFormulasReporte();
+    actualizarReportes();
+
+    ss.toast(
+      '✅ LIMPIEZA COMPLETADA\n\n' +
+      'Todas las hojas de trabajo están limpias.\n' +
+      'El Reporte ahora muestra ceros.\n' +
+      'Listo para registrar el nuevo mes.',
+      'Limpieza Lista',
+      5
+    );
+
+    Logger.log('✅ Limpieza para nuevo mes completada');
+    return true;
+
+  } catch (error) {
+    Logger.log('❌ Error limpiando datos: ' + error.toString());
+    ss.toast('❌ Error: ' + error.toString(), 'Error', 5);
+    return false;
+  }
+}
+
 function guardarReporteMensual() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ui = SpreadsheetApp.getUi();
     const reporte = ss.getSheetByName('Reporte');
     const mensuales = ss.getSheetByName('Reportes Mensuales');
 
@@ -3633,13 +3699,37 @@ function guardarReporteMensual() {
     actualizarSesionesMesAnterior();
 
     ss.toast(
-      'REPORTE MENSUAL GUARDADO\n\n' +
-      'Mes: ' + mesActual + '\n' +
-      'Guardado en fila: ' + nuevaFila + '\n\n' +
-      'Las sesiones del proximo mes se contaran desde cero.',
+      '✅ REPORTE DE ' + mesActual.toUpperCase() + ' GUARDADO\n\n' +
+      'Guardado en fila: ' + nuevaFila,
       'Reporte Guardado',
       5
     );
+
+    // Preguntar si desea limpiar datos para el nuevo mes
+    const limpiar = ui.alert(
+      '🧹 Limpiar Datos para Nuevo Mes',
+      '¿Deseas limpiar todos los datos de ' + mesActual + '?\n\n' +
+      'Esto eliminará:\n' +
+      '• Todos los registros de Terapias Individual\n' +
+      '• Personas no asistidas\n' +
+      '• Derivaciones institucionales\n' +
+      '• Procesos culminados y Retiradx\n\n' +
+      'Los datos ya están guardados en "Reportes Mensuales".\n\n' +
+      '✅ SÍ = Limpiar y empezar mes nuevo desde cero\n' +
+      '❌ NO = Mantener datos (puedes limpiar después)',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (limpiar === ui.Button.YES) {
+      limpiarDatosParaNuevoMes();
+    } else {
+      ss.toast(
+        'Recuerda limpiar los datos cuando estés listo.\n' +
+        'Usa el menú: Mantenimiento → Limpiar para nuevo mes',
+        'Aviso',
+        5
+      );
+    }
 
   } catch (error) {
     Logger.log('Error guardando reporte: ' + error.toString());
