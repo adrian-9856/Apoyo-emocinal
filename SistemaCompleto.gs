@@ -3541,205 +3541,312 @@ function instalarTriggerOnEdit() {
  * Se llama después de guardar el reporte en el historial.
  */
 /**
- * Rediseña la hoja Reporte con mejor organización visual y estructura
- * - Agrupa información por secciones lógicas
- * - Usa colores y formatos mejorados
- * - Hace más fácil de leer y entender
+ * Rediseña la hoja Reporte estilo dashboard con tarjetas de colores grandes.
+ * Inspirado en el diseño del sistema de Inclusión Laboral.
+ * Usa 6 columnas (A-F) con tarjetas visuales y secciones claras.
  */
 function actualizarDisenoReporte() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  try {
-    ss.toast('🎨 Actualizando diseño del Reporte...', 'Diseño', -1);
+  const ui = SpreadsheetApp.getUi();
 
-    const reporte = ss.getSheetByName('Reporte');
-    if (!reporte) {
-      ss.toast('No se encontró hoja Reporte', 'Error', 3);
-      return;
-    }
+  const confirmar = ui.alert(
+    '🎨 Rediseñar Reporte',
+    '¿Deseas rediseñar la hoja Reporte con el nuevo formato dashboard?\n\n' +
+    'Esto reemplazará todo el contenido actual de la hoja Reporte.',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirmar !== ui.Button.YES) return;
 
-    // Limpiar todo y empezar fresco
-    reporte.clearContents();
-    reporte.clearFormats();
+  _construirReporteDashboard_();
+}
 
-    const colorPrincipal = '#1a237e';  // Azul oscuro
-    const colorSeccion = '#1565c0';     // Azul medio
-    const colorSubtitulo = '#0d47a1';  // Azul más oscuro
-    const colorFondo = '#f5f5f5';       // Gris claro
-    const colorTextoBlanco = '#ffffff';
-    const colorTextoOscuro = '#333333';
+function _construirReporteDashboard_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.toast('🎨 Construyendo dashboard...', 'Diseño', -1);
 
-    let fila = 1;
-
-    // ═══════════════════════════════════════════════════
-    // HEADER PRINCIPAL
-    // ═══════════════════════════════════════════════════
-    reporte.getRange(fila, 1, 1, 4).merge();
-    reporte.getRange(fila, 1).setValue('📊 REPORTE MENSUAL - APOYO EMOCIONAL')
-      .setBackground(colorPrincipal)
-      .setFontColor(colorTextoBlanco)
-      .setFontWeight('bold')
-      .setFontSize(16)
-      .setHorizontalAlignment('center')
-      .setVerticalAlignment('middle');
-    reporte.setRowHeight(fila, 45);
-    fila++;
-
-    // Información de fecha
-    reporte.getRange(fila, 1).setValue('Mes:')
-      .setFontWeight('bold').setHorizontalAlignment('right');
-    reporte.getRange(fila, 2).setFormula('=TEXT(TODAY(),"MMMM YYYY")')
-      .setFontSize(11);
-    reporte.getRange(fila, 3).setValue('Actualización:')
-      .setFontWeight('bold').setHorizontalAlignment('right');
-    reporte.getRange(fila, 4).setFormula('=TEXT(NOW(),"DD/MM/YYYY HH:MM")')
-      .setFontSize(10);
-    reporte.getRange(fila, 1, 1, 4).setBackground('#eceff1');
-    fila++;
-    fila++; // Espacio
-
-    // ═══════════════════════════════════════════════════
-    // SECCIÓN 1: ENTRADA DE NUEVOS CASOS
-    // ═══════════════════════════════════════════════════
-    reporte.getRange(fila, 1, 1, 3).merge();
-    reporte.getRange(fila, 1).setValue('1️⃣ ENTRADA DE NUEVOS CASOS')
-      .setBackground(colorSeccion)
-      .setFontColor(colorTextoBlanco)
-      .setFontWeight('bold')
-      .setFontSize(12)
-      .setHorizontalAlignment('left')
-      .setVerticalAlignment('middle');
-    reporte.setRowHeight(fila, 28);
-    fila++;
-
-    reporte.getRange(fila, 1).setValue('Nuevos Ingresos (Total)').setFontWeight('bold');
-    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTA(\'Terapias Individual\'!A:A)-1,0)')
-      .setFontSize(12).setFontWeight('bold');
-    fila++;
-
-    reporte.getRange(fila, 1).setValue('Nuevos Ingresos (Este mes)');
-    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Terapias Individual\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    fila++;
-    fila++;
-
-    // ═══════════════════════════════════════════════════
-    // SECCIÓN 2: CASOS ACTIVOS POR TERAPEUTA
-    // ═══════════════════════════════════════════════════
-    reporte.getRange(fila, 1, 1, 4).merge();
-    reporte.getRange(fila, 1).setValue('2️⃣ CASOS ACTIVOS POR TERAPEUTA')
-      .setBackground(colorSeccion)
-      .setFontColor(colorTextoBlanco)
-      .setFontWeight('bold')
-      .setFontSize(12)
-      .setHorizontalAlignment('left');
-    reporte.setRowHeight(fila, 28);
-    fila++;
-
-    // Headers de tabla
-    reporte.getRange(fila, 1).setValue('Terapeuta').setBackground(colorFondo).setFontWeight('bold');
-    reporte.getRange(fila, 2).setValue('Casos Activos').setBackground(colorFondo).setFontWeight('bold');
-    reporte.getRange(fila, 3).setValue('Sesiones').setBackground(colorFondo).setFontWeight('bold');
-    reporte.getRange(fila, 4).setValue('Inasistencias').setBackground(colorFondo).setFontWeight('bold');
-    fila++;
-
-    // Terapeutas
-    ['Gerber', 'Melissa', 'Diana', 'Karina'].forEach((terapeuta, idx) => {
-      const row = fila + idx;
-      reporte.getRange(row, 1).setValue(terapeuta);
-      reporte.getRange(row, 2).setFormula(`=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"${terapeuta}",\'Terapias Individual\'!I:I,"En proceso"),0)`);
-      reporte.getRange(row, 3).setFormula(`=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="${terapeuta}")*(\'Terapias Individual\'!M2:M500)),0)`);
-      reporte.getRange(row, 4).setFormula(`=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="${terapeuta}")*(\'Terapias Individual\'!L2:L500)),0)`);
-      if (idx % 2 === 0) {
-        reporte.getRange(row, 1, 1, 4).setBackground('#ffffff');
-      } else {
-        reporte.getRange(row, 1, 1, 4).setBackground('#f5f5f5');
-      }
-    });
-    fila += 4;
-
-    // Total
-    reporte.getRange(fila, 1).setValue('TOTAL').setFontWeight('bold');
-    reporte.getRange(fila, 2).setFormula('=SUM(B' + (fila - 3) + ':B' + (fila - 1) + ')').setFontWeight('bold');
-    reporte.getRange(fila, 3).setFormula('=SUM(C' + (fila - 3) + ':C' + (fila - 1) + ')').setFontWeight('bold');
-    reporte.getRange(fila, 4).setFormula('=SUM(D' + (fila - 3) + ':D' + (fila - 1) + ')').setFontWeight('bold');
-    reporte.getRange(fila, 1, 1, 4).setBackground(colorFondo).setFontWeight('bold');
-    fila++;
-    fila++;
-
-    // ═══════════════════════════════════════════════════
-    // SECCIÓN 3: PROCESOS FINALES (Culminados, Retirados)
-    // ═══════════════════════════════════════════════════
-    reporte.getRange(fila, 1, 1, 3).merge();
-    reporte.getRange(fila, 1).setValue('3️⃣ PROCESOS FINALES')
-      .setBackground(colorSeccion)
-      .setFontColor(colorTextoBlanco)
-      .setFontWeight('bold')
-      .setFontSize(12)
-      .setHorizontalAlignment('left');
-    reporte.setRowHeight(fila, 28);
-    fila++;
-
-    reporte.getRange(fila, 1).setValue('Procesos Culminados (Total)').setFontWeight('bold');
-    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)').setFontSize(12).setFontWeight('bold');
-    fila++;
-
-    reporte.getRange(fila, 1).setValue('Procesos Culminados (Este mes)');
-    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    fila++;
-
-    reporte.getRange(fila, 1).setValue('Retiradx (Total)').setFontWeight('bold');
-    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTA(Retiradx!A:A)-1,0)').setFontSize(12).setFontWeight('bold');
-    fila++;
-
-    reporte.getRange(fila, 1).setValue('Retiradx (Este mes)');
-    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    fila++;
-    fila++;
-
-    // ═══════════════════════════════════════════════════
-    // SECCIÓN 4: OTROS DATOS
-    // ═══════════════════════════════════════════════════
-    reporte.getRange(fila, 1, 1, 3).merge();
-    reporte.getRange(fila, 1).setValue('4️⃣ OTROS DATOS')
-      .setBackground(colorSeccion)
-      .setFontColor(colorTextoBlanco)
-      .setFontWeight('bold')
-      .setFontSize(12)
-      .setHorizontalAlignment('left');
-    reporte.setRowHeight(fila, 28);
-    fila++;
-
-    reporte.getRange(fila, 1).setValue('Personas no Asistidas');
-    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)');
-    fila++;
-
-    reporte.getRange(fila, 1).setValue('Derivaciones Institucionales');
-    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)');
-    fila++;
-
-    reporte.getRange(fila, 1).setValue('Formularios de Bienestar');
-    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTA(\'C_03_Formulario de Bienestar (2026)\'!A:A)-1,0)');
-    fila++;
-
-    reporte.getRange(fila, 1).setValue('Intervención de Casos');
-    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)');
-    fila++;
-
-    // Ajustar ancho de columnas
-    reporte.setColumnWidth(1, 300);
-    reporte.setColumnWidth(2, 150);
-    reporte.setColumnWidth(3, 150);
-    reporte.setColumnWidth(4, 150);
-
-    // Congelar encabezado
-    reporte.setFrozenRows(2);
-
-    ss.toast('✅ Diseño actualizado correctamente', 'Reporte Rediseñado', 4);
-    Logger.log('✅ Reporte rediseñado con nuevo layout');
-
-  } catch (error) {
-    ss.toast('❌ Error: ' + error.message, 'Error', 5);
-    Logger.log('Error actualizando diseño: ' + error.message);
+  let reporte = ss.getSheetByName('Reporte');
+  if (!reporte) {
+    reporte = ss.insertSheet('Reporte');
   }
+
+  reporte.clearContents();
+  reporte.clearFormats();
+
+  // Asegurar que hay suficientes columnas y filas
+  if (reporte.getMaxColumns() < 6) reporte.insertColumns(reporte.getMaxColumns() + 1, 6 - reporte.getMaxColumns());
+  if (reporte.getMaxRows() < 35) reporte.insertRows(reporte.getMaxRows() + 1, 35 - reporte.getMaxRows());
+
+  // Ancho de columnas (6 columnas)
+  reporte.setColumnWidth(1, 160);
+  reporte.setColumnWidth(2, 140);
+  reporte.setColumnWidth(3, 140);
+  reporte.setColumnWidth(4, 140);
+  reporte.setColumnWidth(5, 140);
+  reporte.setColumnWidth(6, 140);
+
+  // ═══════════════════════════════════════════════════
+  // FILA 1: HEADER PRINCIPAL
+  // ═══════════════════════════════════════════════════
+  reporte.getRange('A1:F1').merge()
+    .setValue('🏥  REPORTE — APOYO EMOCIONAL')
+    .setBackground('#1a237e').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(16)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  reporte.setRowHeight(1, 50);
+
+  // FILA 2: Fecha
+  reporte.getRange('A2:C2').merge()
+    .setFormula('="Última actualización:  "&TEXT(NOW(),"DD/MM/YYYY HH:MM")')
+    .setHorizontalAlignment('center').setFontSize(10);
+  reporte.getRange('D2:F2').merge()
+    .setFormula('="Mes actual:  "&TEXT(TODAY(),"MMMM YYYY")')
+    .setHorizontalAlignment('center').setFontSize(10).setFontWeight('bold');
+  reporte.getRange('A2:F2').setBackground('#eceff1');
+
+  // FILA 3: espacio
+  reporte.setRowHeight(3, 10);
+
+  // ═══════════════════════════════════════════════════
+  // FILA 4: RESUMEN GENERAL
+  // ═══════════════════════════════════════════════════
+  reporte.getRange('A4:F4').merge()
+    .setValue('📊  RESUMEN GENERAL')
+    .setBackground('#37474f').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(12)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  reporte.setRowHeight(4, 32);
+
+  // FILA 5-6: TARJETAS SUPERIORES (3 tarjetas)
+  // Tarjeta 1: Nuevos Ingresos (verde)
+  reporte.getRange('A5:B5').merge().setValue('🏥 Nuevos Ingresos')
+    .setBackground('#4caf50').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(11)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  reporte.getRange('A6:B6').merge()
+    .setFormula('=IFERROR(COUNTA(\'Terapias Individual\'!D:D)-1,0)')
+    .setBackground('#4caf50').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(28)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  // Tarjeta 2: Casos Activos (azul)
+  reporte.getRange('C5:D5').merge().setValue('👥 Casos Activos')
+    .setBackground('#1565c0').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(11)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  reporte.getRange('C6:D6').merge()
+    .setFormula('=IFERROR(COUNTIF(\'Terapias Individual\'!I:I,"En proceso"),0)')
+    .setBackground('#1565c0').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(28)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  // Tarjeta 3: Sesiones del Mes (teal)
+  reporte.getRange('E5:F5').merge().setValue('📅 Sesiones del Mes')
+    .setBackground('#00897b').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(11)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  reporte.getRange('E6:F6').merge()
+    .setFormula('=IFERROR(SUM(\'Terapias Individual\'!M:M),0)')
+    .setBackground('#00897b').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(28)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  reporte.setRowHeight(5, 30);
+  reporte.setRowHeight(6, 50);
+
+  // FILA 7-8: TARJETAS INFERIORES (3 tarjetas)
+  // Tarjeta 4: Culminados (verde oscuro)
+  reporte.getRange('A7:B7').merge().setValue('✅ Culminados')
+    .setBackground('#2e7d32').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(11)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  reporte.getRange('A8:B8').merge()
+    .setFormula('=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)')
+    .setBackground('#2e7d32').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(28)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  // Tarjeta 5: Retiradx (naranja)
+  reporte.getRange('C7:D7').merge().setValue('⚠️ Retiradx')
+    .setBackground('#ef6c00').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(11)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  reporte.getRange('C8:D8').merge()
+    .setFormula('=IFERROR(COUNTA(Retiradx!A:A)-1,0)')
+    .setBackground('#ef6c00').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(28)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  // Tarjeta 6: Inasistencias (rojo)
+  reporte.getRange('E7:F7').merge().setValue('❌ Inasistencias')
+    .setBackground('#c62828').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(11)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  reporte.getRange('E8:F8').merge()
+    .setFormula('=IFERROR(SUM(\'Terapias Individual\'!L:L),0)')
+    .setBackground('#c62828').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(28)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  reporte.setRowHeight(7, 30);
+  reporte.setRowHeight(8, 50);
+
+  // FILA 9: espacio
+  reporte.setRowHeight(9, 10);
+
+  // ═══════════════════════════════════════════════════
+  // FILA 10: CASOS POR TERAPEUTA
+  // ═══════════════════════════════════════════════════
+  reporte.getRange('A10:F10').merge()
+    .setValue('👥  CASOS ACTIVOS POR TERAPEUTA')
+    .setBackground('#37474f').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(12)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  reporte.setRowHeight(10, 32);
+
+  // FILA 11: Headers de tabla
+  const headersTerapeutas = ['Terapeuta', 'Casos Activos', 'Sesiones', 'Inasistencias', '', ''];
+  const coloresTH = ['#455a64', '#1565c0', '#00897b', '#c62828', '#455a64', '#455a64'];
+  headersTerapeutas.forEach((h, i) => {
+    if (h) {
+      reporte.getRange(11, i + 1)
+        .setValue(h)
+        .setBackground(coloresTH[i]).setFontColor('#ffffff')
+        .setFontWeight('bold').setFontSize(10)
+        .setHorizontalAlignment('center');
+    }
+  });
+  reporte.setRowHeight(11, 28);
+
+  // FILA 12-15: Datos por terapeuta
+  const terapeutas = ['Gerber', 'Melissa', 'Diana', 'Karina'];
+  terapeutas.forEach((t, idx) => {
+    const row = 12 + idx;
+    reporte.getRange(row, 1).setValue(t).setFontWeight('bold');
+    reporte.getRange(row, 2).setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!I:I,"En proceso"),0)');
+    reporte.getRange(row, 3).setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="' + t + '")*(\'Terapias Individual\'!M2:M500)),0)');
+    reporte.getRange(row, 4).setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="' + t + '")*(\'Terapias Individual\'!L2:L500)),0)');
+    reporte.getRange(row, 1, 1, 4)
+      .setHorizontalAlignment('center')
+      .setBackground(idx % 2 === 0 ? '#ffffff' : '#f5f5f5');
+    reporte.setRowHeight(row, 26);
+  });
+
+  // FILA 16: Totales
+  reporte.getRange(16, 1).setValue('TOTAL').setFontWeight('bold');
+  reporte.getRange(16, 2).setFormula('=SUM(B12:B15)').setFontWeight('bold');
+  reporte.getRange(16, 3).setFormula('=SUM(C12:C15)').setFontWeight('bold');
+  reporte.getRange(16, 4).setFormula('=SUM(D12:D15)').setFontWeight('bold');
+  reporte.getRange(16, 1, 1, 4).setBackground('#cfd8dc').setHorizontalAlignment('center');
+
+  // FILA 17: espacio
+  reporte.setRowHeight(17, 10);
+
+  // ═══════════════════════════════════════════════════
+  // FILA 18: ACTIVIDAD DEL MES
+  // ═══════════════════════════════════════════════════
+  reporte.getRange('A18:F18').merge()
+    .setValue('📋  ACTIVIDAD DEL MES ACTUAL')
+    .setBackground('#37474f').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(12)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  reporte.setRowHeight(18, 32);
+
+  // FILA 19: Headers
+  const headersActividad = ['No Asistidas', 'Derivaciones', 'Bienestar', 'Intervención', 'Hoja Interés', 'Referencias'];
+  const coloresActividad = ['#e65100', '#1565c0', '#7b1fa2', '#00695c', '#2e7d32', '#4527a0'];
+  headersActividad.forEach((h, i) => {
+    reporte.getRange(19, i + 1)
+      .setValue(h)
+      .setBackground(coloresActividad[i]).setFontColor('#ffffff')
+      .setFontWeight('bold').setFontSize(10)
+      .setHorizontalAlignment('center');
+  });
+  reporte.setRowHeight(19, 28);
+
+  // FILA 20: Valores
+  reporte.getRange(20, 1).setFormula('=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)');
+  reporte.getRange(20, 2).setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)');
+  reporte.getRange(20, 3).setFormula('=IFERROR(COUNTA(\'C_03_Formulario de Bienestar (2026)\'!A:A)-1,0)');
+  reporte.getRange(20, 4).setFormula('=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)');
+  reporte.getRange(20, 5).setFormula('=IFERROR(COUNTA(\'Hoja de interés\'!C:C)-1,0)');
+  reporte.getRange(20, 6).setFormula('=IFERROR(COUNTA(\'Referencias de programas\'!A:A)-1,0)');
+  reporte.getRange(20, 1, 1, 6)
+    .setFontWeight('bold').setFontSize(18)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  reporte.setRowHeight(20, 40);
+
+  // FILA 21: espacio
+  reporte.setRowHeight(21, 10);
+
+  // ═══════════════════════════════════════════════════
+  // FILA 22: RESUMEN EJECUTIVO
+  // ═══════════════════════════════════════════════════
+  reporte.getRange('A22:F22').merge()
+    .setValue('📝  RESUMEN EJECUTIVO')
+    .setBackground('#37474f').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(12)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  reporte.setRowHeight(22, 32);
+
+  // Resumen en 2 columnas
+  reporte.getRange(23, 1).setValue('Total Procesados:').setFontWeight('bold');
+  reporte.getRange(23, 2).setFormula('=IFERROR(A8+C8+' + 'COUNTA(\'Intervención de casos\'!A:A)-1,0)').setFontWeight('bold').setFontSize(12);
+  reporte.getRange(23, 4).setValue('Alertas Suicidio:').setFontWeight('bold');
+  reporte.getRange(23, 5).setFormula('=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Sí")+COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Si"),0)').setFontWeight('bold').setFontSize(12);
+
+  reporte.getRange(24, 1).setValue('Personas no Asistidas (Mes):').setFontWeight('bold');
+  reporte.getRange(24, 2).setFormula('=IFERROR(COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+  reporte.getRange(24, 4).setValue('Nuevos Ingresos (Mes):').setFontWeight('bold');
+  reporte.getRange(24, 5).setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Terapias Individual\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+
+  reporte.getRange(25, 1).setValue('Culminados (Mes):').setFontWeight('bold');
+  reporte.getRange(25, 2).setFormula('=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+  reporte.getRange(25, 4).setValue('Retiradx (Mes):').setFontWeight('bold');
+  reporte.getRange(25, 5).setFormula('=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+
+  // FILA 26: espacio
+  reporte.setRowHeight(26, 8);
+
+  // FILA 27: Footer
+  reporte.getRange('A27:F27').merge()
+    .setValue('Generado automáticamente — Sistema Apoyo Emocional')
+    .setFontColor('#999999').setFontSize(9).setFontStyle('italic')
+    .setHorizontalAlignment('center');
+
+  // FILA 28: espacio
+  reporte.setRowHeight(28, 10);
+
+  // ═══════════════════════════════════════════════════
+  // FILA 29+: TRAZABILIDAD DE MÉTRICAS
+  // ═══════════════════════════════════════════════════
+  reporte.getRange('A29:F29').merge()
+    .setValue('🔍 TRAZABILIDAD DE MÉTRICAS (ORIGEN DE DATOS)')
+    .setBackground('#eceff1').setFontWeight('bold').setFontSize(10);
+  reporte.setRowHeight(29, 25);
+
+  const traza = [
+    ['Métrica', 'Valor actual', 'Hoja origen', 'Regla de cálculo', '', ''],
+    ['Nuevos Ingresos', '=A6', 'Terapias Individual', 'Conteo de participantes (columna D)', '', ''],
+    ['Casos Activos', '=C6', 'Terapias Individual', 'Estado = "En proceso"', '', ''],
+    ['Sesiones del Mes', '=E6', 'Terapias Individual', 'Suma columna M (Asistencias)', '', ''],
+    ['Culminados', '=A8', 'Procesos Culminados', 'Conteo de registros', '', ''],
+    ['Retiradx', '=C8', 'Retiradx', 'Conteo de registros', '', ''],
+    ['Inasistencias', '=E8', 'Terapias Individual', 'Suma columna L (Inasistencias)', '', ''],
+  ];
+  reporte.getRange(30, 1, traza.length, 6).setValues(traza);
+  reporte.getRange(30, 1, 1, 6).setFontWeight('bold').setBackground('#eceff1');
+
+  // Bordes suaves en tabla de terapeutas
+  reporte.getRange(11, 1, 6, 4).setBorder(true, true, true, true, true, true, '#cccccc', SpreadsheetApp.BorderStyle.SOLID);
+
+  // Bordes en tabla de actividad
+  reporte.getRange(19, 1, 2, 6).setBorder(true, true, true, true, true, true, '#cccccc', SpreadsheetApp.BorderStyle.SOLID);
+
+  // Congelar header
+  reporte.setFrozenRows(2);
+
+  ss.toast('✅ Dashboard creado correctamente', 'Reporte Rediseñado', 4);
+  Logger.log('✅ Reporte rediseñado estilo dashboard');
 }
 
 function limpiarDatosParaNuevoMes() {
@@ -3748,51 +3855,44 @@ function limpiarDatosParaNuevoMes() {
   try {
     ss.toast('🧹 Limpiando datos para nuevo mes...', 'Limpieza', -1);
 
-    // Hojas de trabajo que deben limpiarse (mantener headers, eliminar datos)
+    // TODAS las hojas de trabajo que deben limpiarse (mantener headers, eliminar datos)
     const hojasALimpiar = [
       'Terapias Individual',
       'Personas no asistidas',
       'Derivaciones Institucionales',
       'Procesos Culminados',
       'Retiradx',
-      'Intervención de casos'
+      'Intervención de casos',
+      'Hoja de interés',
+      'Referencias de programas',
+      'C_03_Formulario de Bienestar (2026)'
     ];
 
+    let totalLimpiadas = 0;
     hojasALimpiar.forEach(nombreHoja => {
       const hoja = ss.getSheetByName(nombreHoja);
       if (hoja && hoja.getLastRow() > 1) {
-        // Eliminar todas las filas de datos (mantener header en fila 1)
-        const ultimaFila = hoja.getLastRow();
-        const filasAEliminar = ultimaFila - 1;
+        const filasAEliminar = hoja.getLastRow() - 1;
         if (filasAEliminar > 0) {
           hoja.deleteRows(2, filasAEliminar);
+          totalLimpiadas++;
           Logger.log('✅ Limpiada: ' + nombreHoja + ' (' + filasAEliminar + ' filas eliminadas)');
         }
       }
     });
 
-    // Resetear Terapias Individual especialmente (limpiar columnas de contadores)
-    const terapias = ss.getSheetByName('Terapias Individual');
-    if (terapias && terapias.getLastRow() > 1) {
-      const ultimaFila = terapias.getLastRow();
-      // Limpiar columnas L (Inasistencias) y M (Asistencias) de cualquier dato residual
-      terapias.getRange(2, 12, ultimaFila - 1, 2).clearContent();
-    }
-
-    // Actualizar fórmulas del reporte para asegurar cálculos correctos
-    actualizarFormulasReporte();
-    actualizarReportes();
+    SpreadsheetApp.flush();
 
     ss.toast(
       '✅ LIMPIEZA COMPLETADA\n\n' +
-      'Todas las hojas de trabajo están limpias.\n' +
+      totalLimpiadas + ' hojas limpiadas.\n' +
       'El Reporte ahora muestra ceros.\n' +
       'Listo para registrar el nuevo mes.',
       'Limpieza Lista',
       5
     );
 
-    Logger.log('✅ Limpieza para nuevo mes completada');
+    Logger.log('✅ Limpieza para nuevo mes completada: ' + totalLimpiadas + ' hojas');
     return true;
 
   } catch (error) {
@@ -3802,135 +3902,192 @@ function limpiarDatosParaNuevoMes() {
   }
 }
 
+/**
+ * Calcula todas las métricas del reporte directamente desde las hojas fuente.
+ * No depende de la posición de celdas en la hoja Reporte.
+ * Devuelve un array de 41 elementos compatible con HEADERS_REPORTE_AUTO.
+ */
+function _calcularDatosMesActual_(ss, mesLabel) {
+  function contarHoja(nombre, colFecha) {
+    const h = ss.getSheetByName(nombre);
+    if (!h || h.getLastRow() < 2) return { total: 0, mes: 0 };
+    const total = h.getLastRow() - 1;
+    const hoy = new Date();
+    const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+    const fechas = h.getRange(2, colFecha, total, 1).getValues();
+    let mes = 0;
+    fechas.forEach(f => {
+      if (f[0] instanceof Date && f[0] >= primerDia && f[0] <= ultimoDia) mes++;
+    });
+    return { total: total, mes: mes };
+  }
+
+  // Terapias Individual
+  const terapias = ss.getSheetByName('Terapias Individual');
+  let nuevosIngresosTotal = 0, nuevosIngresosMes = 0;
+  let activosGerber = 0, activosMelissa = 0, activosDiana = 0, activosKarina = 0;
+  let sesionesGerber = 0, sesionesMelissa = 0, sesionesDiana = 0, sesionesKarina = 0;
+  let inasistenciasGerber = 0, inasistenciasMelissa = 0, inasistenciasDiana = 0, inasistenciasKarina = 0;
+  let totalActivos = 0;
+
+  const hoy = new Date();
+  const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+
+  if (terapias && terapias.getLastRow() > 1) {
+    const datos = terapias.getRange(2, 1, terapias.getLastRow() - 1, 13).getValues();
+    datos.forEach(fila => {
+      const fechaIngreso = fila[0];
+      const terapeuta = fila[1] ? fila[1].toString().trim() : '';
+      const participante = fila[3];
+      const estado = fila[8] ? fila[8].toString().trim() : '';
+      const inasistencias = fila[11] || 0;
+      const asistencias = fila[12] || 0;
+
+      if (participante && participante.toString().trim() !== '') {
+        nuevosIngresosTotal++;
+        if (fechaIngreso instanceof Date && fechaIngreso >= primerDia && fechaIngreso <= ultimoDia) {
+          nuevosIngresosMes++;
+        }
+        if (terapeuta === 'Gerber') { sesionesGerber += asistencias; inasistenciasGerber += inasistencias; }
+        else if (terapeuta === 'Melissa') { sesionesMelissa += asistencias; inasistenciasMelissa += inasistencias; }
+        else if (terapeuta === 'Diana') { sesionesDiana += asistencias; inasistenciasDiana += inasistencias; }
+        else if (terapeuta === 'Karina') { sesionesKarina += asistencias; inasistenciasKarina += inasistencias; }
+      }
+      if (estado === 'En proceso') {
+        totalActivos++;
+        if (terapeuta === 'Gerber') activosGerber++;
+        else if (terapeuta === 'Melissa') activosMelissa++;
+        else if (terapeuta === 'Diana') activosDiana++;
+        else if (terapeuta === 'Karina') activosKarina++;
+      }
+    });
+  }
+
+  const noAsistidas = contarHoja('Personas no asistidas', 1);
+  const derivaciones = contarHoja('Derivaciones Institucionales', 1);
+
+  const hojaBienestar = ss.getSheetByName('C_03_Formulario de Bienestar (2026)');
+  let formulariosTotal = 0, alertasSuicidio = 0;
+  if (hojaBienestar && hojaBienestar.getLastRow() > 1) {
+    formulariosTotal = hojaBienestar.getLastRow() - 1;
+    const colB = hojaBienestar.getRange(2, 2, formulariosTotal, 1).getValues();
+    colB.forEach(f => {
+      const val = f[0] ? f[0].toString().trim().toLowerCase() : '';
+      if (val === 'si' || val === 'sí') alertasSuicidio++;
+    });
+  }
+
+  const culminados = contarHoja('Procesos Culminados', 1);
+  let culminados12 = 0;
+  const hojaCulminados = ss.getSheetByName('Procesos Culminados');
+  if (hojaCulminados && hojaCulminados.getLastRow() > 1) {
+    const sesCol = hojaCulminados.getRange(2, 5, hojaCulminados.getLastRow() - 1, 1).getValues();
+    sesCol.forEach(f => { if (f[0] >= 12) culminados12++; });
+  }
+
+  const retiradx = contarHoja('Retiradx', 1);
+  const tasaRetiro = (culminados.total + retiradx.total) > 0
+    ? (Math.round(retiradx.total / (culminados.total + retiradx.total) * 1000) / 10) + '%'
+    : '0%';
+
+  const hojaIntervencion = ss.getSheetByName('Intervención de casos');
+  const casosIntervencion = hojaIntervencion ? Math.max(0, hojaIntervencion.getLastRow() - 1) : 0;
+
+  const totalSesiones = sesionesGerber + sesionesMelissa + sesionesDiana + sesionesKarina;
+  const totalInasistencias = inasistenciasGerber + inasistenciasMelissa + inasistenciasDiana + inasistenciasKarina;
+  const totalProcesados = culminados.total + retiradx.total + casosIntervencion;
+  const tasaExito = totalProcesados > 0 ? (Math.round(culminados.total / totalProcesados * 1000) / 10) + '%' : '0%';
+
+  const interes = contarHoja('Hoja de interés', 1);
+  const referencias = contarHoja('Referencias de programas', 1);
+  const derivInstRecib = contarHoja('Derivaciones Institucionales', 1);
+
+  return [
+    mesLabel,
+    nuevosIngresosTotal, nuevosIngresosMes,
+    noAsistidas.total, noAsistidas.mes,
+    derivaciones.total, derivaciones.mes,
+    formulariosTotal, alertasSuicidio,
+    activosGerber, sesionesGerber, inasistenciasGerber,
+    activosMelissa, sesionesMelissa, inasistenciasMelissa,
+    activosDiana, sesionesDiana, inasistenciasDiana,
+    activosKarina, sesionesKarina, inasistenciasKarina,
+    totalActivos, totalSesiones, totalInasistencias,
+    culminados.total, culminados.mes, culminados12,
+    retiradx.total, retiradx.mes, tasaRetiro,
+    casosIntervencion,
+    totalProcesados, tasaExito, totalActivos,
+    interes.total, interes.mes,
+    referencias.total, referencias.mes,
+    derivInstRecib.total, derivInstRecib.mes,
+    new Date()
+  ];
+}
+
 function guardarReporteMensual() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const ui = SpreadsheetApp.getUi();
-    const reporte = ss.getSheetByName('Reporte');
     const mensuales = ss.getSheetByName('Reportes Mensuales');
 
-    if (!reporte || !mensuales) {
-      ss.toast('Hojas de reporte no encontradas', 'Error', 3);
+    if (!mensuales) {
+      ss.toast('No se encontró "Reportes Mensuales"', 'Error', 3);
       return;
     }
 
     const mesActual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM yyyy');
 
-    // NUEVOS INGRESOS (fila 5)
-    const nuevosIngresosTotal = reporte.getRange('B5').getValue();
-    const nuevosIngresosMes = reporte.getRange('C5').getValue();
+    // Confirmar
+    const confirmar = ui.alert(
+      '💾 Guardar Reporte Mensual',
+      '¿Guardar el reporte de ' + mesActual + '?\n\n' +
+      'Esto va a:\n' +
+      '1. Calcular todos los datos del mes\n' +
+      '2. Guardar en "Reportes Mensuales"\n' +
+      '3. Preguntar si quieres limpiar para el nuevo mes',
+      ui.ButtonSet.YES_NO
+    );
+    if (confirmar !== ui.Button.YES) return;
 
-    // PERSONAS NO ASISTIDAS (fila 8)
-    const noAsistidasTotal = reporte.getRange('B8').getValue();
-    const noAsistidasMes = reporte.getRange('C8').getValue();
+    ss.toast('📊 Calculando datos de ' + mesActual + '...', 'Procesando', -1);
 
-    // DERIVACIONES INSTITUCIONALES (fila 11)
-    const derivacionesTotal = reporte.getRange('B11').getValue();
-    const derivacionesMes = reporte.getRange('C11').getValue();
-
-    // FORMULARIO DE BIENESTAR (fila 14)
-    const formulariosTotal = reporte.getRange('B14').getValue();
-    const alertasSuicidio = reporte.getRange('C14').getValue();
-
-    // CASOS ACTIVOS POR TERAPEUTA (filas 17-21) - incluye inasistencias
-    const activosGerber = reporte.getRange('B17').getValue();
-    const sesionesGerber = reporte.getRange('C17').getValue();
-    const inasistenciasGerber = reporte.getRange('D17').getValue();
-    const activosMelissa = reporte.getRange('B18').getValue();
-    const sesionesMelissa = reporte.getRange('C18').getValue();
-    const inasistenciasMelissa = reporte.getRange('D18').getValue();
-    const activosDiana = reporte.getRange('B19').getValue();
-    const sesionesDiana = reporte.getRange('C19').getValue();
-    const inasistenciasDiana = reporte.getRange('D19').getValue();
-    const activosKarina = reporte.getRange('B20').getValue();
-    const sesionesKarina = reporte.getRange('C20').getValue();
-    const inasistenciasKarina = reporte.getRange('D20').getValue();
-    const totalActivos = reporte.getRange('B21').getValue();
-    const totalSesiones = reporte.getRange('C21').getValue();
-    const totalInasistencias = reporte.getRange('D21').getValue();
-
-    // PROCESOS CULMINADOS (fila 24)
-    const culminadosTotal = reporte.getRange('B24').getValue();
-    const culminadosMes = reporte.getRange('C24').getValue();
-    const tasaCulminacion = reporte.getRange('E24').getValue();
-
-    // RETIRADX (fila 27)
-    const retiradxTotal = reporte.getRange('B27').getValue();
-    const retiradxMes = reporte.getRange('C27').getValue();
-    const tasaRetiro = reporte.getRange('E27').getValue();
-
-    // INTERVENCION DE CASOS (fila 30)
-    const casosIntervencion = reporte.getRange('B30').getValue();
-
-    // RESUMEN GENERAL (filas 33-35)
-    const totalProcesados = reporte.getRange('B33').getValue();
-    const tasaExito = reporte.getRange('B34').getValue();
-    const casosActivosTotales = reporte.getRange('B35').getValue();
-
-    // CAPTACION (filas 38-40)
-    const hojaInteresTotal = reporte.getRange('B38').getValue();
-    const hojaInteresMes = reporte.getRange('C38').getValue();
-    const referenciasTotal = reporte.getRange('B39').getValue();
-    const referenciasMes = reporte.getRange('C39').getValue();
-    const derivInstRecibTotal = reporte.getRange('B40').getValue();
-    const derivInstRecibMes = reporte.getRange('C40').getValue();
+    // Calcular datos directamente de las hojas fuente
+    const datos = _calcularDatosMesActual_(ss, mesActual);
 
     const nuevaFila = mensuales.getLastRow() + 1;
-    const datos = [
-      mesActual,
-      nuevosIngresosTotal, nuevosIngresosMes,
-      noAsistidasTotal, noAsistidasMes,
-      derivacionesTotal, derivacionesMes,
-      formulariosTotal, alertasSuicidio,
-      activosGerber, sesionesGerber, inasistenciasGerber,
-      activosMelissa, sesionesMelissa, inasistenciasMelissa,
-      activosDiana, sesionesDiana, inasistenciasDiana,
-      activosKarina, sesionesKarina, inasistenciasKarina,
-      totalActivos, totalSesiones, totalInasistencias,
-      culminadosTotal, culminadosMes, tasaCulminacion,
-      retiradxTotal, retiradxMes, tasaRetiro,
-      casosIntervencion,
-      totalProcesados, tasaExito, casosActivosTotales,
-      hojaInteresTotal, hojaInteresMes,
-      referenciasTotal, referenciasMes,
-      derivInstRecibTotal, derivInstRecibMes,
-      new Date()
-    ];
-
     mensuales.getRange(nuevaFila, 1, 1, datos.length).setValues([datos]);
 
-    actualizarSesionesMesAnterior();
-
-    ss.toast(
-      '✅ REPORTE DE ' + mesActual.toUpperCase() + ' GUARDADO\n\n' +
-      'Guardado en fila: ' + nuevaFila,
-      'Reporte Guardado',
-      5
-    );
+    ss.toast('✅ Reporte de ' + mesActual + ' guardado en fila ' + nuevaFila, 'Guardado', 5);
 
     // Preguntar si desea limpiar datos para el nuevo mes
     const limpiar = ui.alert(
       '🧹 Limpiar Datos para Nuevo Mes',
-      '¿Deseas limpiar todos los datos de ' + mesActual + '?\n\n' +
-      'Esto eliminará:\n' +
-      '• Todos los registros de Terapias Individual\n' +
+      '¿Deseas limpiar TODOS los datos para empezar el nuevo mes desde cero?\n\n' +
+      'Esto eliminará registros de:\n' +
+      '• Terapias Individual\n' +
       '• Personas no asistidas\n' +
       '• Derivaciones institucionales\n' +
-      '• Procesos culminados y Retiradx\n\n' +
+      '• Procesos culminados y Retiradx\n' +
+      '• Hoja de interés y Referencias\n' +
+      '• Formularios de Bienestar\n\n' +
       'Los datos ya están guardados en "Reportes Mensuales".\n\n' +
-      '✅ SÍ = Limpiar y empezar mes nuevo desde cero\n' +
-      '❌ NO = Mantener datos (puedes limpiar después)',
+      '✅ SÍ = Limpiar todo y empezar desde cero\n' +
+      '❌ NO = Mantener datos',
       ui.ButtonSet.YES_NO
     );
 
     if (limpiar === ui.Button.YES) {
       limpiarDatosParaNuevoMes();
-    } else {
-      ss.toast(
-        'Recuerda limpiar los datos cuando estés listo.\n' +
-        'Usa el menú: Mantenimiento → Limpiar para nuevo mes',
-        'Aviso',
-        5
+      ui.alert(
+        '✅ Reporte Guardado y Datos Limpiados',
+        'RESUMEN:\n\n' +
+        '• Reporte de ' + mesActual + ' guardado en historial\n' +
+        '• Todas las hojas de trabajo limpiadas\n' +
+        '• El Reporte ahora muestra todo en cero\n\n' +
+        'Listo para registrar datos del nuevo mes.',
+        ui.ButtonSet.OK
       );
     }
 
@@ -4304,49 +4461,8 @@ const HEADERS_REPORTE_AUTO = [
 
 /** Lee las 41 celdas del Reporte y devuelve la fila lista para escribir. */
 function _leerDatosReporte_(reporte, mesLabel) {
-  return [
-    mesLabel,
-    reporte.getRange('B5').getValue(),   // nuevosIngresosTotal
-    reporte.getRange('C5').getValue(),   // nuevosIngresosMes
-    reporte.getRange('B8').getValue(),   // noAsistidasTotal
-    reporte.getRange('C8').getValue(),   // noAsistidasMes
-    reporte.getRange('B11').getValue(),  // derivacionesTotal
-    reporte.getRange('C11').getValue(),  // derivacionesMes
-    reporte.getRange('B14').getValue(),  // formulariosTotal
-    reporte.getRange('C14').getValue(),  // alertasSuicidio
-    reporte.getRange('B17').getValue(),  // activosGerber
-    reporte.getRange('C17').getValue(),  // sesionesGerber
-    reporte.getRange('D17').getValue(),  // inasistenciasGerber
-    reporte.getRange('B18').getValue(),  // activosMelissa
-    reporte.getRange('C18').getValue(),  // sesionesMelissa
-    reporte.getRange('D18').getValue(),  // inasistenciasMelissa
-    reporte.getRange('B19').getValue(),  // activosDiana
-    reporte.getRange('C19').getValue(),  // sesionesDiana
-    reporte.getRange('D19').getValue(),  // inasistenciasDiana
-    reporte.getRange('B20').getValue(),  // activosKarina
-    reporte.getRange('C20').getValue(),  // sesionesKarina
-    reporte.getRange('D20').getValue(),  // inasistenciasKarina
-    reporte.getRange('B21').getValue(),  // totalActivos
-    reporte.getRange('C21').getValue(),  // totalSesiones
-    reporte.getRange('D21').getValue(),  // totalInasistencias
-    reporte.getRange('B24').getValue(),  // culminadosTotal
-    reporte.getRange('C24').getValue(),  // culminadosMes
-    reporte.getRange('E24').getValue(),  // tasaCulminacion
-    reporte.getRange('B27').getValue(),  // retiradxTotal
-    reporte.getRange('C27').getValue(),  // retiradxMes
-    reporte.getRange('E27').getValue(),  // tasaRetiro
-    reporte.getRange('B30').getValue(),  // casosIntervencion
-    reporte.getRange('B33').getValue(),  // totalProcesados
-    reporte.getRange('B34').getValue(),  // tasaExito
-    reporte.getRange('B35').getValue(),  // casosActivosTotales
-    reporte.getRange('B38').getValue(),  // hojaInteresTotal
-    reporte.getRange('C38').getValue(),  // hojaInteresMes
-    reporte.getRange('B39').getValue(),  // referenciasTotal
-    reporte.getRange('C39').getValue(),  // referenciasMes
-    reporte.getRange('B40').getValue(),  // derivInstRecibTotal
-    reporte.getRange('C40').getValue(),  // derivInstRecibMes
-    new Date()
-  ];
+  const ss = reporte.getParent();
+  return _calcularDatosMesActual_(ss, mesLabel);
 }
 
 /**
