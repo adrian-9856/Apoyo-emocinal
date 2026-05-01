@@ -72,6 +72,7 @@ function onOpen() {
 
     // ── Submenú: Validación de reportes ──
     const menuValidacion = ui.createMenu('🔍 Validación de Reportes')
+      .addItem('🎨 Rediseñar Hoja Reporte', 'actualizarDisenoReporte')
       .addItem('🩺 Diagnóstico Completo del Reporte', 'diagnosticoCompleto')
       .addItem('📊 Analizar Reporte Actual', 'analizarReporteActual')
       .addItem('📅 Validar Mes Específico', 'validarMesEspecifico')
@@ -3539,6 +3540,208 @@ function instalarTriggerOnEdit() {
  * Limpia todas las hojas de trabajo para empezar un nuevo mes limpio.
  * Se llama después de guardar el reporte en el historial.
  */
+/**
+ * Rediseña la hoja Reporte con mejor organización visual y estructura
+ * - Agrupa información por secciones lógicas
+ * - Usa colores y formatos mejorados
+ * - Hace más fácil de leer y entender
+ */
+function actualizarDisenoReporte() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  try {
+    ss.toast('🎨 Actualizando diseño del Reporte...', 'Diseño', -1);
+
+    const reporte = ss.getSheetByName('Reporte');
+    if (!reporte) {
+      ss.toast('No se encontró hoja Reporte', 'Error', 3);
+      return;
+    }
+
+    // Limpiar todo y empezar fresco
+    reporte.clearContents();
+    reporte.clearFormats();
+
+    const colorPrincipal = '#1a237e';  // Azul oscuro
+    const colorSeccion = '#1565c0';     // Azul medio
+    const colorSubtitulo = '#0d47a1';  // Azul más oscuro
+    const colorFondo = '#f5f5f5';       // Gris claro
+    const colorTextoBlanco = '#ffffff';
+    const colorTextoOscuro = '#333333';
+
+    let fila = 1;
+
+    // ═══════════════════════════════════════════════════
+    // HEADER PRINCIPAL
+    // ═══════════════════════════════════════════════════
+    reporte.getRange(fila, 1, 1, 4).merge();
+    reporte.getRange(fila, 1).setValue('📊 REPORTE MENSUAL - APOYO EMOCIONAL')
+      .setBackground(colorPrincipal)
+      .setFontColor(colorTextoBlanco)
+      .setFontWeight('bold')
+      .setFontSize(16)
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle');
+    reporte.setRowHeight(fila, 45);
+    fila++;
+
+    // Información de fecha
+    reporte.getRange(fila, 1).setValue('Mes:')
+      .setFontWeight('bold').setHorizontalAlignment('right');
+    reporte.getRange(fila, 2).setFormula('=TEXT(TODAY(),"MMMM YYYY")')
+      .setFontSize(11);
+    reporte.getRange(fila, 3).setValue('Actualización:')
+      .setFontWeight('bold').setHorizontalAlignment('right');
+    reporte.getRange(fila, 4).setFormula('=TEXT(NOW(),"DD/MM/YYYY HH:MM")')
+      .setFontSize(10);
+    reporte.getRange(fila, 1, 1, 4).setBackground('#eceff1');
+    fila++;
+    fila++; // Espacio
+
+    // ═══════════════════════════════════════════════════
+    // SECCIÓN 1: ENTRADA DE NUEVOS CASOS
+    // ═══════════════════════════════════════════════════
+    reporte.getRange(fila, 1, 1, 3).merge();
+    reporte.getRange(fila, 1).setValue('1️⃣ ENTRADA DE NUEVOS CASOS')
+      .setBackground(colorSeccion)
+      .setFontColor(colorTextoBlanco)
+      .setFontWeight('bold')
+      .setFontSize(12)
+      .setHorizontalAlignment('left')
+      .setVerticalAlignment('middle');
+    reporte.setRowHeight(fila, 28);
+    fila++;
+
+    reporte.getRange(fila, 1).setValue('Nuevos Ingresos (Total)').setFontWeight('bold');
+    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTA(\'Terapias Individual\'!A:A)-1,0)')
+      .setFontSize(12).setFontWeight('bold');
+    fila++;
+
+    reporte.getRange(fila, 1).setValue('Nuevos Ingresos (Este mes)');
+    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Terapias Individual\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    fila++;
+    fila++;
+
+    // ═══════════════════════════════════════════════════
+    // SECCIÓN 2: CASOS ACTIVOS POR TERAPEUTA
+    // ═══════════════════════════════════════════════════
+    reporte.getRange(fila, 1, 1, 4).merge();
+    reporte.getRange(fila, 1).setValue('2️⃣ CASOS ACTIVOS POR TERAPEUTA')
+      .setBackground(colorSeccion)
+      .setFontColor(colorTextoBlanco)
+      .setFontWeight('bold')
+      .setFontSize(12)
+      .setHorizontalAlignment('left');
+    reporte.setRowHeight(fila, 28);
+    fila++;
+
+    // Headers de tabla
+    reporte.getRange(fila, 1).setValue('Terapeuta').setBackground(colorFondo).setFontWeight('bold');
+    reporte.getRange(fila, 2).setValue('Casos Activos').setBackground(colorFondo).setFontWeight('bold');
+    reporte.getRange(fila, 3).setValue('Sesiones').setBackground(colorFondo).setFontWeight('bold');
+    reporte.getRange(fila, 4).setValue('Inasistencias').setBackground(colorFondo).setFontWeight('bold');
+    fila++;
+
+    // Terapeutas
+    ['Gerber', 'Melissa', 'Diana', 'Karina'].forEach((terapeuta, idx) => {
+      const row = fila + idx;
+      reporte.getRange(row, 1).setValue(terapeuta);
+      reporte.getRange(row, 2).setFormula(`=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"${terapeuta}",\'Terapias Individual\'!I:I,"En proceso"),0)`);
+      reporte.getRange(row, 3).setFormula(`=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="${terapeuta}")*(\'Terapias Individual\'!M2:M500)),0)`);
+      reporte.getRange(row, 4).setFormula(`=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="${terapeuta}")*(\'Terapias Individual\'!L2:L500)),0)`);
+      if (idx % 2 === 0) {
+        reporte.getRange(row, 1, 1, 4).setBackground('#ffffff');
+      } else {
+        reporte.getRange(row, 1, 1, 4).setBackground('#f5f5f5');
+      }
+    });
+    fila += 4;
+
+    // Total
+    reporte.getRange(fila, 1).setValue('TOTAL').setFontWeight('bold');
+    reporte.getRange(fila, 2).setFormula('=SUM(B' + (fila - 3) + ':B' + (fila - 1) + ')').setFontWeight('bold');
+    reporte.getRange(fila, 3).setFormula('=SUM(C' + (fila - 3) + ':C' + (fila - 1) + ')').setFontWeight('bold');
+    reporte.getRange(fila, 4).setFormula('=SUM(D' + (fila - 3) + ':D' + (fila - 1) + ')').setFontWeight('bold');
+    reporte.getRange(fila, 1, 1, 4).setBackground(colorFondo).setFontWeight('bold');
+    fila++;
+    fila++;
+
+    // ═══════════════════════════════════════════════════
+    // SECCIÓN 3: PROCESOS FINALES (Culminados, Retirados)
+    // ═══════════════════════════════════════════════════
+    reporte.getRange(fila, 1, 1, 3).merge();
+    reporte.getRange(fila, 1).setValue('3️⃣ PROCESOS FINALES')
+      .setBackground(colorSeccion)
+      .setFontColor(colorTextoBlanco)
+      .setFontWeight('bold')
+      .setFontSize(12)
+      .setHorizontalAlignment('left');
+    reporte.setRowHeight(fila, 28);
+    fila++;
+
+    reporte.getRange(fila, 1).setValue('Procesos Culminados (Total)').setFontWeight('bold');
+    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)').setFontSize(12).setFontWeight('bold');
+    fila++;
+
+    reporte.getRange(fila, 1).setValue('Procesos Culminados (Este mes)');
+    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    fila++;
+
+    reporte.getRange(fila, 1).setValue('Retiradx (Total)').setFontWeight('bold');
+    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTA(Retiradx!A:A)-1,0)').setFontSize(12).setFontWeight('bold');
+    fila++;
+
+    reporte.getRange(fila, 1).setValue('Retiradx (Este mes)');
+    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTIFS(Retiradx!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    fila++;
+    fila++;
+
+    // ═══════════════════════════════════════════════════
+    // SECCIÓN 4: OTROS DATOS
+    // ═══════════════════════════════════════════════════
+    reporte.getRange(fila, 1, 1, 3).merge();
+    reporte.getRange(fila, 1).setValue('4️⃣ OTROS DATOS')
+      .setBackground(colorSeccion)
+      .setFontColor(colorTextoBlanco)
+      .setFontWeight('bold')
+      .setFontSize(12)
+      .setHorizontalAlignment('left');
+    reporte.setRowHeight(fila, 28);
+    fila++;
+
+    reporte.getRange(fila, 1).setValue('Personas no Asistidas');
+    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)');
+    fila++;
+
+    reporte.getRange(fila, 1).setValue('Derivaciones Institucionales');
+    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)');
+    fila++;
+
+    reporte.getRange(fila, 1).setValue('Formularios de Bienestar');
+    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTA(\'C_03_Formulario de Bienestar (2026)\'!A:A)-1,0)');
+    fila++;
+
+    reporte.getRange(fila, 1).setValue('Intervención de Casos');
+    reporte.getRange(fila, 2).setFormula('=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)');
+    fila++;
+
+    // Ajustar ancho de columnas
+    reporte.setColumnWidth(1, 300);
+    reporte.setColumnWidth(2, 150);
+    reporte.setColumnWidth(3, 150);
+    reporte.setColumnWidth(4, 150);
+
+    // Congelar encabezado
+    reporte.setFrozenRows(2);
+
+    ss.toast('✅ Diseño actualizado correctamente', 'Reporte Rediseñado', 4);
+    Logger.log('✅ Reporte rediseñado con nuevo layout');
+
+  } catch (error) {
+    ss.toast('❌ Error: ' + error.message, 'Error', 5);
+    Logger.log('Error actualizando diseño: ' + error.message);
+  }
+}
+
 function limpiarDatosParaNuevoMes() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
