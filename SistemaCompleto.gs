@@ -23,6 +23,9 @@ var COL_INTERES_DERIVACIONES = 12;
 /** Columna de "Hoja de Interés" en Intervención de casos (1-based) - columna 9 (I) */
 var COL_INTERES_INTERVENCION = 9;
 
+/** Columna "Enviar a Lista de Espera" en Hoja de Interés (1-based) - columna 11 (K) */
+var COL_ENVIAR_INTERES = 11;
+
 /** URLs de formularios KoboToolbox */
 var URL_FORMULARIO_INTERES_HIST = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esvntaAqU9GDq9aAkoKjPpY/data.csv';  // histórico 2024-2026
 var URL_FORMULARIO_INTERES_2026 = 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/esd2gxqN87HPuQDypxFqUNi/data.csv';  // formulario activo 2026
@@ -1736,7 +1739,7 @@ function asignarATerapias(sheetOrigen, fila, terapeuta) {
   const terapias = ss.getSheetByName('Terapias Individual');
 
   // Obtener datos: C (Nombre), D (Creamos ID), E (Género), F (Edad), G (Malestar)
-  const datos = sheetOrigen.getRange(fila, 3, 1, 5).getValues()[0];
+  const datos = sheetOrigen.getRange(fila, 3, 1, 5).getValues()[0] || ['', '', '', '', ''];
   const nombre = datos[0];       // C: Nombre Completo
   const creemosId = datos[1];    // D: Creamos ID
   const genero = datos[2];       // E: Género
@@ -1988,7 +1991,7 @@ function procesarFinalizacionTerapia(sheetOrigen, fila, tipoFinal) {
   cache.put(lockKey, 'true', 30);
 
   try {
-    const datos = sheetOrigen.getRange(fila, 1, 1, 13).getValues()[0];
+    const datos = sheetOrigen.getRange(fila, 1, 1, 13).getValues()[0] || new Array(13).fill('');
   const fechaIngreso = datos[0];    // A: Fecha de Ingreso
   const terapeuta = datos[1];       // B: Terapeuta
   const creemosId = datos[2];       // C: Creamos ID
@@ -3356,13 +3359,10 @@ function verificarYEnviarRecordatorioReporteMensual() {
 
     // Verificar si mañana es el último día del mes
     // Si el día de mañana es mayor que el de pasado mañana, significa que mañana es el último día
-    const pasadoManana = new Date(manana);
-    pasadoManana.setDate(manana.getDate() + 1);
-
-    // Si el mes de pasado mañana es diferente al de mañana, entonces mañana es el último día
-    // Por lo tanto, HOY es el penúltimo día
-    if (pasadoManana.getMonth() !== manana.getMonth()) {
-      // Hoy es el penúltimo día del mes, enviar recordatorio
+    // Comparar con el último día real del mes de mañana
+    const ultimoDiaDelMes = new Date(manana.getFullYear(), manana.getMonth() + 1, 0);
+    if (manana.getDate() === ultimoDiaDelMes.getDate()) {
+      // Mañana es el último día del mes: hoy es el penúltimo, enviar recordatorio
       enviarRecordatorioReporteMensual();
       Logger.log('✅ Recordatorio de reporte mensual enviado');
     } else {
@@ -3723,8 +3723,8 @@ function _construirReporteDashboard_() {
     const row = 12 + idx;
     reporte.getRange(row, 1).setValue(t).setFontWeight('bold');
     reporte.getRange(row, 2).setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!I:I,"En proceso"),0)');
-    reporte.getRange(row, 3).setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="' + t + '")*(\'Terapias Individual\'!M2:M500)),0)');
-    reporte.getRange(row, 4).setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="' + t + '")*(\'Terapias Individual\'!L2:L500)),0)');
+    reporte.getRange(row, 3).setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!M:M),0)');
+    reporte.getRange(row, 4).setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!L:L),0)');
     reporte.getRange(row, 1, 1, 4)
       .setHorizontalAlignment('center')
       .setBackground(idx % 2 === 0 ? '#ffffff' : '#f5f5f5');
@@ -3764,12 +3764,12 @@ function _construirReporteDashboard_() {
   reporte.setRowHeight(19, 28);
 
   // FILA 20: Valores
-  reporte.getRange(20, 1).setFormula('=IFERROR(COUNTA(\'Personas no asistidas\'!B:B)-1,0)');
-  reporte.getRange(20, 2).setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)');
-  reporte.getRange(20, 3).setFormula('=IFERROR(COUNTA(\'C_03_Formulario de Bienestar (2026)\'!A:A)-1,0)');
-  reporte.getRange(20, 4).setFormula('=IFERROR(COUNTA(\'Intervención de casos\'!A:A)-1,0)');
-  reporte.getRange(20, 5).setFormula('=IFERROR(COUNTA(\'Hoja de interés\'!C:C)-1,0)');
-  reporte.getRange(20, 6).setFormula('=IFERROR(COUNTA(\'Referencias de programas\'!A:A)-1,0)');
+  reporte.getRange(20, 1).setFormula('=IFERROR(COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+  reporte.getRange(20, 2).setFormula('=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+  reporte.getRange(20, 3).setFormula('=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'C_03_Formulario de Bienestar (2026)\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+  reporte.getRange(20, 4).setFormula('=IFERROR(COUNTIFS(\'Intervención de casos\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Intervención de casos\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+  reporte.getRange(20, 5).setFormula('=IFERROR(COUNTIFS(\'Hoja de interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Hoja de interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+  reporte.getRange(20, 6).setFormula('=IFERROR(COUNTIFS(\'Referencias de programas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Referencias de programas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
   reporte.getRange(20, 1, 1, 6)
     .setFontWeight('bold').setFontSize(18)
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
@@ -3792,7 +3792,7 @@ function _construirReporteDashboard_() {
   reporte.getRange(23, 1).setValue('Total Procesados:').setFontWeight('bold');
   reporte.getRange(23, 2).setFormula('=IFERROR(A8+C8+' + 'COUNTA(\'Intervención de casos\'!A:A)-1,0)').setFontWeight('bold').setFontSize(12);
   reporte.getRange(23, 4).setValue('Alertas Suicidio:').setFontWeight('bold');
-  reporte.getRange(23, 5).setFormula('=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Sí")+COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Si"),0)').setFontWeight('bold').setFontSize(12);
+  reporte.getRange(23, 5).setFormula('=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'C_03_Formulario de Bienestar (2026)\'!A:A,"<="&EOMONTH(TODAY(),0),\'C_03_Formulario de Bienestar (2026)\'!B:B,"Sí")+COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'C_03_Formulario de Bienestar (2026)\'!A:A,"<="&EOMONTH(TODAY(),0),\'C_03_Formulario de Bienestar (2026)\'!B:B,"Si"),0)').setFontWeight('bold').setFontSize(12);
 
   reporte.getRange(24, 1).setValue('Personas no Asistidas (Mes):').setFontWeight('bold');
   reporte.getRange(24, 2).setFormula('=IFERROR(COUNTIFS(\'Personas no asistidas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Personas no asistidas\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
@@ -4649,7 +4649,7 @@ function pasarReporteAlHistorial() {
       return;
     }
 
-    const filaViva = liveSheet.getRange(2, 1, 1, HEADERS_REPORTE_AUTO.length).getValues()[0];
+    const filaViva = liveSheet.getRange(2, 1, 1, HEADERS_REPORTE_AUTO.length).getValues()[0] || [];
     const mesLabel = filaViva[0] ? String(filaViva[0]) : '';
     if (!mesLabel) {
       if (ui) ui.alert('⚠️ La fila en vivo no tiene mes asignado. Actualiza primero.');
@@ -5294,9 +5294,9 @@ function actualizarFormulasReporte() {
     reporte.getRange('B11').setFormula('=IFERROR(COUNTA(\'Derivaciones Institucionales\'!A:A)-1,0)');
     reporte.getRange('C11').setFormula('=IFERROR(COUNTIFS(\'Derivaciones Institucionales\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Derivaciones Institucionales\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
 
-    // Fila 14: Formulario de Bienestar
-    reporte.getRange('B14').setFormula('=IFERROR(COUNTA(\'C_03_Formulario de Bienestar (2026)\'!A:A)-1,0)');
-    reporte.getRange('C14').setFormula('=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Sí")+COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!B:B,"Si"),0)');
+    // Fila 14: Formulario de Bienestar (con filtro de fecha — tiene datos históricos de KoboToolbox)
+    reporte.getRange('B14').setFormula('=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'C_03_Formulario de Bienestar (2026)\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
+    reporte.getRange('C14').setFormula('=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'C_03_Formulario de Bienestar (2026)\'!A:A,"<="&EOMONTH(TODAY(),0),\'C_03_Formulario de Bienestar (2026)\'!B:B,"Sí")+COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'C_03_Formulario de Bienestar (2026)\'!A:A,"<="&EOMONTH(TODAY(),0),\'C_03_Formulario de Bienestar (2026)\'!B:B,"Si"),0)');
 
     // Filas 17-20: Casos activos por terapeuta (columna B: casos activos)
     reporte.getRange('B17').setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"Gerber",\'Terapias Individual\'!I:I,"En proceso"),0)');
@@ -5307,17 +5307,16 @@ function actualizarFormulasReporte() {
     // Filas 17-20: Sesiones mes (columna C) = Suma de Asistencias (columna M)
     // NOTA: Se cuentan TODAS las filas con terapeuta asignado, no solo "En proceso",
     // para que los retiros y culminados del mes no resten sesiones ya realizadas.
-    reporte.getRange('C17').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!M2:M500)),0)');
-    reporte.getRange('C18').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!M2:M500)),0)');
-    reporte.getRange('C19').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!M2:M500)),0)');
-    reporte.getRange('C20').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!M2:M500)),0)');
+    reporte.getRange('C17').setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"Gerber",\'Terapias Individual\'!M:M),0)');
+    reporte.getRange('C18').setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"Melissa",\'Terapias Individual\'!M:M),0)');
+    reporte.getRange('C19').setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"Diana",\'Terapias Individual\'!M:M),0)');
+    reporte.getRange('C20').setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"Karina",\'Terapias Individual\'!M:M),0)');
 
     // Filas 17-20: Inasistencias (columna D) = Suma de Inasistencias (columna L)
-    // Igual que sesiones: se cuentan todas, sin filtrar por estado.
-    reporte.getRange('D17').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Gerber")*(\'Terapias Individual\'!L2:L500)),0)');
-    reporte.getRange('D18').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Melissa")*(\'Terapias Individual\'!L2:L500)),0)');
-    reporte.getRange('D19').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Diana")*(\'Terapias Individual\'!L2:L500)),0)');
-    reporte.getRange('D20').setFormula('=IFERROR(SUMPRODUCT((\'Terapias Individual\'!B2:B500="Karina")*(\'Terapias Individual\'!L2:L500)),0)');
+    reporte.getRange('D17').setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"Gerber",\'Terapias Individual\'!L:L),0)');
+    reporte.getRange('D18').setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"Melissa",\'Terapias Individual\'!L:L),0)');
+    reporte.getRange('D19').setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"Diana",\'Terapias Individual\'!L:L),0)');
+    reporte.getRange('D20').setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"Karina",\'Terapias Individual\'!L:L),0)');
 
     // Fila 21: TOTAL casos activos, sesiones e inasistencias
     reporte.getRange('B21').setFormula('=IFERROR(SUM(B17:B20),0)');
@@ -6027,7 +6026,7 @@ function importarDatosAutomatico() {
 
         try {
           // Obtener headers de la hoja de Bienestar (no del CSV)
-          const headersBienestar = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+          const headersBienestar = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0] || [];
           enviarBienestarAListaEsperaFlexible(sheet, nuevaFila, headersBienestar);
           enviadasAListaEspera++;
           Logger.log('✅ Enviado automáticamente a Lista de Espera');
@@ -8751,7 +8750,7 @@ function diagnosticarReferenciasYDerivaciones() {
  */
 function enviarInteresAListaEspera(sheet, fila) {
   Logger.log('🔄 enviarInteresAListaEspera — fila ' + fila);
-  const datos = sheet.getRange(fila, 1, 1, COL_ENVIAR_INTERES - 1).getValues()[0];
+  const datos = sheet.getRange(fila, 1, 1, COL_ENVIAR_INTERES - 1).getValues()[0] || new Array(COL_ENVIAR_INTERES - 1).fill('');
   // [0]=Fecha [1]=CreamosID [2]=YaParticipante [3]=Nombre(s) [4]=Apellido(s)
   // [5]=Género [6]=Edad [7]=Teléfono [8]=Zona [9]=OtraZona
   // [10]=ProgramasInterés [11]=_uuid ...
@@ -9638,7 +9637,7 @@ function enviarBienestarAListaEspera(sheetOrigen, fila) {
   Logger.log('🔄 enviarBienestarAListaEspera iniciado para fila ' + fila);
 
   // Obtener los headers de la hoja
-  const headers = sheetOrigen.getRange(1, 1, 1, sheetOrigen.getLastColumn()).getValues()[0];
+  const headers = sheetOrigen.getRange(1, 1, 1, sheetOrigen.getLastColumn()).getValues()[0] || [];
 
   // Llamar a la versión flexible con todos los parámetros
   return enviarBienestarAListaEsperaFlexible(sheetOrigen, fila, headers);
@@ -9664,7 +9663,7 @@ function enviarBienestarAListaEsperaFlexible(sheetOrigen, fila, headers) {
 
     // Leer TODA la fila
     const numColumnas = headers.length;
-    const datos = sheetOrigen.getRange(fila, 1, 1, numColumnas).getValues()[0];
+    const datos = sheetOrigen.getRange(fila, 1, 1, numColumnas).getValues()[0] || new Array(numColumnas).fill('');
 
     // Buscar columnas importantes
     const colCreamosID = headers.findIndex(h =>
