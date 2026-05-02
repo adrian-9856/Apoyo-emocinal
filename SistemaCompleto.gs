@@ -3855,10 +3855,49 @@ function _construirReporteDashboard_() {
   reporte.getRange(30, 1, traza.length, 6).setValues(traza);
   reporte.getRange(30, 1, 1, 6).setFontWeight('bold').setBackground('#eceff1');
 
-  // Bordes suaves en tabla de terapeutas
-  reporte.getRange(11, 1, 6, 4).setBorder(true, true, true, true, true, true, '#cccccc', SpreadsheetApp.BorderStyle.SOLID);
+  // ═══════════════════════════════════════════════════
+  // FILA 37+: CAPTACIÓN (pipeline de ingreso)
+  // ═══════════════════════════════════════════════════
+  reporte.getRange('A37:F37').merge()
+    .setValue('📥  CAPTACIÓN — PIPELINE DE INGRESO')
+    .setBackground('#1565c0').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(12)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  reporte.setRowHeight(37, 32);
 
-  // Bordes en tabla de actividad
+  // Headers captación
+  reporte.getRange(38, 1).setValue('Fuente').setFontWeight('bold').setBackground('#455a64').setFontColor('#ffffff').setHorizontalAlignment('center');
+  reporte.getRange(38, 2).setValue('Total histórico').setFontWeight('bold').setBackground('#455a64').setFontColor('#ffffff').setHorizontalAlignment('center');
+  reporte.getRange(38, 3).setValue('Este mes').setFontWeight('bold').setBackground('#455a64').setFontColor('#ffffff').setHorizontalAlignment('center');
+  reporte.getRange(38, 4, 1, 3).setBackground('#455a64');
+  reporte.setRowHeight(38, 28);
+
+  const captacion = [
+    ['Hoja de interés (Terapia Individual)', '\'Hoja de interés\'!C:C', '\'Hoja de interés\'!A:A'],
+    ['Referencias de programas recibidas',   '\'Referencias de programas\'!A:A', '\'Referencias de programas\'!A:A'],
+    ['Derivaciones institucionales recibidas','\'Derivaciones Institucionales\'!A:A', '\'Derivaciones Institucionales\'!A:A'],
+    ['Nuevos ingresos a Terapia Individual', '\'Terapias Individual\'!A:A', '\'Terapias Individual\'!A:A']
+  ];
+  const MES = '">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)';
+  const FIN = '"<="&EOMONTH(TODAY(),0)';
+
+  captacion.forEach(([label, colTotal, colMes], idx) => {
+    const row = 39 + idx;
+    const bg = idx % 2 === 0 ? '#ffffff' : '#f5f5f5';
+    reporte.getRange(row, 1).setValue(label).setBackground(bg).setFontSize(10).setVerticalAlignment('middle');
+    reporte.getRange(row, 2).setFormula('=IFERROR(COUNTA(' + colTotal + ')-1,0)').setBackground(bg).setHorizontalAlignment('center');
+    reporte.getRange(row, 3).setFormula('=IFERROR(COUNTIFS(' + colMes + ',' + MES + ',' + colMes + ',' + FIN + '),0)').setBackground(bg).setHorizontalAlignment('center');
+    reporte.getRange(row, 4, 1, 3).setBackground(bg);
+    reporte.setRowHeight(row, 26);
+  });
+
+  // Bordes
+  reporte.getRange(38, 1, 5, 3).setBorder(true, true, true, true, true, true, '#cccccc', SpreadsheetApp.BorderStyle.SOLID);
+
+  // ═══════════════════════════════════════════════════
+  // Bordes suaves en tablas
+  // ═══════════════════════════════════════════════════
+  reporte.getRange(11, 1, 6, 4).setBorder(true, true, true, true, true, true, '#cccccc', SpreadsheetApp.BorderStyle.SOLID);
   reporte.getRange(19, 1, 2, 6).setBorder(true, true, true, true, true, true, '#cccccc', SpreadsheetApp.BorderStyle.SOLID);
 
   // Congelar header
