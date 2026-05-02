@@ -1292,19 +1292,6 @@ function alEditar(e) {
     }
   }
 
-  // CASO 8: Reporte — Botón ACTUALIZAR TODO (checkbox en F3)
-  if (hoja === 'Reporte' && fila === 3 && columna === 6 && valor === true) {
-    Logger.log('🔄 Botón ACTUALIZAR TODO presionado en dashboard Reporte');
-    e.range.setValue(false); // Desmarcar para que se pueda volver a usar
-    try {
-      actualizarTodo();
-    } catch (error) {
-      Logger.log('❌ Error en ACTUALIZAR TODO desde botón: ' + error.toString());
-      SpreadsheetApp.getActiveSpreadsheet()
-        .toast('❌ Error al actualizar: ' + error.message, 'Error', 4);
-    }
-    return;
-  }
 }
 
 /**
@@ -3290,21 +3277,39 @@ function actualizarReportes() {
       return;
     }
 
-    // Auto-reparar fórmulas si están desactualizadas
-    const fB11 = reporte.getRange('B11').getFormula();
-    const fB5  = reporte.getRange('B5').getFormula();
-    const fB38 = reporte.getRange('B38').getFormula();
-    const fD24 = reporte.getRange('D24').getFormula();
-    const fC17 = reporte.getRange('C17').getFormula();
-    const necesitaReparacion = !fB5 || !fB5.startsWith('=') ||
-                               (fB11 && !fB11.includes('Lista de Espera\'!I')) ||  // B11 debe contar Lista de Espera
-                               !reporte.getRange('A37').getValue() ||
-                               (fB38 && fB38.includes('!B:B')) ||    // fórmula vieja cuenta col B
-                               (fD24 && fD24.includes('AVERAGE')) || // D24 aún usa AVERAGE en vez de COUNTIF
-                               (fC17 && fC17.includes('"En proceso"')); // sesiones no deben filtrar por estado
-    if (necesitaReparacion) {
-      Logger.log('🔧 actualizarReportes: reparando fórmulas desactualizadas...');
-      actualizarFormulasReporte();
+    // Detectar si el layout activo es el nuevo dashboard o el antiguo
+    const a4val = (reporte.getRange('A4').getValue() || '').toString();
+    const esNuevoDashboard = a4val.includes('RESUMEN GENERAL');
+
+    if (esNuevoDashboard) {
+      // Nuevo dashboard: verificar si fue corrompido por actualizarFormulasReporte()
+      // Síntoma: B11 es un número (debería ser "Casos Activos") o
+      //          la celda de Bienestar en fila 20 usa COUNTA en vez de COUNTIFS
+      const b11val = reporte.getRange(11, 2).getValue();
+      const fC20   = reporte.getRange(20, 3).getFormula();
+      const dashboardCorrompido = (typeof b11val === 'number') ||
+        (fC20 && fC20.toUpperCase().includes('COUNTA'));
+      if (dashboardCorrompido) {
+        Logger.log('🔧 actualizarReportes: dashboard corrompido — reconstruyendo...');
+        _construirReporteDashboard_();
+      }
+    } else {
+      // Layout antiguo: auto-reparar fórmulas si están desactualizadas
+      const fB11 = reporte.getRange('B11').getFormula();
+      const fB5  = reporte.getRange('B5').getFormula();
+      const fB38 = reporte.getRange('B38').getFormula();
+      const fD24 = reporte.getRange('D24').getFormula();
+      const fC17 = reporte.getRange('C17').getFormula();
+      const necesitaReparacion = !fB5 || !fB5.startsWith('=') ||
+                                 (fB11 && !fB11.includes('Lista de Espera\'!I')) ||
+                                 !reporte.getRange('A37').getValue() ||
+                                 (fB38 && fB38.includes('!B:B')) ||
+                                 (fD24 && fD24.includes('AVERAGE')) ||
+                                 (fC17 && fC17.includes('"En proceso"'));
+      if (necesitaReparacion) {
+        Logger.log('🔧 actualizarReportes: reparando fórmulas desactualizadas...');
+        actualizarFormulasReporte();
+      }
     }
 
     // Actualizar sello de tiempo
@@ -3617,17 +3622,8 @@ function _construirReporteDashboard_() {
     .setHorizontalAlignment('center').setFontSize(10).setFontWeight('bold');
   reporte.getRange('A2:F2').setBackground('#eceff1');
 
-  // FILA 3: Botón de actualización rápida (checkbox interactivo)
-  reporte.getRange('A3:E3').merge()
-    .setValue('🔄  ACTUALIZAR TODO — Marca el checkbox para refrescar el dashboard')
-    .setBackground('#43a047').setFontColor('#ffffff')
-    .setFontWeight('bold').setFontSize(11)
-    .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  const btnCb = reporte.getRange('F3');
-  btnCb.insertCheckboxes();
-  btnCb.setBackground('#2e7d32');
-  btnCb.setNote('Marca aquí para importar datos y actualizar todas las fórmulas del reporte');
-  reporte.setRowHeight(3, 35);
+  // FILA 3: espacio
+  reporte.setRowHeight(3, 10);
 
   // ═══════════════════════════════════════════════════
   // FILA 4: RESUMEN GENERAL
