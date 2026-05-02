@@ -1291,6 +1291,20 @@ function alEditar(e) {
       Logger.log('✅ Color rojo aplicado (No)');
     }
   }
+
+  // CASO 8: Reporte — Botón ACTUALIZAR TODO (checkbox en F3)
+  if (hoja === 'Reporte' && fila === 3 && columna === 6 && valor === true) {
+    Logger.log('🔄 Botón ACTUALIZAR TODO presionado en dashboard Reporte');
+    e.range.setValue(false); // Desmarcar para que se pueda volver a usar
+    try {
+      actualizarTodo();
+    } catch (error) {
+      Logger.log('❌ Error en ACTUALIZAR TODO desde botón: ' + error.toString());
+      SpreadsheetApp.getActiveSpreadsheet()
+        .toast('❌ Error al actualizar: ' + error.message, 'Error', 4);
+    }
+    return;
+  }
 }
 
 /**
@@ -3603,8 +3617,17 @@ function _construirReporteDashboard_() {
     .setHorizontalAlignment('center').setFontSize(10).setFontWeight('bold');
   reporte.getRange('A2:F2').setBackground('#eceff1');
 
-  // FILA 3: espacio
-  reporte.setRowHeight(3, 10);
+  // FILA 3: Botón de actualización rápida (checkbox interactivo)
+  reporte.getRange('A3:E3').merge()
+    .setValue('🔄  ACTUALIZAR TODO — Marca el checkbox para refrescar el dashboard')
+    .setBackground('#43a047').setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(11)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  const btnCb = reporte.getRange('F3');
+  btnCb.insertCheckboxes();
+  btnCb.setBackground('#2e7d32');
+  btnCb.setNote('Marca aquí para importar datos y actualizar todas las fórmulas del reporte');
+  reporte.setRowHeight(3, 35);
 
   // ═══════════════════════════════════════════════════
   // FILA 4: RESUMEN GENERAL
