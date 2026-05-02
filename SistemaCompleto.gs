@@ -3809,7 +3809,7 @@ function _construirReporteDashboard_() {
 
   // Resumen en 2 columnas
   reporte.getRange(23, 1).setValue('Total Procesados:').setFontWeight('bold');
-  reporte.getRange(23, 2).setFormula('=IFERROR(A8+C8+' + 'COUNTA(\'Intervención de casos\'!A:A)-1,0)').setFontWeight('bold').setFontSize(12);
+  reporte.getRange(23, 2).setFormula('=IFERROR(A8+C8+COUNTIFS(\'Intervención de casos\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Intervención de casos\'!A:A,"<="&EOMONTH(TODAY(),0)),0)').setFontWeight('bold').setFontSize(12);
   reporte.getRange(23, 4).setValue('Alertas Suicidio:').setFontWeight('bold');
   reporte.getRange(23, 5).setFormula('=IFERROR(COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'C_03_Formulario de Bienestar (2026)\'!A:A,"<="&EOMONTH(TODAY(),0),\'C_03_Formulario de Bienestar (2026)\'!B:B,"Sí")+COUNTIFS(\'C_03_Formulario de Bienestar (2026)\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'C_03_Formulario de Bienestar (2026)\'!A:A,"<="&EOMONTH(TODAY(),0),\'C_03_Formulario de Bienestar (2026)\'!B:B,"Si"),0)').setFontWeight('bold').setFontSize(12);
 
