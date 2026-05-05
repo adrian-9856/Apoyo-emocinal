@@ -87,14 +87,12 @@ function onOpen() {
       .addItem('📊 Actualizar Headers Reportes Mensuales', 'actualizarHeadersReportesMensuales')
       .addItem('🛠️ Reparar Filas Reportes Mensuales', 'repararFilasReportesMensuales')
       .addSeparator()
-      .addItem('🧹 Limpiar Datos para Nuevo Mes', 'limpiarDatosParaNuevoMes')
+      .addItem('✅ Reinicializar Validaciones (SIN eliminar datos)', 'reinicializarValidacionesSinDatos')
       .addItem('🔄 Resetear Sesiones Mes Anterior', 'resetearSesionesMesAnterior')
       .addItem('🧹 Limpiar Asistencias e Inasistencias', 'limpiarAsistenciasEInasistencias')
       .addSeparator()
       .addItem('🔴 Instalación Completa', 'instalacionCompleta')
-      .addItem('✅ Verificar Instalación', 'verificarInstalacion')
-      .addSeparator()
-      .addItem('🗑️ Limpiar Todos los Datos', 'limpiarTodosLosDatos');
+      .addItem('✅ Verificar Instalación', 'verificarInstalacion');
 
     // ── Menú principal ──
     ui.createMenu('🏥 Apoyo Emocional')
@@ -3905,6 +3903,64 @@ function _construirReporteDashboard_() {
 
   ss.toast('✅ Dashboard creado correctamente', 'Reporte Rediseñado', 4);
   Logger.log('✅ Reporte rediseñado estilo dashboard');
+}
+
+/**
+ * FUNCIÓN SEGURA: Reinicializa validaciones, formatos y desplegables
+ * SIN ELIMINAR NINGÚN DATO.
+ * Útil cuando hay problemas con desplegables mal ubicados o validaciones corrompidas.
+ */
+function reinicializarValidacionesSinDatos() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const respuesta = ui.alert(
+    '✅ Reinicializar Validaciones (sin eliminar datos)',
+    '¿Deseas reinicializar TODOS los desplegables y validaciones?\n\n' +
+    '✓ Los datos se MANTIENEN intactos\n' +
+    '✓ Los desplegables volverán a su lugar correcto\n' +
+    '✓ Los formatos se restaurarán\n\n' +
+    'Esto es SEGURO y puede ayudar si hay problemas con desplegables.',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) {
+    ss.toast('❌ Reinicialización cancelada', 'Cancelado', 2);
+    return;
+  }
+
+  try {
+    ss.toast('✅ Reinicializando validaciones y formatos...', 'Reinicializando', -1);
+
+    // 1. Reconfigurar TODAS las validaciones (sin eliminar datos)
+    configurarValidaciones();
+    Logger.log('✅ Validaciones reconfigured');
+
+    // 2. Reconfigurar formatos
+    configurarFormatos();
+    Logger.log('✅ Formatos reconfigurados');
+
+    // 3. Recalcular reportes
+    actualizarReportes();
+    Logger.log('✅ Reportes recalculados');
+
+    ss.toast(
+      '✅ REINICIALIZACIÓN COMPLETA\n\n' +
+      '✓ Todos los desplegables en lugar correcto\n' +
+      '✓ Validaciones restauradas\n' +
+      '✓ Formatos aplicados\n' +
+      '✓ TODOS TUS DATOS SE MANTIENEN\n\n' +
+      'El sistema está listo para usar.',
+      'Reinicialización Exitosa',
+      5
+    );
+
+    Logger.log('✅ Reinicialización segura completada');
+
+  } catch (error) {
+    ss.toast('❌ Error: ' + error.message, 'Error', 5);
+    Logger.log('❌ Error en reinicialización: ' + error.message);
+  }
 }
 
 function limpiarDatosParaNuevoMes() {
