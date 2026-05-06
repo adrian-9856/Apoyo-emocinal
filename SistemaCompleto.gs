@@ -3714,14 +3714,14 @@ function _construirReporteDashboard_() {
   // FILA 10: CASOS POR TERAPEUTA
   // ═══════════════════════════════════════════════════
   reporte.getRange('A10:F10').merge()
-    .setValue('👥  CASOS ACTIVOS POR TERAPEUTA')
+    .setValue('👥  CASOS ACTIVOS POR TERAPEUTA  |  Casos: total año  ·  Sesiones e Inasistencias: mes actual')
     .setBackground('#37474f').setFontColor('#ffffff')
-    .setFontWeight('bold').setFontSize(12)
+    .setFontWeight('bold').setFontSize(11)
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
   reporte.setRowHeight(10, 32);
 
   // FILA 11: Headers de tabla
-  const headersTerapeutas = ['Terapeuta', 'Casos Activos', 'Sesiones Año', 'Inasistencias Año', '', ''];
+  const headersTerapeutas = ['Terapeuta', 'Casos Activos', 'Sesiones (Mes)', 'Inasistencias (Mes)', '', ''];
   const coloresTH = ['#455a64', '#1565c0', '#00897b', '#c62828', '#455a64', '#455a64'];
   headersTerapeutas.forEach((h, i) => {
     if (h) {
@@ -3734,14 +3734,16 @@ function _construirReporteDashboard_() {
   });
   reporte.setRowHeight(11, 28);
 
-  // FILA 12-15: Datos por terapeuta (sesiones e inasistencias = todo el año)
+  // FILA 12-15: Datos por terapeuta
+  // Casos activos = total (todos los que tienen estado "En proceso")
+  // Sesiones e inasistencias = solo mes actual (columnas M y L)
   const terapeutas = ['Gerber', 'Melissa', 'Diana', 'Karina'];
   terapeutas.forEach((t, idx) => {
     const row = 12 + idx;
     reporte.getRange(row, 1).setValue(t).setFontWeight('bold');
     reporte.getRange(row, 2).setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!I:I,"En proceso"),0)');
-    reporte.getRange(row, 3).setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!K:K)+SUMIF(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!M:M),0)');
-    reporte.getRange(row, 4).setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!N:N)+SUMIF(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!L:L),0)');
+    reporte.getRange(row, 3).setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!M:M),0)');
+    reporte.getRange(row, 4).setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!L:L),0)');
     reporte.getRange(row, 1, 1, 4)
       .setHorizontalAlignment('center')
       .setBackground(idx % 2 === 0 ? '#ffffff' : '#f5f5f5');
@@ -3841,17 +3843,29 @@ function _construirReporteDashboard_() {
     .setBackground('#eceff1').setFontWeight('bold').setFontSize(10);
   reporte.setRowHeight(29, 25);
 
-  const traza = [
-    ['Métrica', 'Valor actual', 'Hoja origen', 'Regla de cálculo', '', ''],
-    ['Nuevos Ingresos', '=A6', 'Terapias Individual', 'Conteo de participantes (columna D)', '', ''],
-    ['Casos Activos', '=C6', 'Terapias Individual', 'Estado = "En proceso"', '', ''],
-    ['Sesiones del Mes', '=E6', 'Terapias Individual', 'Suma columna M (Asistencias)', '', ''],
-    ['Culminados', '=A8', 'Procesos Culminados', 'Conteo de registros', '', ''],
-    ['Retiradx', '=C8', 'Retiradx', 'Conteo de registros', '', ''],
-    ['Inasistencias', '=E8', 'Terapias Individual', 'Suma columna L (Inasistencias)', '', ''],
+  // Headers de trazabilidad
+  const trazaHeaders = ['Métrica', 'Valor actual', 'Hoja origen', 'Regla de cálculo', '', ''];
+  reporte.getRange(30, 1, 1, 6).setValues([trazaHeaders]).setFontWeight('bold').setBackground('#eceff1');
+
+  // Filas de datos (fórmulas por separado para evitar conflictos de formato)
+  const trazaData = [
+    ['Nuevos Ingresos (Año)',          'Terapias Individual', 'COUNTA columna D (todos los pacientes)'],
+    ['Casos Activos',                   'Terapias Individual', 'COUNTIF columna I = "En proceso"'],
+    ['Total Sesiones del Año',          'Terapias Individual', 'SUM columna K (mes ant.) + SUM columna M (mes actual)'],
+    ['Culminados (Año)',                'Procesos Culminados', 'COUNTA columna A (todos los registros)'],
+    ['Retiradx (Año)',                  'Retiradx',           'COUNTA columna A (todos los registros)'],
+    ['Total Inasistencias del Año',     'Terapias Individual', 'SUM columna N (acumulado) + SUM columna L (mes actual)'],
   ];
-  reporte.getRange(30, 1, traza.length, 6).setValues(traza);
-  reporte.getRange(30, 1, 1, 6).setFontWeight('bold').setBackground('#eceff1');
+  // Escribir etiquetas y origen/regla
+  reporte.getRange(31, 1, 6, 1).setValues(trazaData.map(r => [r[0]]));
+  reporte.getRange(31, 3, 6, 1).setValues(trazaData.map(r => [r[1]]));
+  reporte.getRange(31, 4, 6, 1).setValues(trazaData.map(r => [r[2]]));
+  // Valores (fórmulas) en columna B — formato número explícito para evitar %, fechas, etc.
+  const valFormulas = ['=A6','=C6','=E6','=A8','=C8','=E8'];
+  valFormulas.forEach((f, i) => {
+    const cell = reporte.getRange(31 + i, 2);
+    cell.setFormula(f).setNumberFormat('0').setHorizontalAlignment('center');
+  });
 
   // ═══════════════════════════════════════════════════
   // FILA 37+: CAPTACIÓN (pipeline de ingreso)
@@ -4175,32 +4189,28 @@ function guardarReporteMensual() {
 
     ss.toast('✅ Reporte de ' + mesActual + ' guardado en fila ' + nuevaFila, 'Guardado', 5);
 
-    // Preguntar si desea limpiar datos para el nuevo mes
+    // Preguntar si desea reiniciar contadores mensuales (SIN borrar datos de pacientes)
     const limpiar = ui.alert(
-      '🧹 Limpiar Datos para Nuevo Mes',
-      '¿Deseas limpiar TODOS los datos para empezar el nuevo mes desde cero?\n\n' +
-      'Esto eliminará registros de:\n' +
-      '• Terapias Individual\n' +
-      '• Personas no asistidas\n' +
-      '• Derivaciones institucionales\n' +
-      '• Procesos culminados y Retiradx\n' +
-      '• Hoja de interés y Referencias\n' +
-      '• Formularios de Bienestar\n\n' +
-      'Los datos ya están guardados en "Reportes Mensuales".\n\n' +
-      '✅ SÍ = Limpiar todo y empezar desde cero\n' +
-      '❌ NO = Mantener datos',
+      '🔄 Reiniciar Contadores para Nuevo Mes',
+      '¿Deseas reiniciar los contadores de asistencia para empezar el nuevo mes?\n\n' +
+      'Esto SOLO resetea las columnas L (Inasistencias) y M (Asistencias) a cero.\n' +
+      'Los datos de pacientes en Terapias Individual se MANTIENEN.\n\n' +
+      '✅ SÍ = Reiniciar contadores mensuales (SEGURO)\n' +
+      '❌ NO = No hacer nada más',
       ui.ButtonSet.YES_NO
     );
 
     if (limpiar === ui.Button.YES) {
-      limpiarDatosParaNuevoMes();
+      actualizarSesionesMesAnterior();
       ui.alert(
-        '✅ Reporte Guardado y Datos Limpiados',
+        '✅ Reporte Guardado',
         'RESUMEN:\n\n' +
         '• Reporte de ' + mesActual + ' guardado en historial\n' +
-        '• Todas las hojas de trabajo limpiadas\n' +
-        '• El Reporte ahora muestra todo en cero\n\n' +
-        'Listo para registrar datos del nuevo mes.',
+        '• Sesiones archivadas en columna K (antes de resetear)\n' +
+        '• Inasistencias archivadas en columna N (acumulado)\n' +
+        '• Contadores L (Inasistencias) y M (Asistencias) en cero para nuevo mes\n' +
+        '• Los datos de pacientes se mantienen intactos\n\n' +
+        'Listo para registrar el nuevo mes.',
         ui.ButtonSet.OK
       );
     }
