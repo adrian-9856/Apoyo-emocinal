@@ -425,16 +425,16 @@ function crearTerapias() {
   // 13 columnas - Incluye Fecha de Ingreso y Edad
   const headers = [
     'Fecha de Ingreso', 'Terapeuta', 'Creamos ID', 'Participante', 'Malestar Inicial',
-    'Género', 'Edad', 'No. Sesión', 'Estado', 'Motivo Finalización', 'Sesiones Mes Anterior', 'Inasistencias', 'Asistencias'
+    'Género', 'Edad', 'No. Sesión', 'Estado', 'Motivo Finalización', 'Sesiones Mes Anterior', 'Inasistencias', 'Asistencias', 'Inasistencias Mes Anterior'
   ];
 
-  sheet.getRange(1, 1, 1, 13).setValues([headers])
+  sheet.getRange(1, 1, 1, 14).setValues([headers])
     .setBackground('#2e7d32')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [110, 120, 120, 200, 250, 80, 80, 80, 120, 300, 120, 100, 100].forEach((w, i) => {
+  [110, 120, 120, 200, 250, 80, 80, 80, 120, 300, 120, 100, 100, 120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -3656,13 +3656,13 @@ function _construirReporteDashboard_() {
     .setFontWeight('bold').setFontSize(28)
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
 
-  // Tarjeta 3: Sesiones del Mes (teal)
-  reporte.getRange('E5:F5').merge().setValue('📅 Sesiones del Mes')
+  // Tarjeta 3: Total Sesiones del Año (teal)
+  reporte.getRange('E5:F5').merge().setValue('📅 Total Sesiones del Año')
     .setBackground('#00897b').setFontColor('#ffffff')
     .setFontWeight('bold').setFontSize(11)
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
   reporte.getRange('E6:F6').merge()
-    .setFormula('=IFERROR(SUM(\'Terapias Individual\'!M:M),0)')
+    .setFormula('=IFERROR(SUM(\'Terapias Individual\'!K:K)+SUM(\'Terapias Individual\'!M:M),0)')
     .setBackground('#00897b').setFontColor('#ffffff')
     .setFontWeight('bold').setFontSize(28)
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
@@ -3693,13 +3693,13 @@ function _construirReporteDashboard_() {
     .setFontWeight('bold').setFontSize(28)
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
 
-  // Tarjeta 6: Inasistencias (rojo)
-  reporte.getRange('E7:F7').merge().setValue('❌ Inasistencias')
+  // Tarjeta 6: Total Inasistencias del Año (rojo)
+  reporte.getRange('E7:F7').merge().setValue('❌ Total Inasistencias del Año')
     .setBackground('#c62828').setFontColor('#ffffff')
     .setFontWeight('bold').setFontSize(11)
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
   reporte.getRange('E8:F8').merge()
-    .setFormula('=IFERROR(SUM(\'Terapias Individual\'!L:L),0)')
+    .setFormula('=IFERROR(SUM(\'Terapias Individual\'!N:N)+SUM(\'Terapias Individual\'!L:L),0)')
     .setBackground('#c62828').setFontColor('#ffffff')
     .setFontWeight('bold').setFontSize(28)
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
@@ -3721,7 +3721,7 @@ function _construirReporteDashboard_() {
   reporte.setRowHeight(10, 32);
 
   // FILA 11: Headers de tabla
-  const headersTerapeutas = ['Terapeuta', 'Casos Activos', 'Sesiones', 'Inasistencias', '', ''];
+  const headersTerapeutas = ['Terapeuta', 'Casos Activos', 'Sesiones Año', 'Inasistencias Año', '', ''];
   const coloresTH = ['#455a64', '#1565c0', '#00897b', '#c62828', '#455a64', '#455a64'];
   headersTerapeutas.forEach((h, i) => {
     if (h) {
@@ -3734,14 +3734,14 @@ function _construirReporteDashboard_() {
   });
   reporte.setRowHeight(11, 28);
 
-  // FILA 12-15: Datos por terapeuta
+  // FILA 12-15: Datos por terapeuta (sesiones e inasistencias = todo el año)
   const terapeutas = ['Gerber', 'Melissa', 'Diana', 'Karina'];
   terapeutas.forEach((t, idx) => {
     const row = 12 + idx;
     reporte.getRange(row, 1).setValue(t).setFontWeight('bold');
     reporte.getRange(row, 2).setFormula('=IFERROR(COUNTIFS(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!I:I,"En proceso"),0)');
-    reporte.getRange(row, 3).setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!M:M),0)');
-    reporte.getRange(row, 4).setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!L:L),0)');
+    reporte.getRange(row, 3).setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!K:K)+SUMIF(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!M:M),0)');
+    reporte.getRange(row, 4).setFormula('=IFERROR(SUMIF(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!N:N)+SUMIF(\'Terapias Individual\'!B:B,"' + t + '",\'Terapias Individual\'!L:L),0)');
     reporte.getRange(row, 1, 1, 4)
       .setHorizontalAlignment('center')
       .setBackground(idx % 2 === 0 ? '#ffffff' : '#f5f5f5');
@@ -4823,14 +4823,28 @@ function actualizarSesionesMesAnterior() {
     if (terapias && terapias.getLastRow() > 1) {
       const ultimaFila = terapias.getLastRow();
 
+      // Asegurar que existe el header de columna N (Inasistencias Mes Anterior)
+      const headerN = terapias.getRange(1, 14).getValue();
+      if (!headerN || headerN.toString().trim() === '') {
+        terapias.getRange(1, 14).setValue('Inasistencias Mes Anterior');
+        terapias.getRange(1, 14)
+          .setBackground('#2e7d32').setFontColor('white')
+          .setFontWeight('bold').setHorizontalAlignment('center');
+        terapias.setColumnWidth(14, 120);
+      }
+
       for (let fila = 2; fila <= ultimaFila; fila++) {
         const participante = terapias.getRange(fila, 4).getValue(); // Columna D: Participante
-        const numSesion = terapias.getRange(fila, 8).getValue(); // Columna H: No. Sesión
+        const numSesion    = terapias.getRange(fila, 8).getValue(); // Columna H: No. Sesión
+        const inasistencias = terapias.getRange(fila, 12).getValue(); // Columna L: Inasistencias
 
         // Solo actualizar si hay un participante (fila tiene datos)
         if (participante && participante.toString().trim() !== '') {
-          // Copiar el número actual de sesiones a "Sesiones Mes Anterior"
-          terapias.getRange(fila, 11).setValue(numSesion || 0); // Columna K: Sesiones Mes Anterior
+          // Copiar H → K (Sesiones Mes Anterior)
+          terapias.getRange(fila, 11).setValue(numSesion || 0);      // Columna K: Sesiones Mes Anterior
+          // Copiar L → N (Inasistencias Mes Anterior) — SUMAR al acumulado existente
+          const prevN = terapias.getRange(fila, 14).getValue() || 0;
+          terapias.getRange(fila, 14).setValue(prevN + (inasistencias || 0)); // Columna N: acumula inasistencias
 
           // Resetear contadores mensuales a 0 para empezar el nuevo mes
           terapias.getRange(fila, 12).setValue(0); // Columna L: Inasistencias → 0
@@ -4838,7 +4852,7 @@ function actualizarSesionesMesAnterior() {
         }
       }
 
-      Logger.log('✅ Terapias Individual: H→K copiado, L y M reseteados a 0');
+      Logger.log('✅ Terapias Individual: H→K copiado, L→N acumulado, L y M reseteados a 0');
     }
 
     // Actualizar reportes
@@ -11321,15 +11335,28 @@ function limpiarAsistenciasEInasistencias() {
 
     let contador = 0;
 
-    // Recorrer cada fila y resetear L y M a 0
-    for (let fila = 2; fila <= ultimaFila; fila++) {
-      const participante = terapias.getRange(fila, 4).getValue(); // Columna D: Participante
+    // Asegurar que existe el header de columna N (Inasistencias Mes Anterior)
+    const headerN = terapias.getRange(1, 14).getValue();
+    if (!headerN || headerN.toString().trim() === '') {
+      terapias.getRange(1, 14).setValue('Inasistencias Mes Anterior');
+      terapias.getRange(1, 14)
+        .setBackground('#2e7d32').setFontColor('white')
+        .setFontWeight('bold').setHorizontalAlignment('center');
+      terapias.setColumnWidth(14, 120);
+    }
 
-      // Solo limpiar si hay un participante (fila tiene datos)
+    // Recorrer cada fila: archivar L→N y resetear L y M a 0
+    for (let fila = 2; fila <= ultimaFila; fila++) {
+      const participante  = terapias.getRange(fila, 4).getValue();  // D: Participante
+      const inasistencias = terapias.getRange(fila, 12).getValue(); // L: Inasistencias
+
       if (participante && participante.toString().trim() !== '') {
-        // Resetear Inasistencias (L) y Asistencias (M) a 0
-        terapias.getRange(fila, 12).setValue(0); // Columna L: Inasistencias
-        terapias.getRange(fila, 13).setValue(0); // Columna M: Asistencias
+        // Acumular inasistencias del mes en columna N antes de resetear
+        const prevN = terapias.getRange(fila, 14).getValue() || 0;
+        terapias.getRange(fila, 14).setValue(prevN + (inasistencias || 0)); // N: acumulado
+        // Resetear mes actual
+        terapias.getRange(fila, 12).setValue(0); // L: Inasistencias → 0
+        terapias.getRange(fila, 13).setValue(0); // M: Asistencias → 0
         contador++;
       }
     }
@@ -11340,6 +11367,7 @@ function limpiarAsistenciasEInasistencias() {
     ss.toast(
       '✅ LIMPIEZA COMPLETA\n\n' +
       '✓ ' + contador + ' participantes limpiados\n' +
+      '✓ Inasistencias archivadas en columna N\n' +
       '✓ Asistencias (M) reseteadas a 0\n' +
       '✓ Inasistencias (L) reseteadas a 0\n' +
       '✓ Reportes actualizados',
