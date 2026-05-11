@@ -1,0 +1,2323 @@
+/**
+ * =====================================================================
+ * SISTEMA DE APOYO EMOCIONAL - ÁREA SOCIOEDUCATIVA Y ESCUELA PARA PADRES
+ * =====================================================================
+ */
+
+// =====================================================================
+// CONFIGURACIÓN GLOBAL
+// =====================================================================
+
+const CONFIG_AE = {
+  // URLs de KoboToolbox (2025 Histórico y 2026 Actual)
+  KOBO_URL_2025: 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esvntaAqU9GDq9aAkoKjPpY/data.csv',
+  KOBO_URL_2026: 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/esd2gxqN87HPuQDypxFqUNi/data.csv', 
+  
+  KOBO_URL: 'https://kf.kobotoolbox.org/api/v2/assets/afuD8C8AzoLfd4o5ksTWUw/export-settings/es52swrnjWcz8NnhY5Wyng3/data.csv',
+  KOBO_URL_INSTITUCIONAL: 'https://kf.kobotoolbox.org/api/v2/assets/aPAe8WZjdW8Pp3bxLVkPtc/export-settings/esxMhVxGG8yjgoaFV9FxKjA/data.csv',
+
+  // Diseño Estético Moderno (Premium)
+  COLORES: {
+    PRIMARIO: '#312E81',     // Indigo 900 (Fondo Header)
+    SECUNDARIO: '#059669',   // Emerald 600 (Éxito)
+    ACCENTO: '#991B1B',      // Red 800 (Alerta)
+    FONDO_SOFT: '#F3F4F6',   // Gray 100
+    TEXTO_HEADER: '#FFFFFF', // Blanco
+    INDI_TEXT: '#1E1B4B'     // Indigo Text
+  },
+
+  // Zonas
+  ZONAS: [
+    'Zona 1', 'Zona 2', 'Zona 3', 'Zona 4', 'Zona 5', 'Zona 6', 'Zona 7', 'Zona 8', 'Zona 9', 'Zona 10',
+    'Zona 11', 'Zona 12', 'Zona 13', 'Zona 14', 'Zona 15', 'Zona 16', 'Zona 17', 'Zona 18', 'Zona 19', 'Zona 21',
+    'Zona 24', 'Zona 25', 'Mixco', 'Villa Nueva', 'San Miguel Petapa', 'Villa Canales', 'Santa Catarina Pinula', 'San José Pinula', 'Otro'
+  ],
+
+  GENEROS: ['Femenino', 'Masculino', 'Otro']
+};
+
+/**
+ * Puente de seguridad para mostrar alertas solo si hay interfaz de usuario.
+ * Evita errores en ejecuciones automáticas (Triggers).
+ */
+function alertSafeAE(titulo, mensaje) {
+  try {
+    const ui = SpreadsheetApp.getUi();
+    if (ui) ui.alert(titulo, mensaje, ui.ButtonSet.OK);
+  } catch (e) {
+    Logger.log('Alert bloqueada (Ejecución en segundo plano): ' + titulo + ' - ' + mensaje);
+  }
+}
+
+/**
+ * Puente de seguridad para mostrar toasts solo si hay interfaz de usuario.
+ */
+function toastSafeAE(mensaje, titulo, segundos) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (ss) ss.toast(mensaje, titulo || 'Sistema', segundos || 5);
+  } catch (e) {
+    Logger.log('Toast bloqueado: ' + mensaje);
+  }
+}
+
+// =====================================================================
+// MENÚ PRINCIPAL
+// =====================================================================
+
+function onOpen() {
+  let ui;
+  try {
+    ui = SpreadsheetApp.getUi();
+  } catch (e) {
+    Logger.log('No hay interfaz disponible: ' + e.message);
+    return;
+  }
+  if (!ui) return;
+  ui.createMenu('💜 Apoyo Emocional — Grupos')
+    .addSubMenu(ui.createMenu('👥 Gestión de Grupos')
+      .addItem('🆕 Crear Nuevo Grupo', 'crearNuevoGrupoAE')
+      .addItem('📊 Ver Resumen de Grupos', 'verResumenGruposAE')
+      .addItem('📝 Registrar Nota Masiva (Sesión)', 'mostrarDialogoNotaMasivaAE')
+      .addItem('🔒 Cerrar/Finalizar Grupo', 'mostrarDialogoCerrarGrupoAE')
+      .addItem('🗑️ Eliminar Grupo/Cohorte', 'mostrarDialogoEliminarGrupoAE'))
+    .addSeparator()
+    .addItem('📊 Ver Reporte Mensual Automatizado', 'crearHojaReporteMensualAutomatizadoAE')
+    .addItem('🗂️ Pasar Reporte al Historial', 'pasarReporteAlHistorialAE')
+    .addItem('📈 Actualizar Dashboard', 'actualizarReportesAE')
+    .addSeparator()
+    .addSubMenu(ui.createMenu('📥 Importación Kobo')
+      .addItem('⚡ Sincronizar TODO', 'importarTodoAE')
+      .addSeparator()
+      .addItem('🔄 Sincronizar Referencias', 'ejecutarImportacionAutomaticaAE')
+      .addItem('🔄 Sincronizar Derivaciones Institucionales', 'sincronizarHojaInstitucionalAE')
+      .addItem('🔄 Sincronizar Hoja de Interés', 'sincronizarHojaInteresAE')
+      .addItem('📜 Importar Históricos 2025', 'importarHistorico25AE')
+      .addSeparator()
+      .addItem('🧹 Limpiar Duplicados', 'eliminarDuplicadosManualAE')
+      .addItem('⚙️ Configurar URL Kobo', 'configurarKoboURLAE')
+      .addItem('⏱️ Activar/Desactivar Auto-Sync (1 min)', 'gestionarActivadoresAEToggle'))
+    .addSubMenu(ui.createMenu('⏰ Automatización')
+      .addItem('📅 Activar Reporte Diario (8AM)', 'instalarTriggerAutoReporteMensualAE')
+      .addItem('🛑 Desactivar Reporte Diario', 'desactivarAutoReporteMensualAE'))
+    .addSubMenu(ui.createMenu('🔧 Mantenimiento')
+      .addItem('🚀 Instalar Sistema', 'instalarSistemaAE')
+      .addItem('🔍 Buscar ID (Fantasma)', 'buscarIDFantasmaAE')
+      .addItem('🪄 Auto-completar Datos', 'autoCompletarDatosAE')
+      .addSeparator()
+      .addItem('🛠️ Reparar Resumen de Grupos', 'repararResumenGruposAE')
+      .addItem('🔄 Reinstalar Resumen de Grupos', 'reinstalarResumenGruposAE')
+      .addItem('🔄 Reinstalar Derivaciones Institucionales', 'reinstalarDerivacionesAE')
+      .addSeparator()
+      .addItem('🧹 Limpiar Memoria Técnica', 'limpiarPropiedadesSistemaAE'))
+    .addToUi();
+}
+
+// =====================================================================
+// INSTALACIÓN DEL SISTEMA
+// =====================================================================
+
+function instalarSistemaAE() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const resCopia = ui.alert('💾 Copia de Seguridad', '¿Deseas guardar una COPIA DE RESPALDO de todo este archivo en tu Google Drive antes de limpiarlo?', ui.ButtonSet.YES_NO);
+  if (resCopia == ui.Button.YES) {
+    const copy = ss.copy(ss.getName() + ' - Backup ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'));
+    toastSafeAE('Copia guardada en tu Drive.', 'Backup');
+  }
+
+  const res = ui.alert('🚀 Reinicio TOTAL del Sistema', 'Esta acción ELIMINARÁ ABSOLUTAMENTE TODAS LAS HOJAS (incluyendo ocultas) y recreará el sistema desde cero. ¿Deseas continuar?', ui.ButtonSet.YES_NO);
+  if (res != ui.Button.YES) return;
+
+  try {
+    toastSafeAE('🧹 Iniciando limpieza radical...', 'Instalación');
+
+    // 1. Asegurar una hoja temporal "maestra" para el proceso
+    let temp = ss.getSheetByName('TEMPORAL_LIMPIEZA');
+    if (!temp) temp = ss.insertSheet('TEMPORAL_LIMPIEZA');
+    
+    // 2. Eliminar TODAS las hojas existentes sin excepción (menos la temporal)
+    ss.getSheets().forEach(sheet => {
+      const name = sheet.getName();
+      if (name !== 'TEMPORAL_LIMPIEZA') {
+        try {
+          sheet.showSheet(); 
+          ss.deleteSheet(sheet);
+        } catch (e) {
+          Logger.log('No se pudo borrar: ' + name);
+        }
+      }
+    });
+
+    // 3. Re-inicializar estructura base
+    crearHojasBaseAE(); 
+    inicializarHojaConfiguracionAE();
+    SpreadsheetApp.flush(); // Asegurar que Google Sheets registre las nuevas hojas
+    
+    // 4. Configurar Validaciones y Formatos
+    configurarValidacionesAE();
+    aplicarFormatosAE();
+    
+    // 5. Reporte final
+    actualizarReportesAE();
+    
+    // Borrar la hoja temporal
+    try { ss.deleteSheet(temp); } catch(e) {}
+    
+    alertSafeAE('✨ Instalación Exitosa', 'El sistema se ha purificado y reiniciado por completo.\n\nPor favor, configura tus enlaces en la hoja "⚙️ CONFIGURACIÓN" e importa los datos nuevamente.');
+  } catch (e) {
+    Logger.log('Error en Instalación: ' + e.stack);
+    alertSafeAE('❌ Error Crítico', 'Hubo un problema al reiniciar. Detalle: ' + e.message);
+  }
+}
+
+function crearHojasBaseAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  const prepararHoja = (nombre) => {
+    let hoja = ss.getSheetByName(nombre);
+    if (!hoja) hoja = ss.insertSheet(nombre);
+    return hoja;
+  };
+
+  const aplicarEstiloHeader = (range, color) => {
+    range.setBackground(color || CONFIG_AE.COLORES.PRIMARIO)
+         .setFontColor('white')
+         .setFontWeight('bold')
+         .setHorizontalAlignment('center')
+         .setVerticalAlignment('middle');
+  };
+
+  // 1. Referencias y Hoja de Interés (Diferenciadas)
+  const headersInteres = ['Fecha Import', 'Creamos ID', 'Nombre Completo', 'Género', 'Edad', 'Teléfono', 'DPI', 'Zona', 'Servicios de Interés', 'Notas Originales', 'Acción'];
+  const notasInteres = {
+    'Fecha Import': '🗓️ Fecha en que se sincronizaron los datos desde KoboToolbox.',
+    'Creamos ID': '🔑 ID único del participante. Si no existe, se usa una firma por nombre y teléfono.',
+    'Nombre Completo': '👤 Nombres y apellidos completos extraídos del formulario.',
+    'Género': '⚧️ Género o pronombres seleccionados.',
+    'Edad': '🎂 Edad en número entero. Calculada automáticamente.',
+    'Teléfono': '📞 Número de teléfono de contacto (solo dígitos).',
+    'DPI': '🪪 Identificación (DPI).',
+    'Zona': '📍 Ubicación, zona o colonia.',
+    'Servicios de Interés': '📋 Qué grupos de apoyo específico solicitó esta persona.',
+    'Notas Originales': '📝 Observaciones extra del formulario.',
+    'Acción': '⚡ Seleccione un grupo de esta lista para enviar a la persona automáticamente.'
+  };
+
+  ['Referencias a grupos', 'Hoja de Interés'].forEach(nombre => {
+    let hoja = prepararHoja(nombre);
+
+    let localHeaders = [...headersInteres];
+    if (nombre === 'Referencias a grupos') {
+      localHeaders[localHeaders.length - 1] = 'Hoja de Interés';
+    }
+
+    hoja.getRange(1, 1, 1, localHeaders.length).setValues([localHeaders]);
+    aplicarEstiloHeader(hoja.getRange(1, 1, 1, localHeaders.length));
+
+    localHeaders.forEach((h, i) => {
+      if (notasInteres[h]) hoja.getRange(1, i + 1).setNote(notasInteres[h]);
+    });
+
+    hoja.setFrozenRows(1);
+    hoja.getRange(1, 1, 1, localHeaders.length).setBackground('#3F51B5').setFontColor('white');
+  });
+
+  // Derivaciones_Institucionales con formato propio
+  crearHojaDerivacionesInstAE(prepararHoja, aplicarEstiloHeader);
+
+  // 2. Resumen de Grupos
+  let hojaResumen = prepararHoja('Resumen de Grupos');
+  const headersResumen = ['Nombre del Grupo', 'Tipo', 'Responsable', 'Sesiones', 'Inscritos', 'Retiradx', 'Graduadx', '% Asistencia', 'Estado', 'Fecha Creación', 'Cupo Máximo'];
+  hojaResumen.getRange(1, 1, 1, headersResumen.length).setValues([headersResumen]);
+  aplicarEstiloHeader(hojaResumen.getRange(1, 1, 1, headersResumen.length), '#1e1b4b');
+
+  hojaResumen.setColumnWidth(1, 300);
+  hojaResumen.setColumnWidth(2, 200);
+  hojaResumen.setColumnWidth(3, 150);
+  hojaResumen.setColumnWidth(4, 90);
+  hojaResumen.setColumnWidth(5, 90);
+  hojaResumen.setColumnWidth(6, 90);
+  hojaResumen.setColumnWidth(7, 90);
+  hojaResumen.setColumnWidth(8, 120);
+  hojaResumen.setColumnWidth(9, 100);
+  hojaResumen.setColumnWidth(10, 140);
+  hojaResumen.setColumnWidth(11, 100);
+  hojaResumen.setFrozenRows(1);
+
+  // 3. Graduadx
+  let hojaGraduadas = prepararHoja('Graduadx');
+  const headersGraduadas = ['Fecha Graduación', 'Creamos ID', 'Nombre Completo', 'Grupo', 'Responsable', '% Asistencia', 'Notas'];
+  hojaGraduadas.getRange(1, 1, 1, headersGraduadas.length).setValues([headersGraduadas]);
+  aplicarEstiloHeader(hojaGraduadas.getRange(1, 1, 1, headersGraduadas.length), '#1b5e20');
+
+  // 4. Retiradx
+  let hojaRetiradx = prepararHoja('Retiradx');
+  const headersRetiradx = ['Fecha Retiro', 'Creamos ID', 'Nombre Completo', 'Teléfono', 'Grupo de Origen', '% Asistencia', 'Motivo Retiradx'];
+  hojaRetiradx.getRange(1, 1, 1, headersRetiradx.length).setValues([headersRetiradx]);
+  aplicarEstiloHeader(hojaRetiradx.getRange(1, 1, 1, headersRetiradx.length), '#b71c1c');
+}
+
+function crearHojaDerivacionesInstAE(prepararHojaFn, aplicarEstiloFn) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const prepararHoja = prepararHojaFn || function(nombre) {
+    let hoja = ss.getSheetByName(nombre);
+    if (!hoja) hoja = ss.insertSheet(nombre);
+    return hoja;
+  };
+  const aplicarEstiloHeader = aplicarEstiloFn || function(range, color) {
+    range.setBackground(color || '#312E81')
+         .setFontColor('white').setFontWeight('bold')
+         .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  };
+
+  const hoja = prepararHoja('Derivaciones_Institucionales');
+  const headersDeriv = [
+    'Fecha', 'Nombre de quien deriva', 'Tel. quien deriva', 'Organización',
+    'Nombre Completo', 'Edad', 'Teléfono', 'Dirección',
+    'Motivo de derivación', 'Servicio al que deriva', '_uuid', 'Hoja de Interés'
+  ];
+
+  hoja.getRange(1, 1, 1, headersDeriv.length).setValues([headersDeriv]);
+  aplicarEstiloHeader(hoja.getRange(1, 1, 1, headersDeriv.length), '#3F51B5');
+  hoja.setFrozenRows(1);
+
+  const anchos = [120, 180, 120, 180, 200, 60, 120, 180, 200, 180, 140, 120];
+  anchos.forEach((w, i) => hoja.setColumnWidth(i + 1, w));
+}
+
+function reinstalarDerivacionesAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const confirm = ui.alert(
+    '🔄 Reinstalar Derivaciones Institucionales',
+    'Esto eliminará la hoja actual de Derivaciones_Institucionales y la recreará con las columnas correctas.\n\n' +
+    '⚠️ Se perderán los datos existentes. ¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirm != ui.Button.YES) return;
+
+  const hojaVieja = ss.getSheetByName('Derivaciones_Institucionales');
+  if (hojaVieja) {
+    try { ss.deleteSheet(hojaVieja); } catch (e) {
+      Logger.log('Error eliminando hoja: ' + e.message);
+    }
+  }
+
+  crearHojaDerivacionesInstAE();
+  configurarValidacionesAE();
+  toastSafeAE('✅ Hoja Derivaciones_Institucionales reinstalada con columnas correctas.', 'Listo');
+}
+
+function configurarValidacionesAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+    const sheetRetiradx = ss.getSheetByName('Retiradx');
+    if (sheetRetiradx) {
+      const motivos = ['N/A', 'No interesado/a', 'No contesta', 'Horario no conviene', 'Ya participa', 'Otro'];
+      const validation = SpreadsheetApp.newDataValidation().requireValueInList(motivos).build();
+      const maxR = sheetRetiradx.getMaxRows();
+      if (maxR > 1) {
+        sheetRetiradx.getRange(2, 7, maxR - 1, 1).setDataValidation(validation);
+      }
+    }
+
+  const excludeVal = ['Referencias a grupos', 'Hoja de Interés', 'Resumen de Grupos', 'Retiradx', 'Graduadx', 'Reporte General', 'Copy of CREAMOS ID nuevo', 'Derivaciones_Institucionales', '⚙️ CONFIGURACIÓN', 'LOG_KOBO', 'TEMPORAL_LIMPIEZA'];
+  const gruposDisponibles = ss.getSheets()
+    .map(s => s.getName())
+    .filter(name => !excludeVal.includes(name) && !name.includes('TEMPORAL'));
+
+  if (gruposDisponibles.length > 0) {
+    const validationAction = SpreadsheetApp.newDataValidation().requireValueInList(gruposDisponibles).build();
+    const sheetInteres = ss.getSheetByName('Hoja de Interés');
+    if (sheetInteres && sheetInteres.getLastRow() > 1) {
+      const numRowsVal = sheetInteres.getLastRow() - 1;
+      sheetInteres.getRange(2, 11, numRowsVal, 1).setDataValidation(validationAction);
+    }
+  }
+    
+    const valSiNo = SpreadsheetApp.newDataValidation().requireValueInList(['Si', 'No']).build();
+    
+    ['Referencias a grupos', 'Derivaciones_Institucionales'].forEach(nombre => {
+      const sheet = ss.getSheetByName(nombre);
+      if (sheet && sheet.getLastRow() > 1) {
+        const colVal = (nombre === 'Derivaciones_Institucionales') ? 12 : 11;
+        const numRowsVal = sheet.getLastRow() - 1;
+        const rangeVal = sheet.getRange(2, colVal, numRowsVal, 1);
+        
+        // Aplicar Validación
+        rangeVal.setDataValidation(valSiNo);
+        
+        // Aplicar Formato Condicional (Colores Emerald y Rose suaves)
+        const ruleSi = SpreadsheetApp.newConditionalFormatRule()
+          .whenTextEqualTo('Si')
+          .setBackground('#D1FAE5') // Emerald 100
+          .setFontColor('#065F46') // Emerald 800
+          .setRanges([rangeVal])
+          .build();
+        const ruleNo = SpreadsheetApp.newConditionalFormatRule()
+          .whenTextEqualTo('No')
+          .setBackground('#FFE4E6') // Rose 100
+          .setFontColor('#991B1B') // Rose 800
+          .setRanges([rangeVal])
+          .build();
+          
+        sheet.setConditionalFormatRules([ruleSi, ruleNo]);
+      }
+    });
+}
+
+function verificarInstalacionAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const check = ss.getSheetByName('Referencias a grupos') && ss.getSheetByName('Hoja de Interés');
+  if (!check) {
+    const ui = SpreadsheetApp.getUi();
+    const res = ui.alert('⚠️ Sistema Incompleto', 'Faltan hojas base. ¿Desea ejecutar la instalación?', ui.ButtonSet.YES_NO);
+    if (res == ui.Button.YES) instalarSistemaAE();
+  } else {
+    toastSafeAE('✅ El sistema parece estar correctamente instalado.', 'Verificación');
+  }
+}
+
+function diagnosticoSistemaAE() {
+  verificarInstalacionAE();
+}
+
+// =====================================================================
+// IMPORTACIÓN DESDE KOBO (UTF-8 CORREGIDO)
+// =====================================================================
+
+function importarDesdeKoboAE(url, targetSheetName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const nombreHoja = targetSheetName || 'Referencias a grupos';
+  const sheet = ss.getSheetByName(nombreHoja);
+  if (!sheet) { toastSafeAE('❌ Hoja "' + nombreHoja + '" no encontrada.', 'Error'); return; }
+
+  try {
+    const configSheet = ss.getSheetByName('⚙️ CONFIGURACIÓN');
+    let koboUrl = url;
+
+    // Obtener la URL asegurada de la hoja de Configuración o Globales
+    if (!koboUrl && configSheet) {
+      const dataConfig = configSheet.getDataRange().getValues();
+      if (nombreHoja === 'Hoja de Interés') {
+        koboUrl = (dataConfig[3][1] || '').toString().trim(); // Celda B4 (Interés 2026)
+        if (!koboUrl) koboUrl = CONFIG_AE.KOBO_URL_2026;
+      } else {
+        koboUrl = (dataConfig[1][1] || '').toString().trim(); // Celda B2 (Referencias)
+        if (!koboUrl) koboUrl = CONFIG_AE.KOBO_URL;
+      }
+    }
+    
+    if (!koboUrl) koboUrl = CONFIG_AE.KOBO_URL;
+    koboUrl = koboUrl.trim();
+
+    toastSafeAE('⏳ Sincronizando ' + nombreHoja + '...', 'Kobo');
+    const response = UrlFetchApp.fetch(koboUrl, { muteHttpExceptions: true });
+    const code = response.getResponseCode();
+    
+    if (code !== 200) {
+      Logger.log('Error Kobo (' + nombreHoja + '): Código ' + code + ' URL: ' + koboUrl);
+      toastSafeAE('❌ Error ' + code + ' al conectar. Revisa la URL en Configuración.', 'Error');
+      return;
+    }
+
+    let content = response.getContentText("UTF-8");
+    if (content.charCodeAt(0) === 0xFEFF) content = content.substring(1);
+
+    const firstLine = content.split('\n')[0];
+    const sep = firstLine.includes(';') ? ';' : ',';
+    
+    const csvData = parsearCSVManualAE(content, sep);
+    if (csvData.length <= 1) {
+      toastSafeAE('⚠️ El archivo de Kobo está vacío.', 'Kobo');
+      return;
+    }
+
+    const headers = csvData[0];
+    const dataRows = csvData.slice(1);
+    
+    const normalize = (t) => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const getI = (patterns) => headers.findIndex(h => patterns.some(p => normalize(h).includes(normalize(p))));
+
+    const cleanValue = (val) => String(val || '').replace(/^(No\s+|Si\s+|^\d+\s+\|?\s*)+/gi, '').trim();
+    const cleanGeneric = (v) => String(v || '').replace(/^(Si|No)\s*[:/-]?\s*/gi, '').trim();
+    const extractGroupName = (text) => {
+      if (!text) return '';
+      let part = text.includes('/') ? text.split('/').pop() : text;
+      return part.replace(/^[01]\s*\|?\s*/, '').trim();
+    };
+
+    const map = {
+      id: getI(['ID', 'Creamos ID']),
+      nombre: getI(['Nombre Completo (según DPI)', 'Nombre completo', 'Nombre del responsable', 'Nombres y Apellidos', 'Nombre', 'Inicio / Nombre']),
+      apellidos: getI(['Inicio / Apellido', 'Apellido']),
+      nombrePreferido: getI(['Nombre Preferido', 'Preferido']),
+      genero: getI(['Género', 'genero', 'sexo', 'autodescribes', 'Inicio / Género']),
+      edad: getI(['Edad:', 'edad', 'Fecha de nacimiento', 'nacimiento', 'Edad', 'años', 'Inicio / Edad']),
+      tel: getI(['Teléfono', 'Número de Teléfono', 'celular', 'contacto', 'Datos del derivado / Teléfono']),
+      dpi: getI(['dpi / cui', 'cui', 'número de dpi', 'documento p']),
+      zona: getI(['Zona / Colonia', 'Especifique zona o colonia', 'Zona', 'Colonia', 'Ubicación', 'Inicio / Zona', 'Datos del derivado / Dirección']),
+      interes: getI(['Tipo de apoyo solicitado', '¿A qué programa se refiere?', 'servicio', 'programas te interesan', 'Programa', 'apoyo', 'interesa', 'Datos del derivado / Servicio al que deriva']),
+      notas: getI(['Breve motivo de la referencia', 'Motivo', 'Notas', 'Comentarios', 'observaciones', 'Datos del derivado / Motivo de derivación']),
+      fecha_envio: getI(['_submission_time', 'start', 'end', 'fecha', 'timestamp']),
+      organizacion: getI(['Nombre de organización', 'Datos de la Organización', 'Organización']),
+      nombreDeriva: getI(['Nombre de quien deriva', 'Nombre de organización', 'Datos de la Organización']),
+      telDeriva: getI(['Tel. quien deriva', 'Teléfono de quien deriva', 'Datos de la Organización / Teléfono']),
+      uuid: getI(['_uuid', 'uuid', '_id'])
+    };
+
+    if (map.nombre === -1) map.nombre = getI(['Participante', 'Datos del derivado / Nombre completo']);
+    if (map.edad === -1) map.edad = getI(['Datos del derivado / Edad']);
+
+    // Mapeo dedicado para Derivaciones_Institucionales con campos exactos del CSV de KoboToolbox
+    // CSV headers: Fecha, Datos de la Organización / Nombre de quien deriva,
+    //   Datos de la Organización / Teléfono, Datos de la Organización / Nombre de organización,
+    //   Datos de la Organización / Otro, Datos del derivado / Nombre completo,
+    //   Datos del derivado / Edad, Datos del derivado / Teléfono,
+    //   Datos del derivado / Dirección, Datos del derivado / Motivo de derivación,
+    //   Datos del derivado / Servicio al que deriva, Datos del derivado / Otro
+    const getExact = (pattern) => headers.findIndex(h => normalize(h) === normalize(pattern));
+    const getFlexible = (patterns) => {
+      let idx = -1;
+      for (const p of patterns) {
+        idx = getExact(p);
+        if (idx !== -1) return idx;
+      }
+      return getI(patterns);
+    };
+
+    const mapDeriv = {
+      fecha: getFlexible(['Fecha', '_submission_time', 'start']),
+      nombreDeriva: getFlexible(['Datos de la Organización / Nombre de quien deriva', 'Nombre de quien deriva']),
+      telDeriva: getFlexible(['Datos de la Organización / Teléfono', 'Tel. quien deriva']),
+      organizacion: getFlexible(['Datos de la Organización / Nombre de organización', 'Nombre de organización', 'Organización']),
+      orgOtro: getFlexible(['Datos de la Organización / Otro']),
+      nombreCompleto: getFlexible(['Datos del derivado / Nombre completo', 'Nombre completo', 'Nombre Completo']),
+      edad: getFlexible(['Datos del derivado / Edad', 'Edad']),
+      telefono: getFlexible(['Datos del derivado / Teléfono', 'Teléfono']),
+      direccion: getFlexible(['Datos del derivado / Dirección', 'Dirección', 'Zona']),
+      motivo: getFlexible(['Datos del derivado / Motivo de derivación', 'Motivo de derivación', 'Motivo']),
+      servicio: getFlexible(['Datos del derivado / Servicio al que deriva', 'Servicio al que deriva']),
+      derivOtro: getFlexible(['Datos del derivado / Otro']),
+      uuid: getFlexible(['_uuid', 'uuid', '_id'])
+    };
+
+    const keywordsGrupos = ['grupo', 'escuela', 'padres', 'madres', 'psicoeducativ', 'autoayuda', 'relajarte', 'autopercepc', 'ocupacional'];
+    const keywordsNegativas = ['terapia individual', 'psicoterapia individual'];
+
+    // --- SISTEMA ANTI-DUPLICADOS ---
+    let firmasExistentes = [];
+    if (sheet.getLastRow() > 1) {
+      const fullData = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+      const esDeriv = (nombreHoja === 'Derivaciones_Institucionales');
+      firmasExistentes = fullData.map(r => {
+        if (esDeriv) {
+          // Derivaciones: col5=Nombre(idx4), col7=Tel(idx6), col11=_uuid(idx10)
+          const uuid = String(r[10] || '').trim().toUpperCase();
+          const nom = String(r[4] || '').trim().toUpperCase();
+          const tel = String(r[6] || '').trim().replace(/\D/g, '');
+          return uuid ? 'ID:' + uuid : 'SIG:' + nom + '|' + tel;
+        }
+        const id = String(r[1] || '').trim().toUpperCase();
+        const nom = String(r[2] || '').trim().toUpperCase();
+        const tel = String(r[5] || '').trim().replace(/\D/g, '');
+        return id ? 'ID:' + id : 'SIG:' + nom + '|' + tel;
+      });
+    }
+
+    let nuevos = 0;
+
+    const esDeriv = (nombreHoja === 'Derivaciones_Institucionales');
+
+    dataRows.forEach(row => {
+      // ── Extraer campos según tipo de hoja ──
+      let nombreTmp, telTmp, firmaEntrante, uuidVal;
+
+      if (esDeriv) {
+        // Derivaciones: usar mapDeriv con campos exactos del CSV
+        nombreTmp = mapDeriv.nombreCompleto !== -1 ? cleanValue(row[mapDeriv.nombreCompleto]) : '';
+        telTmp = mapDeriv.telefono !== -1 ? String(row[mapDeriv.telefono] || '').replace(/\D/g, '') : '';
+        uuidVal = mapDeriv.uuid !== -1 ? String(row[mapDeriv.uuid] || '').trim().toUpperCase() : '';
+        firmaEntrante = uuidVal ? 'ID:' + uuidVal : 'SIG:' + nombreTmp.toUpperCase().trim() + '|' + telTmp;
+      } else {
+        const creamosID = map.id !== -1 ? String(row[row.length > map.id ? map.id : 0]).trim().toUpperCase() : '';
+        uuidVal = '';
+        nombreTmp = '';
+        if (map.nombre !== -1) {
+          nombreTmp = cleanValue(row[map.nombre]);
+          if (map.apellidos !== -1) nombreTmp += ' ' + cleanValue(row[map.apellidos]);
+        }
+        telTmp = map.tel !== -1 ? String(row[map.tel] || '').replace(/\D/g, '') : '';
+        firmaEntrante = creamosID ? 'ID:' + creamosID : 'SIG:' + nombreTmp.toUpperCase().trim() + '|' + telTmp;
+      }
+
+      if (firmasExistentes.includes(firmaEntrante)) return;
+      if (!nombreTmp && !telTmp) return;
+
+      // ── Contexto para filtrado de grupos ──
+      let serviciosVal, notasVal;
+      if (esDeriv) {
+        serviciosVal = mapDeriv.servicio !== -1 ? String(row[mapDeriv.servicio] || '') : '';
+        notasVal = mapDeriv.motivo !== -1 ? String(row[mapDeriv.motivo] || '') : '';
+      } else {
+        serviciosVal = String(map.interes !== -1 ? row[map.interes] : '');
+        notasVal = String(map.notas !== -1 ? row[map.notas] : '');
+      }
+
+      let contextoValores = [serviciosVal, notasVal];
+      
+      headers.forEach((h, i) => {
+        const val = String(row[i] || '').toLowerCase().trim();
+        const headerLower = String(h).toLowerCase();
+        
+        // Si el valor es afirmativo, se agrega el nombre de la columna al contexto
+        if (val === 'ok' || val === '1' || val === 'si' || val === 'true') {
+          contextoValores.push(headerLower);
+        }
+        
+        // Pero TAMBIÉN, si el valor *contiene* las selecciones directamente (ej. "Apoyo Emocional")
+        if (val.length > 2) {
+          contextoValores.push(val); 
+        }
+      });
+      
+      const contextoTotal = contextoValores.join(' ');
+      
+      // Determinar si estrictamente pide un grupo
+      const exigeGrupo = keywordsGrupos.some(k => contextoTotal.includes(k) || serviciosVal.toLowerCase().includes(k));
+      const esTerapiaIndividual = keywordsNegativas.some(k => contextoTotal.includes(k));
+
+      // LÓGICA DE FILTRADO (ESTRICTAMENTE SOLO GRUPOS)
+      // Bloquea tajantamente si alguien pide Terapia Individual y NUNCA mencionó explícitamente un grupo
+      if (!exigeGrupo || (esTerapiaIndividual && !exigeGrupo)) return;
+
+      // Para Derivaciones_Institucionales: filtro adicional por campo de servicio
+      if (nombreHoja === 'Derivaciones_Institucionales') {
+        const servicioLower = serviciosVal.toLowerCase();
+        const esServicioIndividual = servicioLower.includes('terapia individual') || servicioLower.includes('psicoterapia individual');
+        const esServicioGrupo = keywordsGrupos.some(k => servicioLower.includes(k));
+        if (esServicioIndividual && !esServicioGrupo) return;
+        if (!esServicioGrupo && !exigeGrupo) return;
+      }
+
+      let nombreFinal = nombreTmp || 'SIN NOMBRE';
+      if (!esDeriv && (nombreFinal === 'SIN NOMBRE' || nombreFinal === '') && map.nombrePreferido !== -1 && row[map.nombrePreferido]) {
+        nombreFinal = cleanValue(row[map.nombrePreferido]);
+      }
+
+      // Cálculo de EDAD exacta y en número entero
+      const edadRaw = esDeriv
+        ? (mapDeriv.edad !== -1 ? row[mapDeriv.edad] : '')
+        : (map.edad !== -1 ? row[map.edad] : '');
+      let edadFinal = cleanGeneric(edadRaw);
+      if (edadFinal) {
+        if (edadFinal.includes('-') || edadFinal.includes('/')) {
+          let fechaNac = new Date(edadFinal);
+          if (!isNaN(fechaNac.getTime())) {
+            let diff_ms = Date.now() - fechaNac.getTime();
+            let age_dt = new Date(diff_ms);
+            edadFinal = Math.abs(age_dt.getUTCFullYear() - 1970);
+          }
+        }
+        if (typeof edadFinal === 'string') {
+           edadFinal = parseInt(edadFinal.replace(/\D/g, ''));
+           if (isNaN(edadFinal)) edadFinal = '';
+        }
+      }
+
+      // EXTRAER FECHA REAL DE ENVÍO DE KOBO
+      let fechaEnvioReal = new Date();
+      if (esDeriv) {
+        if (mapDeriv.fecha !== -1 && row[mapDeriv.fecha]) {
+          let fTmp = new Date(row[mapDeriv.fecha]);
+          if (!isNaN(fTmp.getTime())) fechaEnvioReal = fTmp;
+        }
+      } else {
+        if (map.fecha_envio !== -1 && row[map.fecha_envio]) {
+          let fTmp = new Date(row[map.fecha_envio]);
+          if (!isNaN(fTmp.getTime())) fechaEnvioReal = fTmp;
+        }
+      }
+
+      let newRow;
+      if (esDeriv) {
+        // ── Derivaciones_Institucionales ──
+        // Columnas: Fecha | Nombre de quien deriva | Tel. quien deriva | Organización |
+        //           Nombre Completo | Edad | Teléfono | Dirección |
+        //           Motivo de derivación | Servicio al que deriva | _uuid | Hoja de Interés
+        //
+        // Campos CSV de KoboToolbox:
+        //   Datos de la Organización / Nombre de quien deriva
+        //   Datos de la Organización / Teléfono
+        //   Datos de la Organización / Nombre de organización (+ Otro)
+        //   Datos del derivado / Nombre completo
+        //   Datos del derivado / Edad
+        //   Datos del derivado / Teléfono
+        //   Datos del derivado / Dirección
+        //   Datos del derivado / Motivo de derivación
+        //   Datos del derivado / Servicio al que deriva (+ Otro)
+
+        let orgNombre = mapDeriv.organizacion !== -1 ? cleanValue(row[mapDeriv.organizacion]) : '';
+        const orgOtro = mapDeriv.orgOtro !== -1 ? cleanValue(row[mapDeriv.orgOtro]) : '';
+        if (orgOtro && orgOtro !== orgNombre) orgNombre = orgNombre ? orgNombre + ' - ' + orgOtro : orgOtro;
+
+        let servicioVal = mapDeriv.servicio !== -1 ? String(row[mapDeriv.servicio] || '') : '';
+        const derivOtro = mapDeriv.derivOtro !== -1 ? cleanValue(row[mapDeriv.derivOtro]) : '';
+        if (derivOtro && derivOtro !== servicioVal) servicioVal = servicioVal ? servicioVal + ' - ' + derivOtro : derivOtro;
+
+        newRow = [
+          fechaEnvioReal,
+          mapDeriv.nombreDeriva !== -1 ? cleanValue(row[mapDeriv.nombreDeriva]) : '',
+          mapDeriv.telDeriva !== -1 ? String(row[mapDeriv.telDeriva] || '') : '',
+          orgNombre || 'S/D',
+          nombreFinal,
+          edadFinal,
+          mapDeriv.telefono !== -1 ? String(row[mapDeriv.telefono] || '') : '',
+          mapDeriv.direccion !== -1 ? cleanValue(row[mapDeriv.direccion]) : '',
+          mapDeriv.motivo !== -1 ? String(row[mapDeriv.motivo] || '') : '',
+          servicioVal,
+          uuidVal,
+          ''
+        ];
+      } else {
+        // ── Referencias / Hoja de Interés ──
+        let generoFinal = map.genero !== -1 ? String(row[map.genero]) : '';
+        if (generoFinal.includes('/')) generoFinal = generoFinal.split('/')[0].trim();
+
+        let serviciosExactos = [];
+        if (contextoTotal.includes('ocupacional')) serviciosExactos.push('Apoyo Emocional, Grupos Psicoeducativos: Terapia Ocupacional');
+        if (contextoTotal.includes('autopercepc') || contextoTotal.includes('auto percep')) serviciosExactos.push('Apoyo Emocional, Grupo de Autopercepción');
+        if (contextoTotal.includes('relajarte') || contextoTotal.includes('relaj') || contextoTotal.includes('arte')) serviciosExactos.push('Apoyo Emocional, Grupos Terapeuticos: RelajArte');
+        if (contextoTotal.includes('escuela para madres') || contextoTotal.includes('madres')) serviciosExactos.push('Apoyo Emocional, Grupos: Escuela para madres');
+        if (contextoTotal.includes('escuela para padres') || (contextoTotal.includes('padres') && !contextoTotal.includes('madres'))) serviciosExactos.push('Apoyo Emocional, Grupos: Escuela para padres');
+        if (contextoTotal.includes('otros grupos')) serviciosExactos.push('Apoyo Emocional, Otros grupos');
+        if (contextoTotal.includes('grupo de apoyo emocional') || (contextoTotal.includes('apoyo emocional') && serviciosExactos.length === 0)) serviciosExactos.push('Apoyo Emocional, Grupo de apoyo emocional');
+
+        let serviciosFinal = serviciosExactos.length > 0
+          ? serviciosExactos.join(' | ')
+          : 'Apoyo Emocional, Grupos (' + extractGroupName(serviciosVal) + ')';
+
+        const creamosID = map.id !== -1 ? String(row[row.length > map.id ? map.id : 0]).trim().toUpperCase() : '';
+        newRow = [
+          fechaEnvioReal,
+          creamosID,
+          nombreFinal,
+          generoFinal,
+          edadFinal,
+          map.tel !== -1 ? row[map.tel] : '',
+          map.dpi !== -1 ? row[map.dpi] : '',
+          cleanGeneric(map.zona !== -1 ? row[map.zona] : ''),
+          serviciosFinal,
+          map.notas !== -1 ? row[map.notas] : '',
+          ''
+        ];
+      }
+
+      sheet.appendRow(newRow);
+      nuevos++;
+    });
+
+    configurarValidacionesAE();
+    toastSafeAE('✅ ' + nuevos + ' registros añadidos a ' + nombreHoja + '.', 'Éxito');
+  } catch (e) {
+    Logger.log('Error en Importación (' + nombreHoja + '): ' + e.message);
+  }
+}
+
+// =====================================================================
+// GESTIÓN DE GRUPOS
+// =====================================================================
+
+/**
+ * Busca el siguiente número correlativo para un nombre de grupo.
+ * Ej: "Escuela de Padres" -> devuelve "Escuela de Padres 2" si ya existe la 1.
+ */
+function getSiguienteCorrelativoAE(nombreBase) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheets = ss.getSheets();
+  let max = 0;
+  
+  // Limpiar el nombre base de (2026) etc para la búsqueda
+  const baseLimpia = nombreBase.replace(/\s*\(\d{4}\)/g, '').trim();
+  const regex = new RegExp("^" + baseLimpia.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "\\s*(\\d+)?", "i");
+  
+  sheets.forEach(s => {
+    const name = s.getName();
+    const match = name.match(regex);
+    if (match) {
+      const num = match[1] ? parseInt(match[1]) : 1;
+      if (num > max) max = num;
+    }
+  });
+  
+  return (max + 1);
+}
+
+function crearNuevoGrupoAE() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const resNombre = ui.prompt('🆕 Nuevo Grupo', 'Ingrese el nombre del grupo (ej: Escuela de Padres):', ui.ButtonSet.OK_CANCEL);
+  if (resNombre.getSelectedButton() != ui.Button.OK) return;
+  const grupoBase = resNombre.getResponseText().trim();
+  
+  // Nombramiento Automático - Buscar último número para ese grupo base
+  const correlativo = getSiguienteCorrelativoAE(grupoBase);
+  const grupoNombre = grupoBase + " " + correlativo + " (2026)";
+  
+  if (ss.getSheetByName(grupoNombre)) {
+    alertSafeAE('❌ Error', 'Ya existe un grupo llamado: ' + grupoNombre);
+    return;
+  }
+  
+  const resTipo = ui.prompt('📂 Tipo de Grupo', '1: Grupo Psicoeducativo\n2: Grupo Psicoterapéutico', ui.ButtonSet.OK_CANCEL);
+  const seleccionTipo = resTipo.getResponseText();
+  const nombreTipo = (seleccionTipo === '2') ? 'Grupo Psicoterapéutico' : 'Grupo Psicoeducativo';
+
+  const resMod = ui.prompt('🔄 Modalidad', '1: Abierto\n2: Cerrado\n3: Semi-cerrado', ui.ButtonSet.OK_CANCEL);
+  let nombreModalidad = 'Cerrado';
+  if (resMod.getResponseText() === '1') { nombreModalidad = 'Abierto'; }
+  else if (resMod.getResponseText() === '3') { nombreModalidad = 'Semi-cerrado'; }
+
+  const resS = ui.prompt('📅 Sesiones', '¿Cuántas sesiones tendrá?', ui.ButtonSet.OK_CANCEL);
+  const numSesiones = parseInt(resS.getResponseText()) || 8;
+
+  const resCupo = ui.prompt('👥 Cupo Máximo', '¿Cuál es el cupo máximo de participantes?', ui.ButtonSet.OK_CANCEL);
+  const cupoMax = parseInt(resCupo.getResponseText()) || 25;
+
+  const resD = ui.prompt('📆 Días/Horario', 'Ej: Lunes y Miércoles 14:00:', ui.ButtonSet.OK_CANCEL);
+  const diasEnv = resD.getResponseText();
+
+  const resR = ui.prompt('👤 Responsable', 'Nombre del encargado:', ui.ButtonSet.OK_CANCEL);
+  if (resR.getSelectedButton() != ui.Button.OK) return;
+  const responsable = resR.getResponseText();
+
+  const resFecha = ui.prompt('📅 Fecha de Inicio', 'Ingrese la fecha de la Primera Sesión (DD/MM/YYYY):', ui.ButtonSet.OK_CANCEL);
+  if (resFecha.getSelectedButton() != ui.Button.OK) return;
+  const fechaStr = resFecha.getResponseText().trim();
+
+  const partes = fechaStr.split('/');
+  let fechaInicio = new Date();
+  if (partes.length === 3) {
+    fechaInicio = new Date(partes[2], partes[1] - 1, partes[0]);
+  }
+
+  // ===== NUEVA FUNCIONALIDAD: Manejo de Asuetos/Feriados =====
+  const resAsuetos = ui.alert('🏖️ Asuetos/Feriados',
+    '¿Hay asuetos o días feriados donde NO se realizarán sesiones?\n\n' +
+    'Esto permite saltar esas fechas y no crear columnas innecesarias.',
+    ui.ButtonSet.YES_NO);
+
+  let fechasAsuetos = [];
+  if (resAsuetos == ui.Button.YES) {
+    const resListaAsuetos = ui.prompt('📅 Fechas de Asuetos',
+      'Ingrese las fechas de asuetos separadas por comas (DD/MM/YYYY):\n\n' +
+      'Ejemplo: 01/05/2026, 15/09/2026, 25/12/2026',
+      ui.ButtonSet.OK_CANCEL);
+
+    if (resListaAsuetos.getSelectedButton() == ui.Button.OK) {
+      const listaStr = resListaAsuetos.getResponseText().trim();
+      if (listaStr) {
+        const fechasStr = listaStr.split(',');
+        fechasStr.forEach(f => {
+          const fTrim = f.trim();
+          const pAsueto = fTrim.split('/');
+          if (pAsueto.length === 3) {
+            const fechaAsueto = new Date(pAsueto[2], pAsueto[1] - 1, pAsueto[0]);
+            fechasAsuetos.push(fechaAsueto.getTime()); // Guardar como timestamp para comparación
+          }
+        });
+      }
+    }
+  }
+
+  const sheet = ss.insertSheet(grupoNombre);
+  const numRows = sheet.getMaxRows() - 1;
+  const headers = ['Año', 'Creamos ID', 'Nombre Completo', 'Teléfono', '% Asistencia'];
+  const colSesionesOffset = headers.length; // Columna 5
+
+  // ===== GENERACIÓN INTELIGENTE DE SESIONES (Saltando Asuetos) =====
+  let fechaActual = new Date(fechaInicio);
+  for (let s = 1; s <= numSesiones; s++) {
+    // Si no es la primera sesión, avanzar 7 días
+    if (s > 1) {
+      fechaActual.setDate(fechaActual.getDate() + 7);
+
+      // Saltar asuetos: si la fecha cae en asueto, seguir sumando 7 días
+      let intentos = 0;
+      while (fechasAsuetos.includes(fechaActual.getTime()) && intentos < 52) {
+        fechaActual.setDate(fechaActual.getDate() + 7);
+        intentos++;
+      }
+    }
+
+    let labelFecha = Utilities.formatDate(fechaActual, Session.getScriptTimeZone(), 'dd/MM');
+    headers.push('S' + s + ' (' + labelFecha + ')');
+    headers.push('Evolución S' + s);
+  }
+  headers.push('Etapa');
+  
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#1E1B4B').setFontColor('white').setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  
+  if (numRows > 0) {
+    sheet.getRange(2, 1, numRows, 1).setValue(2026); 
+  }
+  
+  if (numSesiones > 0) {
+    let rules = sheet.getConditionalFormatRules();
+    
+    for (let s = 0; s < numSesiones; s++) {
+      const colAsis = colSesionesOffset + 1 + (s * 2);
+      const sessionRange = sheet.getRange(2, colAsis, numRows, 1);
+      
+      sessionRange.insertCheckboxes()
+        .setHorizontalAlignment('center')
+        .setVerticalAlignment('middle');
+        
+      const ruleTrue = SpreadsheetApp.newConditionalFormatRule()
+        .whenFormulaSatisfied("=" + encodeColNameAE(colAsis) + "2=TRUE")
+        .setBackground('#D1FAE5') // Emerald 100
+        .setFontColor('#065F46') // Emerald 800
+        .setRanges([sessionRange])
+        .build();
+      
+      rules.push(ruleTrue);
+      
+      sheet.setColumnWidth(colAsis, 50); 
+      sheet.setColumnWidth(colAsis + 1, 150); 
+    }
+    sheet.setConditionalFormatRules(rules);
+
+    for (let r = 2; r <= numRows + 1; r++) {
+       let checkCols = [];
+       for (let s = 0; s < numSesiones; s++) {
+         checkCols.push(encodeColNameAE(colSesionesOffset + 1 + (s * 2)) + r);
+       }
+       // Mejorada: Solo cuenta sesiones REALIZADAS (TRUE o FALSE), ignora vacías (no realizadas)
+       const formula = '=IF(C' + r + '<>"", IFERROR(COUNTIF({' + checkCols.join(';') + '}, TRUE)/(COUNTIF({' + checkCols.join(';') + '}, TRUE)+COUNTIF({' + checkCols.join(';') + '}, FALSE)), ""), "")';
+       sheet.getRange(r, 5).setFormula(formula).setNumberFormat('0%')
+         .setHorizontalAlignment('center').setFontWeight('bold');
+    }
+  }
+  
+  sheet.setFrozenRows(1);
+  sheet.setFrozenColumns(4); 
+
+  const colEtapa = headers.length;
+  const validation = SpreadsheetApp.newDataValidation().requireValueInList(['Retirar Participante']).build();
+  if (numRows > 0 && colEtapa > 0) {
+    sheet.getRange(2, colEtapa, numRows, 1).setDataValidation(validation);
+  }
+
+  const hojaResumen = ss.getSheetByName('Resumen de Grupos');
+  if (hojaResumen) {
+    const headersRes = ['Nombre del Grupo', 'Tipo', 'Responsable', 'Sesiones', 'Inscritos', 'Retiradx', 'Graduadx', '% Asistencia', 'Estado', 'Fecha Creación', 'Cupo Máximo'];
+    hojaResumen.getRange(1, 1, 1, headersRes.length).setValues([headersRes])
+      .setBackground('#1e1b4b').setFontColor('white').setFontWeight('bold');
+
+    hojaResumen.appendRow([
+      grupoNombre + ' (' + nombreModalidad + ')',  nombreTipo,  responsable,  numSesiones,
+      '=COUNTIFS(\'' + grupoNombre + '\'!C:C, "<>", \'' + grupoNombre + '\'!C:C, "<>Nombre Completo")',
+      '=IFERROR(COUNTIFS(Retiradx!E:E,"*' + grupoNombre + '*"),0)',
+      '=IFERROR(COUNTIFS(Graduadx!D:D,"*' + grupoNombre + '*"),0)',
+      '=IFERROR(AVERAGE(\'' + grupoNombre + '\'!E2:E' + (numRows + 1) + '), 0)',
+      'Activo', new Date(), cupoMax
+    ]);
+
+    const newRow = hojaResumen.getLastRow();
+    hojaResumen.getRange(newRow, 8).setNumberFormat('0%');
+  }
+  
+  configurarValidacionesAE();
+  aplicarFormatosAE(); 
+  actualizarReportesAE(); 
+  alertSafeAE('🎉 ¡Éxito!', 'El grupo "' + grupoNombre + '" ha sido creado.');
+}
+
+function verResumenGruposAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Resumen de Grupos');
+  if (sheet) sheet.activate();
+}
+
+/**
+ * Corrige encabezados faltantes y aplica formato de porcentaje 
+ * a la columna F en la hoja "Resumen de Grupos".
+ */
+function repararResumenGruposAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Resumen de Grupos');
+  if (!sheet) {
+    alertSafeAE('⚠️ Error', 'No se encontró la hoja "Resumen de Grupos".');
+    return;
+  }
+
+  const lastRow = sheet.getLastRow();
+  const headersNuevos = ['Nombre del Grupo', 'Tipo', 'Responsable', 'Sesiones', 'Inscritos', 'Retiradx', 'Graduadx', '% Asistencia', 'Estado', 'Fecha Creación', 'Cupo Máximo'];
+
+  // ── Migrar datos del formato viejo (9 cols) al nuevo (11 cols) ──
+  // Formato viejo: A:Nombre B:Tipo C:Responsable D:Sesiones E:Inscritos F:%Asistencia G:Estado H:Fecha I:Cupo
+  // Formato nuevo: A:Nombre B:Tipo C:Responsable D:Sesiones E:Inscritos F:Retiradx G:Graduadx H:%Asistencia I:Estado J:Fecha K:Cupo
+  if (lastRow > 1) {
+    const headersActuales = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const esFormatoViejo = (headersActuales[5] === '% Asistencia' || headersActuales[5] === '% Asis')
+                        || (headersActuales.indexOf('Retiradx') === -1 && headersActuales.indexOf('Graduadx') === -1);
+
+    if (esFormatoViejo) {
+      Logger.log('Migrando Resumen de Grupos de formato viejo (9 cols) a nuevo (11 cols)...');
+      for (let i = lastRow; i >= 2; i--) {
+        const rowData = sheet.getRange(i, 1, 1, sheet.getLastColumn()).getValues()[0];
+        // Viejo: [0]Nombre [1]Tipo [2]Responsable [3]Sesiones [4]Inscritos [5]%Asis [6]Estado [7]Fecha [8]Cupo
+        const nombre      = rowData[0] || '';
+        const tipo        = rowData[1] || '';
+        const responsable = rowData[2] || '';
+        const sesiones    = rowData[3] || '';
+        const inscritos   = rowData[4] || '';
+        const estado      = rowData[6] || 'Activo';
+        const fecha       = rowData[7] || '';
+        const cupo        = rowData[8] || '';
+
+        // Escribir en formato nuevo (Retiradx y Graduadx se calculan después)
+        sheet.getRange(i, 1, 1, 11).setValues([[
+          nombre, tipo, responsable, sesiones, inscritos,
+          '', '', '', estado, fecha, cupo
+        ]]);
+      }
+      Logger.log('Migración completada.');
+    }
+  }
+
+  // ── Escribir headers nuevos ──
+  sheet.getRange(1, 1, 1, headersNuevos.length).setValues([headersNuevos])
+    .setBackground('#1e1b4b').setFontColor('white').setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  // ── Anchos de columna ──
+  const anchos = [300, 200, 150, 90, 90, 90, 90, 120, 100, 140, 100];
+  anchos.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+
+  const lastRowFinal = sheet.getLastRow();
+  if (lastRowFinal < 2) {
+    toastSafeAE('✅ Resumen de Grupos reparado (sin datos).');
+    return;
+  }
+
+  // ── Reconstruir fórmulas de Inscritos, Retiradx, Graduadx y % Asistencia ──
+  const exclude = ['Referencias a grupos', 'Hoja de Interés', 'Resumen de Grupos', 'Retiradx', 'Graduadx',
+    'Reporte General', 'Copy of CREAMOS ID nuevo', 'Derivaciones_Institucionales',
+    '⚙️ CONFIGURACIÓN', 'LOG_KOBO', 'TEMPORAL_LIMPIEZA'];
+
+  for (let i = 2; i <= lastRowFinal; i++) {
+    const nombreCelda = String(sheet.getRange(i, 1).getValue()).trim();
+    if (!nombreCelda) continue;
+
+    // Buscar el nombre exacto de la hoja del grupo
+    const grupoSheets = ss.getSheets().filter(s => !exclude.includes(s.getName()));
+    let hojaGrupo = null;
+    for (const s of grupoSheets) {
+      if (nombreCelda.includes(s.getName()) || s.getName().includes(nombreCelda.replace(/\s*\([^)]*\)\s*$/, '').trim())) {
+        hojaGrupo = s;
+        break;
+      }
+    }
+
+    // Extraer nombre base para buscar en Retiradx/Graduadx
+    const matchBase = nombreCelda.match(/^(.+?)\s*\d*\s*\(\d{4}\)/);
+    const buscar = matchBase ? matchBase[1].trim() : nombreCelda.replace(/\s*\([^)]*\)\s*$/g, '').trim();
+
+    if (hojaGrupo) {
+      const gn = hojaGrupo.getName();
+      const maxR = hojaGrupo.getMaxRows();
+      // E: Inscritos
+      sheet.getRange(i, 5).setFormula('=IFERROR(COUNTIFS(\'' + gn + '\'!C:C,"<>",\'' + gn + '\'!C:C,"<>Nombre Completo"),0)');
+      // H: % Asistencia
+      sheet.getRange(i, 8).setFormula('=IFERROR(AVERAGE(\'' + gn + '\'!E2:E' + maxR + '),0)');
+    }
+
+    // F: Retiradx (busca grupo en columna E de Retiradx = "Grupo de Origen")
+    sheet.getRange(i, 6).setFormula('=IFERROR(COUNTIFS(Retiradx!E:E,"*' + buscar + '*"),0)');
+    // G: Graduadx (busca grupo en columna D de Graduadx = "Grupo")
+    sheet.getRange(i, 7).setFormula('=IFERROR(COUNTIFS(Graduadx!D:D,"*' + buscar + '*"),0)');
+  }
+
+  // ── Formatos ──
+  sheet.getRange(2, 6, lastRowFinal - 1, 1).setNumberFormat('0');   // Retiradx = número
+  sheet.getRange(2, 7, lastRowFinal - 1, 1).setNumberFormat('0');   // Graduadx = número
+  sheet.getRange(2, 8, lastRowFinal - 1, 1).setNumberFormat('0%');  // % Asistencia
+  sheet.getRange(2, 10, lastRowFinal - 1, 1).setNumberFormat('dd/MM/yyyy'); // Fecha
+
+  // Centrar columnas numéricas
+  sheet.getRange(2, 4, lastRowFinal - 1, 8).setHorizontalAlignment('center');
+
+  toastSafeAE('✅ Resumen de Grupos reparado: Retiradx, Graduadx, fórmulas y formato corregidos.');
+}
+
+function reinstalarResumenGruposAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    const ui = SpreadsheetApp.getUi();
+    const confirm = ui.alert(
+      '🔄 Reinstalar Resumen de Grupos',
+      'Esto recreará la hoja "Resumen de Grupos" conservando Tipo, Responsable, Fecha y Cupo.\n\n¿Continuar?',
+      ui.ButtonSet.YES_NO
+    );
+    if (confirm != ui.Button.YES) return;
+  } catch (e) {
+    Logger.log('Sin UI disponible, ejecutando directamente...');
+  }
+
+  // 1. Guardar datos del Resumen viejo antes de borrarlo
+  const datosViejos = {};
+  const hojaVieja = ss.getSheetByName('Resumen de Grupos');
+  if (hojaVieja && hojaVieja.getLastRow() > 1) {
+    const headersViejo = hojaVieja.getRange(1, 1, 1, hojaVieja.getLastColumn()).getValues()[0];
+    const dataViejo = hojaVieja.getRange(2, 1, hojaVieja.getLastRow() - 1, hojaVieja.getLastColumn()).getValues();
+
+    const ci = (nombre) => headersViejo.indexOf(nombre);
+    const ciAlt = (n1, n2) => { const i = ci(n1); return i !== -1 ? i : ci(n2); };
+
+    const iNombre = ciAlt('Nombre del Grupo', 'Nombre');
+    const iTipo = ci('Tipo');
+    const iResp = ci('Responsable');
+    const iEstado = ciAlt('Estado', 'Estatus');
+    const iFecha = ciAlt('Fecha Creación', 'Fecha');
+    const iCupo = ciAlt('Cupo Máximo', 'Cupo');
+
+    dataViejo.forEach(row => {
+      const nombre = String(row[iNombre] || '').trim();
+      if (!nombre) return;
+      // Guardar por nombre base (sin modalidad) para poder matchear
+      const base = nombre.replace(/\s*\([^)]*\)\s*$/g, '').trim();
+      datosViejos[nombre] = {
+        tipo: iTipo !== -1 ? row[iTipo] : '',
+        responsable: iResp !== -1 ? row[iResp] : '',
+        estado: iEstado !== -1 ? row[iEstado] : '',
+        fecha: iFecha !== -1 ? row[iFecha] : '',
+        cupo: iCupo !== -1 ? row[iCupo] : ''
+      };
+      datosViejos[base] = datosViejos[nombre];
+    });
+    Logger.log('Datos guardados de ' + Object.keys(datosViejos).length + ' grupos del Resumen viejo');
+  }
+
+  // 2. Eliminar hoja vieja
+  if (hojaVieja) {
+    try { ss.deleteSheet(hojaVieja); } catch (e) {
+      Logger.log('Error eliminando Resumen: ' + e.message);
+    }
+  }
+
+  // 3. Crear hoja nueva
+  const sheet = ss.insertSheet('Resumen de Grupos');
+  const headersRes = ['Nombre del Grupo', 'Tipo', 'Responsable', 'Sesiones', 'Inscritos', 'Retiradx', 'Graduadx', '% Asistencia', 'Estado', 'Fecha Creación', 'Cupo Máximo'];
+  sheet.getRange(1, 1, 1, headersRes.length).setValues([headersRes])
+    .setBackground('#1e1b4b').setFontColor('white').setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  const anchos = [300, 200, 150, 90, 90, 90, 90, 120, 100, 140, 100];
+  anchos.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  sheet.setFrozenRows(1);
+
+  // 4. Detectar todos los grupos existentes
+  const exclude = ['Referencias a grupos', 'Hoja de Interés', 'Resumen de Grupos', 'Retiradx',
+    'Graduadx', 'Reporte General', 'Copy of CREAMOS ID nuevo', 'Derivaciones_Institucionales',
+    '⚙️ CONFIGURACIÓN', 'LOG_KOBO', 'TEMPORAL_LIMPIEZA'];
+
+  const grupoSheets = ss.getSheets().filter(s => {
+    const name = s.getName();
+    return !exclude.includes(name) && !name.includes('TEMPORAL');
+  });
+
+  if (grupoSheets.length === 0) {
+    toastSafeAE('✅ Resumen reinstalado (no se encontraron grupos).', 'Listo');
+    return;
+  }
+
+  // 5. Para cada grupo, escribir fila con datos recuperados del Resumen viejo
+  grupoSheets.forEach(hojaGrupo => {
+    const gn = hojaGrupo.getName();
+    const maxR = hojaGrupo.getMaxRows();
+    const headersGrupo = hojaGrupo.getRange(1, 1, 1, hojaGrupo.getLastColumn()).getValues()[0];
+
+    const sesiones = headersGrupo.filter(h => String(h).match(/^S\d+\s/));
+    const numSesiones = sesiones.length;
+
+    const matchBase = gn.match(/^(.+?)\s*\d*\s*\(\d{4}\)/);
+    const buscar = matchBase ? matchBase[1].trim() : gn.replace(/\s*\([^)]*\)\s*$/g, '').trim();
+
+    // Buscar datos guardados por nombre exacto o por nombre base
+    const saved = datosViejos[gn] || datosViejos[buscar] || {};
+
+    const newRowNum = sheet.getLastRow() + 1;
+    sheet.getRange(newRowNum, 1, 1, 11).setValues([[
+      gn,
+      saved.tipo || '',
+      saved.responsable || '',
+      numSesiones,
+      '',
+      '',
+      '',
+      '',
+      saved.estado || (hojaGrupo.isSheetHidden() ? 'Finalizado' : 'Activo'),
+      saved.fecha || '',
+      saved.cupo || ''
+    ]]);
+
+    // Fórmulas
+    sheet.getRange(newRowNum, 5).setFormula('=IFERROR(COUNTIFS(\'' + gn + '\'!C:C,"<>",\'' + gn + '\'!C:C,"<>Nombre Completo"),0)');
+    sheet.getRange(newRowNum, 6).setFormula('=IFERROR(COUNTIFS(Retiradx!E:E,"*' + buscar + '*"),0)');
+    sheet.getRange(newRowNum, 7).setFormula('=IFERROR(COUNTIFS(Graduadx!D:D,"*' + buscar + '*"),0)');
+    sheet.getRange(newRowNum, 8).setFormula('=IFERROR(AVERAGE(\'' + gn + '\'!E2:E' + maxR + '),0)');
+  });
+
+  // 6. Formatos
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 6, lastRow - 1, 1).setNumberFormat('0');
+    sheet.getRange(2, 7, lastRow - 1, 1).setNumberFormat('0');
+    sheet.getRange(2, 8, lastRow - 1, 1).setNumberFormat('0%');
+    sheet.getRange(2, 10, lastRow - 1, 1).setNumberFormat('dd/MM/yyyy');
+    sheet.getRange(2, 4, lastRow - 1, 8).setHorizontalAlignment('center');
+  }
+
+  alertSafeAE('✅ Resumen Reinstalado',
+    'Se detectaron ' + grupoSheets.length + ' grupos.\n' +
+    'Tipo, Responsable, Fecha y Cupo fueron recuperados del Resumen anterior.');
+}
+
+function mostrarDialogoCerrarGrupoAE() {
+  const ui = SpreadsheetApp.getUi();
+  const prompt = ui.prompt('🔒 Cerrar Grupo', 'Ingrese el nombre EXACTO del grupo a finalizar:', ui.ButtonSet.OK_CANCEL);
+  if (prompt.getSelectedButton() == ui.Button.OK) cerrarGrupoAE(prompt.getResponseText().trim());
+}
+
+function cerrarGrupoAE(nombreGrupo) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(nombreGrupo);
+  if (!sheet) return;
+  
+  const ui = SpreadsheetApp.getUi();
+  const confirm = ui.alert('⚠️ Cerrar Grupo', '¿Seguro que desea cerrar "' + nombreGrupo + '"?', ui.ButtonSet.YES_NO);
+  if (confirm != ui.Button.YES) return;
+
+  const sheetResumen = ss.getSheetByName('Resumen de Grupos');
+  const sheetGraduadas = ss.getSheetByName('Graduadx');
+  const data = sheet.getDataRange().getValues();
+  const graduadas = [];
+  const fechaHoy = new Date();
+  
+  let responsable = 'S/D';
+  if (sheetResumen) {
+    const resumenData = sheetResumen.getDataRange().getValues();
+    for (let i = 1; i < resumenData.length; i++) {
+      if (resumenData[i][0] && resumenData[i][0].includes(nombreGrupo)) {
+        responsable = resumenData[i][2];
+        sheetResumen.getRange(i + 1, 9).setValue('Finalizado'); // Columna I = Estado
+        break;
+      }
+    }
+  }
+
+  const headers = data[0];
+  const colID = headers.indexOf('Creamos ID');
+  const colNombre = headers.indexOf('Nombre Completo');
+  let colAsis = headers.indexOf('% Asistencia');
+  if (colAsis === -1) colAsis = headers.indexOf('% Asis'); // Compatibilidad con versiones anteriores
+
+  for (let i = 1; i < data.length; i++) {
+    const nombre = data[i][colNombre];
+    if (nombre && nombre !== "" && nombre !== "Nombre Completo") {
+      graduadas.push([
+        fechaHoy, colID !== -1 ? data[i][colID] : 'S/I', nombre, 
+        nombreGrupo, responsable, colAsis !== -1 ? data[i][colAsis] : 'N/A', 'Graduación automática al cerrar cohorte'
+      ]);
+    }
+  }
+
+  if (graduadas.length > 0 && sheetGraduadas) {
+    sheetGraduadas.getRange(sheetGraduadas.getLastRow() + 1, 1, graduadas.length, graduadas[0].length).setValues(graduadas);
+  }
+
+  sheet.hideSheet();
+  alertSafeAE('✅ Cohorte Finalizada', 'Se registraron todas las graduaciones y la hoja se ha ocultado para preservar el historial.');
+}
+
+/**
+ * Muestra un diálogo para eliminar un grupo/cohorte completamente
+ */
+function mostrarDialogoEliminarGrupoAE() {
+  const ui = SpreadsheetApp.getUi();
+  const prompt = ui.prompt('🗑️ Eliminar Grupo/Cohorte', 'Ingrese el nombre EXACTO del grupo a eliminar:\n\n⚠️ ADVERTENCIA: Esta acción es PERMANENTE y eliminará todos los datos del grupo.', ui.ButtonSet.OK_CANCEL);
+  if (prompt.getSelectedButton() == ui.Button.OK) {
+    eliminarGrupoCohorteAE(prompt.getResponseText().trim());
+  }
+}
+
+/**
+ * Elimina un grupo/cohorte completo del sistema
+ * - Elimina la hoja del grupo
+ * - Elimina la entrada en "Resumen de Grupos"
+ * - Confirma con el usuario antes de proceder
+ */
+function eliminarGrupoCohorteAE(nombreGrupo) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(nombreGrupo);
+
+  if (!sheet) {
+    alertSafeAE('❌ Error', 'No se encontró el grupo "' + nombreGrupo + '".\n\nVerifique que el nombre esté escrito EXACTAMENTE como aparece en la pestaña.');
+    return;
+  }
+
+  const ui = SpreadsheetApp.getUi();
+
+  // Doble confirmación para evitar eliminaciones accidentales
+  const confirm1 = ui.alert(
+    '⚠️ ADVERTENCIA - Eliminar Grupo',
+    '¿Está COMPLETAMENTE SEGURO de eliminar "' + nombreGrupo + '"?\n\n' +
+    '❌ Esta acción NO se puede deshacer\n' +
+    '❌ Se perderán TODOS los datos del grupo\n' +
+    '❌ No habrá forma de recuperar la información\n\n' +
+    '💡 Alternativa: Use "Cerrar/Finalizar Grupo" para archivar sin eliminar.',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirm1 != ui.Button.YES) {
+    toastSafeAE('❌ Operación cancelada');
+    return;
+  }
+
+  // Segunda confirmación
+  const confirm2 = ui.alert(
+    '🚨 ÚLTIMA CONFIRMACIÓN',
+    'Escriba "ELIMINAR" en el siguiente cuadro para confirmar la eliminación de "' + nombreGrupo + '"',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (confirm2 != ui.Button.OK) {
+    toastSafeAE('❌ Operación cancelada');
+    return;
+  }
+
+  const confirmText = ui.prompt('✍️ Confirmar Eliminación', 'Escriba exactamente: ELIMINAR', ui.ButtonSet.OK_CANCEL);
+
+  if (confirmText.getSelectedButton() != ui.Button.OK || confirmText.getResponseText().trim().toUpperCase() !== 'ELIMINAR') {
+    alertSafeAE('❌ Cancelado', 'La palabra de confirmación no coincide. Operación cancelada por seguridad.');
+    return;
+  }
+
+  // Proceder con la eliminación
+  try {
+    // 1. Eliminar entrada en Resumen de Grupos
+    const sheetResumen = ss.getSheetByName('Resumen de Grupos');
+    if (sheetResumen) {
+      const resumenData = sheetResumen.getDataRange().getValues();
+      for (let i = resumenData.length - 1; i >= 1; i--) {
+        if (resumenData[i][0] && resumenData[i][0].includes(nombreGrupo)) {
+          sheetResumen.deleteRow(i + 1);
+          break;
+        }
+      }
+    }
+
+    // 2. Eliminar la hoja del grupo
+    ss.deleteSheet(sheet);
+
+    alertSafeAE('✅ Grupo Eliminado', 'El grupo "' + nombreGrupo + '" ha sido eliminado permanentemente del sistema.');
+
+  } catch (error) {
+    alertSafeAE('❌ Error al Eliminar', 'Ocurrió un error al eliminar el grupo:\n\n' + error.message);
+  }
+}
+
+// =====================================================================
+// HERRAMIENTAS Y AUTOMATIZACIÓN
+// =====================================================================
+
+function onEdit(e) {
+  if (!e) return;
+  const range = e.range;
+  const sheet = range.getSheet();
+  const value = e.value;
+  const col = range.getColumn();
+  const row = range.getRow();
+
+  if (value === 'Retirar Participante' && row > 1) {
+    moverARetiradx(sheet, row);
+  }
+
+  // Ahora Acción está en la columna 11 (K) SOLO en Hoja de Interés
+  if (col === 11 && value && row > 1 && sheet.getName() === 'Hoja de Interés' && value !== 'Si' && value !== 'No') {
+    enviarAHojaGrupoAE(sheet, row, value);
+  }
+
+  // ✅ CORRECCIÓN: Ya NO se llama automáticamente a gestionarAsistenciaYEvolucionAE
+  // Esto permite que:
+  // 1. Los checkboxes funcionen normalmente sin preguntas
+  // 2. Puedas escribir evoluciones directamente en las celdas
+  // 3. Usar la función masiva desde el menú cuando lo necesites
+
+  /* CÓDIGO ANTERIOR COMENTADO - Ya no se ejecuta automáticamente
+  if (sheet.getName().includes('(2026)') && col >= 6 && (col % 2 === 0)) {
+    gestionarAsistenciaYEvolucionAE(e);
+  }
+  */
+}
+
+/**
+ * Maneja el clic en un checkbox de asistencia y pregunta si se desea registrar evolución.
+ */
+function gestionarAsistenciaYEvolucionAE(e) {
+  const range = e.range;
+  const sheet = range.getSheet();
+  const ui = SpreadsheetApp.getUi();
+  const col = range.getColumn();
+  const row = range.getRow();
+
+  // 1. Obtener el nuevo valor del checkbox
+  const isChecked = range.getValue();
+
+  // CASO A: SE MARCA ASISTENCIA (FALSE -> TRUE)
+  if (isChecked === true) {
+    const promptNota = ui.prompt('✍️ Registro de Evolución', 
+      'Escribe la nota o evolución de la sesión:', 
+      ui.ButtonSet.OK_CANCEL);
+    
+    if (promptNota.getSelectedButton() !== ui.Button.OK) return;
+    const nota = promptNota.getResponseText().trim();
+    
+    if (!nota) {
+      toastSafeAE('⚠️ No se ingresó texto, operación cancelada.');
+      return;
+    }
+
+    const resTipo = ui.alert('👥 ¿A quién aplicar esta nota?', 
+      'Selecciona el alcance del guardado:\n\n' +
+      '✅ [SÍ] = MODO MASIVO (A todos los asistentes marcados)\n' +
+      '❌ [NO] = MODO INDIVIDUAL (Solo a esta fila)', 
+      ui.ButtonSet.YES_NO);
+
+    try {
+      if (resTipo === ui.Button.NO) {
+        sheet.getRange(row, col + 1).setValue(nota);
+        toastSafeAE('✅ Nota individual guardada.');
+      } else {
+        const lastRow = sheet.getLastRow();
+        if (lastRow < 2) return;
+        const rangeCheckboxes = sheet.getRange(2, col, lastRow - 1, 1);
+        const rangeEvoluciones = sheet.getRange(2, col + 1, lastRow - 1, 1);
+        const checkValues = rangeCheckboxes.getValues();
+        const currentEvolutions = rangeEvoluciones.getValues();
+        const nuevasEvoluciones = currentEvolutions.map((rowArr, index) => {
+          const val = checkValues[index][0];
+          const isParticipantChecked = (val === true || String(val).toUpperCase() === 'TRUE');
+          return isParticipantChecked ? [nota] : [rowArr[0]];
+        });
+        rangeEvoluciones.setValues(nuevasEvoluciones);
+        toastSafeAE('🚀 Evolución masiva aplicada.');
+      }
+    } catch (err) { toastSafeAE('❌ Error al guardar.'); }
+  } 
+  
+  // CASO B: SE DESMARCA (TRUE -> FALSE) - Registro de Inasistencia
+  else if (isChecked === false) {
+    const resInasistencia = ui.alert('🚫 Seguimiento de Inasistencia', 
+      'Has desmarcado la asistencia. ¿Deseas registrar un motivo de INASISTENCIA o nota de seguimiento?', 
+      ui.ButtonSet.YES_NO);
+    
+    if (resInasistencia === ui.Button.YES) {
+      const promptMotivo = ui.prompt('✍️ Motivo de Inasistencia', 'Escribe el motivo o seguimiento:', ui.ButtonSet.OK_CANCEL);
+      if (promptMotivo.getSelectedButton() === ui.Button.OK) {
+        const motivo = promptMotivo.getResponseText().trim();
+        if (motivo) {
+          sheet.getRange(row, col + 1).setValue('🔴 INASISTENCIA: ' + motivo);
+          toastSafeAE('✅ Nota de inasistencia guardada.');
+        }
+      }
+    }
+  }
+
+  SpreadsheetApp.flush(); 
+}
+
+/**
+ * Función desde el menú para registrar una nota masiva 
+ * después de haber marcado todos los checkboxes sin interrupciones.
+ */
+function mostrarDialogoNotaMasivaAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getActiveSheet();
+  const ui = SpreadsheetApp.getUi();
+  
+  // 1. Verificar si es una hoja de grupo
+  if (!sheet.getName().includes('(2026)')) {
+    alertSafeAE('⚠️ Acción no permitida', 'Esta función solo es para hojas de grupos (cohortes 2026).');
+    return;
+  }
+
+  // 2. Identificar sesiones disponibles
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const sesiones = headers.filter(h => h.startsWith('S') && h.includes('('));
+  
+  if (sesiones.length === 0) {
+    alertSafeAE('❌ Error', 'No se encontraron columnas de sesión en esta hoja.');
+    return;
+  }
+
+  // 3. Preguntar qué sesión
+  const msgSesiones = sesiones.map((s, i) => (i + 1) + ': ' + s).join('\n');
+  const resSesion = ui.prompt('🔢 Selecciona la Sesión', 
+    'Escribe el NÚMERO de la sesión a la que deseas poner nota:\n\n' + msgSesiones, 
+    ui.ButtonSet.OK_CANCEL);
+  
+  if (resSesion.getSelectedButton() !== ui.Button.OK) return;
+  const numS = parseInt(resSesion.getResponseText());
+  if (isNaN(numS) || numS < 1 || numS > sesiones.length) {
+    alertSafeAE('⚠️ Error', 'Número de sesión inválido.');
+    return;
+  }
+
+  const labelSesion = sesiones[numS - 1];
+  const colAsis = headers.indexOf(labelSesion) + 1;
+
+  // 4. Pedir la Nota
+  const promptNota = ui.prompt('✍️ Nota Masiva para ' + labelSesion, 
+    'Ingresa la evolución que se aplicará a TODOS los marcados en esta sesión:', 
+    ui.ButtonSet.OK_CANCEL);
+  
+  if (promptNota.getSelectedButton() !== ui.Button.OK) return;
+  const nota = promptNota.getResponseText().trim();
+  if (!nota) return;
+
+  // 5. Aplicar
+  try {
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return;
+
+    const rangeCheckboxes = sheet.getRange(2, colAsis, lastRow - 1, 1);
+    const rangeEvoluciones = sheet.getRange(2, colAsis + 1, lastRow - 1, 1);
+    
+    const checkValues = rangeCheckboxes.getValues();
+    const currentEvolutions = rangeEvoluciones.getValues();
+
+    const nuevasEvoluciones = currentEvolutions.map((rowArr, index) => {
+      const val = checkValues[index][0];
+      const isChecked = (val === true || String(val).toUpperCase() === 'TRUE');
+      return isChecked ? [nota] : [rowArr[0]];
+    });
+
+    rangeEvoluciones.setValues(nuevasEvoluciones);
+    SpreadsheetApp.flush();
+    
+    // Preguntar si también desea poner nota a las INASISTENCIAS
+    const resInas = ui.alert('🚫 ¿Registrar Inasistencias?', 
+      '¿Deseas registrar un motivo para los contactos que NO asistieron a esta sesión?', 
+      ui.ButtonSet.YES_NO);
+      
+    if (resInas === ui.Button.YES) {
+      const promptMotivo = ui.prompt('✍️ Motivo de Inasistencia (Masivo)', 
+        'Ingresa el motivo para los NO asistentes:', ui.ButtonSet.OK_CANCEL);
+      if (promptMotivo.getSelectedButton() === ui.Button.OK) {
+        const motivo = promptMotivo.getResponseText().trim();
+        if (motivo) {
+          const nuevasInas = currentEvolutions.map((rowArr, index) => {
+            const val = checkValues[index][0];
+            const isChecked = (val === true || String(val).toUpperCase() === 'TRUE');
+            return !isChecked ? ['🔴 INASISTENCIA: ' + motivo] : [rowArr[0]];
+          });
+          rangeEvoluciones.setValues(nuevasInas);
+          SpreadsheetApp.flush();
+        }
+      }
+    }
+    
+    alertSafeAE('✅ Éxito', 'Gestión de sesión completada en ' + labelSesion);
+  } catch (e) {
+    alertSafeAE('❌ Error', 'No se pudo aplicar la nota: ' + e.message);
+  }
+}
+
+function enviarAHojaGrupoAE(sheetSrc, row, targetName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetDest = ss.getSheetByName(targetName);
+  if (!sheetDest) { toastSafeAE('❌ El grupo no existe.'); return; }
+
+  const ui = SpreadsheetApp.getUi();
+  const confirm = ui.alert('🚀 Enviar a Grupo', '¿Deseas enviar a ' + sheetSrc.getRange(row, 3).getValue() + ' a "' + targetName + '"?', ui.ButtonSet.YES_NO);
+  if (confirm != ui.Button.YES) { sheetSrc.getRange(row, 11).clearContent(); return; }
+
+  const dataRow = sheetSrc.getRange(row, 1, 1, 10).getValues()[0];
+  const headersDest = sheetDest.getRange(1, 1, 1, sheetDest.getLastColumn()).getValues()[0];
+  
+  // VERIFICACIÓN DE CUPO MÁXIMO
+  const sheetResumen = ss.getSheetByName('Resumen de Grupos');
+  if (sheetResumen) {
+    const resData = sheetResumen.getDataRange().getValues();
+    const headersRes = resData[0];
+    const colGName = headersRes.indexOf('Nombre del Grupo');
+    const colInscritos = headersRes.indexOf('Inscritos');
+    const colCupo = headersRes.indexOf('Cupo Máximo');
+    
+    for (let i = 1; i < resData.length; i++) {
+      if (resData[i][colGName] && resData[i][colGName].includes(targetName)) {
+        const inscritos = parseInt(resData[i][colInscritos]) || 0;
+        const cupo = parseInt(resData[i][colCupo]) || 999;
+        
+        if (inscritos >= cupo) {
+          const ui = SpreadsheetApp.getUi();
+          const warning = ui.alert('⚠️ ¡GRUPO LLENO!', 
+            'El grupo "' + targetName + '" ya ha alcanzado su cupo máximo (' + inscritos + '/' + cupo + ').\n\n¿Deseas enviar a esta persona de todas formas?', 
+            ui.ButtonSet.YES_NO);
+          if (warning != ui.Button.YES) {
+            sheetSrc.getRange(row, 11).clearContent();
+            return;
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  const colAsistencia = headersDest.indexOf('% Asistencia') + 1;
+  const colEtapa = headersDest.indexOf('Etapa') + 1;
+  const numSesiones = headersDest.filter(h => h.startsWith('S')).length;
+
+  // CÁLCULO INTELIGENTE DE PRÓXIMA FILA 
+  const destData = sheetDest.getRange(1, 2, sheetDest.getLastRow() || 1, 2).getValues();
+  let nextRow = sheetDest.getLastRow() + 1;
+  for (let r = 1; r < destData.length; r++) { 
+    if (!String(destData[r][0]).trim() && !String(destData[r][1]).trim()) { 
+      nextRow = r + 1;
+      break;
+    }
+  }
+
+  // Se envía: Año (2026), ID (col 1), Nombre (col 2), Tel (col 5)
+  sheetDest.getRange(nextRow, 1, 1, 4).setValues([[2026, dataRow[1], dataRow[2], dataRow[5]]]);
+
+  // ✅ CORRECCIÓN: Insertar checkboxes SOLO en columnas de ASISTENCIA (no en evolución)
+  if (colAsistencia > 0 && numSesiones > 0) {
+    // Insertar checkboxes solo en columnas impares (6, 8, 10, 12...) = Asistencia
+    for (let s = 0; s < numSesiones; s++) {
+      const colAsis = 6 + (s * 2); // Columnas 6, 8, 10, 12...
+      sheetDest.getRange(nextRow, colAsis, 1, 1).insertCheckboxes()
+        .setHorizontalAlignment('center').setVerticalAlignment('middle');
+    }
+
+    // Fórmula de porcentaje de asistencia (mejorada)
+    // Solo cuenta sesiones REALIZADAS (TRUE o FALSE), ignora vacías (no realizadas)
+    let checkCols = [];
+    for (let s = 0; s < numSesiones; s++) {
+      checkCols.push(encodeColNameAE(6 + (s * 2)) + nextRow);
+    }
+    const formula = '=IF(C' + nextRow + '<>"", IFERROR(COUNTIF({' + checkCols.join(';') + '}, TRUE)/(COUNTIF({' + checkCols.join(';') + '}, TRUE)+COUNTIF({' + checkCols.join(';') + '}, FALSE)), ""), "")';
+    sheetDest.getRange(nextRow, colAsistencia).setFormula(formula).setNumberFormat('0%');
+  }
+
+  if (colEtapa > 0) {
+    sheetDest.getRange(nextRow, colEtapa).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Retirar Participante']).build());
+  }
+
+  // EN LUGAR DE BORRAR, SOLO MARCÁMOS
+  sheetSrc.getRange(row, 11).clearDataValidations().setValue('✅ Enviado a: ' + targetName).setBackground('#C8E6C9');
+  
+  actualizarReportesAE(); 
+}
+
+function encodeColNameAE(col) {
+  let name = "";
+  while (col > 0) {
+    let mod = (col - 1) % 26;
+    name = String.fromCharCode(65 + mod) + name;
+    col = Math.floor((col - mod) / 26);
+  }
+  return name;
+}
+
+function moverARetiradx(sheet, row) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetRetiradx = ss.getSheetByName('Retiradx');
+  if (!sheetRetiradx) return;
+
+  const data = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  
+  const colID = headers.indexOf('Creamos ID');
+  const colNombre = headers.indexOf('Nombre Completo');
+  const colTel = headers.indexOf('Teléfono');
+  const colAsis = headers.indexOf('% Asis') !== -1 ? headers.indexOf('% Asis') : headers.indexOf('% Asistencia');
+
+  const ui = SpreadsheetApp.getUi();
+  const motivo = ui.prompt('❓ Motivo', 'Ingrese el motivo del retiro:', ui.ButtonSet.OK).getResponseText();
+
+  // Header en Retiradx: ['Fecha Retiro', 'Creamos ID', 'Nombre Completo', 'Teléfono', 'Grupo de Origen', '% Asistencia', 'Motivo Retiradx']
+  sheetRetiradx.appendRow([
+    new Date(), 
+    colID !== -1 ? data[colID] : 'S/I', 
+    colNombre !== -1 ? data[colNombre] : 'S/N',
+    colTel !== -1 ? data[colTel] : 'S/T', 
+    sheet.getName(),
+    colAsis !== -1 ? (data[colAsis] * 100).toFixed(0) + '%' : '0%', 
+    motivo
+  ]);
+
+  sheet.deleteRow(row);
+}
+
+function autoCompletarDatosAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const source = ss.getSheetByName('Copy of CREAMOS ID nuevo');
+  if (!source) return;
+
+  const dataSrc = source.getDataRange().getValues();
+  const map = {};
+  dataSrc.forEach(r => {
+    const id = String(r[1]).trim();
+    if (id) map[id] = { nombre: r[0], anio: r[2], edad: r[3], dpi: r[4] };
+  });
+
+  const targetSheets = ['Referencias a grupos', 'Hoja de Interés', 'Graduadx', 'Retiradx'];
+  targetSheets.forEach(name => {
+    const s = ss.getSheetByName(name);
+    if (!s) return;
+    const data = s.getDataRange().getValues();
+    const headers = data[0];
+    const colID = headers.indexOf('Creamos ID');
+    const colNombre = headers.indexOf('Nombre Completo');
+    const colEdad = headers.indexOf('Edad');
+    const colDPI = headers.indexOf('DPI');
+    const colAnio = headers.indexOf('Año');
+
+    for (let i = 1; i < data.length; i++) {
+      const id = String(data[i][colID]).trim();
+      const info = map[id];
+      if (!info) continue;
+
+      const valNombre = String(data[i][colNombre] || '').trim().toUpperCase();
+      if (colNombre !== -1 && (!data[i][colNombre] || valNombre === 'SIN NOMBRE')) s.getRange(i+1, colNombre+1).setValue(info.nombre); 
+      if (colEdad !== -1 && !data[i][colEdad]) s.getRange(i+1, colEdad+1).setValue(info.edad);
+      if (colDPI !== -1 && !data[i][colDPI]) s.getRange(i+1, colDPI+1).setValue(info.dpi);
+      if (colAnio !== -1 && !data[i][colAnio]) s.getRange(i+1, colAnio+1).setValue(info.anio);
+    }
+  });
+}
+
+function actualizarReportesAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let hojaReporte = ss.getSheetByName('Reporte General');
+  if (!hojaReporte) hojaReporte = ss.insertSheet('Reporte General');
+  
+  hojaReporte.clear();
+  const sheetGrad = ss.getSheetByName('Graduadx');
+  const sheetRet = ss.getSheetByName('Retiradx');
+  
+  const totalGraduadas = (sheetGrad && sheetGrad.getLastRow() > 1) ? sheetGrad.getLastRow() - 1 : 0;
+  const totalRetiradx = (sheetRet && sheetRet.getLastRow() > 1) ? sheetRet.getLastRow() - 1 : 0;
+  
+  const sInt = ss.getSheetByName('Hoja de Interés');
+  const sRef = ss.getSheetByName('Referencias a grupos');
+  const sInst = ss.getSheetByName('Derivaciones_Institucionales');
+  
+  const totalInteres = (sInt && sInt.getLastRow() > 1 ? sInt.getLastRow() - 1 : 0);
+  const totalRefs = (sRef && sRef.getLastRow() > 1 ? sRef.getLastRow() - 1 : 0);
+  const totalInst = (sInst && sInst.getLastRow() > 1 ? sInst.getLastRow() - 1 : 0);
+
+  const data = [
+    ['📊 DASHBOARD APOYO EMOCIONAL', ''],
+    ['📅 Fecha:', new Date()],
+    ['', ''],
+    ['📈 ESTADÍSTICAS GLOBALES', 'Valor'],
+    ['📋 Referencias de Programas (Total)', totalRefs],
+    ['🏢 Derivaciones Institucionales (Total)', totalInst],
+    ['👤 Personas en Hoja de Interés', totalInteres],
+    ['🎓 Graduadx Totales', totalGraduadas],
+    ['🚪 Retiros Totales', totalRetiradx],
+    ['', ''],
+    ['📋 GRUPOS / COHORTES ACTUALES', 'Participantes']
+  ];
+
+  const exclude = ['Referencias a grupos', 'Hoja de Interés', 'Resumen de Grupos', 'Retiradx', 'Graduadx', 'Reporte General', 'Copy of CREAMOS ID nuevo', 'TEMPORAL_LIMPIEZA', '⚙️ CONFIGURACIÓN', 'LOG_KOBO', 'Derivaciones_Institucionales'];
+  ss.getSheets().forEach(s => {
+    const name = s.getName();
+    if (!exclude.includes(name) && !name.includes('TEMPORAL')) {
+      data.push([name, '=COUNTIFS(\''+name+'\'!C:C, "<>", \''+name+'\'!C:C, "<>Nombre Completo")']);
+    }
+  });
+
+  if (data.length > 0) {
+    hojaReporte.getRange(1, 1, data.length, 2).setValues(data);
+    hojaReporte.getRange('A1:B1').merge().setBackground('#1F1B4B').setFontColor('white').setFontWeight('bold'); // Deep Indigo
+    hojaReporte.getRange('A4:B4').setBackground('#E0E7FF').setFontWeight('bold'); // Soft Indigo
+    hojaReporte.getRange('A11:B11').setBackground('#E0E7FF').setFontWeight('bold'); // Soft Indigo
+    hojaReporte.setColumnWidth(1, 400);
+    hojaReporte.setColumnWidth(2, 150);
+    
+    // Bordes y fuente
+    hojaReporte.getRange(1, 1, data.length, 2).setFontFamily('Google Sans');
+  }
+}
+
+function buscarIDFantasmaAE() {
+  const ui = SpreadsheetApp.getUi();
+  const res = ui.prompt('🔍 Buscar ID', 'Ingrese el Creamos ID o DPI a buscar en todas las hojas:', ui.ButtonSet.OK_CANCEL);
+  if (res.getSelectedButton() != ui.Button.OK) return;
+  const target = res.getResponseText().trim().toUpperCase();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let hallazgos = [];
+  ss.getSheets().forEach(sheet => {
+    const data = sheet.getDataRange().getValues();
+    for (let r = 0; r < data.length; r++) {
+      for (let c = 0; c < data[r].length; c++) {
+        if (String(data[r][c]).toUpperCase().includes(target)) {
+          hallazgos.push(`Hoja: "${sheet.getName()}" | Fila: ${r+1}`);
+          break;
+        }
+      }
+    }
+  });
+  alertSafeAE('🔍 Resultados', hallazgos.length > 0 ? hallazgos.join('\n') : 'No encontrado.');
+}
+
+function aplicarFormatosAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // Notas para añadir tooltips explicativos sin necesidad de reinstalar
+  const notasInteres = {
+    'Fecha Import': '🗓️ Fecha en que se sincronizaron los datos desde KoboToolbox.',
+    'Creamos ID': '🔑 ID único. Si no tiene, se evalúa por nombre+teléfono.',
+    'Nombre Completo': '👤 Nombres y apellidos completos.',
+    'Género': '⚧️ Género o pronombres seleccionados.',
+    'Edad': '🎂 Edad en número entero. Calculada automáticamente.',
+    'Teléfono': '📞 Número celular (solo dígitos).',
+    'DPI': '🪪 Documento Personal de Identificación.',
+    'Zona': '📍 Ubicación, zona o colonia.',
+    'Servicios de Interés': '📋 Grupos de apoyo detectados para esta persona.',
+    'Notas Originales': '📝 Observaciones extra del formulario.',
+    'Acción': '⚡ Selecciona un grupo aquí para mover mágicamente al participante.'
+  };
+
+  ss.getSheets().forEach(s => {
+    const name = s.getName();
+    const excludeList = ['Reporte General', '⚙️ CONFIGURACIÓN', 'LOG_KOBO', 'TEMPORAL_LIMPIEZA'];
+    if (excludeList.includes(name) || name.includes('TEMPORAL')) return;
+    
+    const lastRow = s.getLastRow();
+    const lastCol = s.getLastColumn();
+    if (lastRow < 1 || lastCol < 1) return;
+    
+    // Establecer la fuente profesional Google Sans
+    const maxRows = Math.max(1, s.getMaxRows());
+    const maxCols = Math.max(1, s.getMaxColumns());
+    s.getRange(1, 1, maxRows, maxCols)
+      .setBackground(null)
+      .setBorder(false, false, false, false, false, false)
+      .setFontFamily('Google Sans');
+      
+    // Encabezados con diseño moderno (Indigo 900)
+    s.getRange(1, 1, 1, lastCol)
+      .setBackground('#1E1B4B') 
+      .setFontColor('white')
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle');
+      
+    // Filas alternas
+    if (lastRow > 1) {
+      const numRowsApply = lastRow - 1;
+      const dataRange = s.getRange(2, 1, numRowsApply, lastCol);
+      try { 
+        dataRange.getBandings().forEach(b => b.remove()); 
+        dataRange.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY); 
+      } catch(e) {}
+    }
+    
+    // Ajustar columnas y tooltips
+    if (['Referencias a grupos', 'Hoja de Interés', 'Derivaciones_Institucionales'].includes(name)) {
+      const headers = s.getRange(1, 1, 1, lastCol).getValues()[0];
+      headers.forEach((h, i) => {
+        if (notasInteres[h]) s.getRange(1, i + 1).setNote(notasInteres[h]);
+      });
+      const colAccion = headers.indexOf('Hoja de Interés') + 1;
+      if (colAccion > 0) s.setColumnWidth(colAccion, 180);
+    }
+    
+    // Scroll frozen y formato de asistencia
+    const hData = s.getRange(1, 1, 1, lastCol).getValues()[0];
+    if (hData.includes('% Asistencia')) {
+      try {
+        if (s.getMaxRows() > 1) s.setFrozenRows(1);
+        if (s.getMaxColumns() >= 3) s.setFrozenColumns(3); 
+      } catch(e) {}
+    }
+  });
+}
+
+function sincronizarHojaInteresAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const configSheet = ss.getSheetByName('⚙️ CONFIGURACIÓN');
+  const url = configSheet ? configSheet.getRange('B4').getValue() : CONFIG_AE.KOBO_URL_2026;
+  importarDesdeKoboAE(url, 'Hoja de Interés');
+}
+
+function importarHistorico25AE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const configSheet = ss.getSheetByName('⚙️ CONFIGURACIÓN');
+  const url = configSheet ? configSheet.getRange('B3').getValue() : CONFIG_AE.KOBO_URL_2025;
+  importarDesdeKoboAE(url, 'Hoja de Interés'); // Solo se importaría de forma puntual desde el menú
+}
+
+function sincronizarHojaInstitucionalAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const configSheet = ss.getSheetByName('⚙️ CONFIGURACIÓN');
+  let url = CONFIG_AE.KOBO_URL_INSTITUCIONAL;
+  if (configSheet) {
+    const data = configSheet.getDataRange().getValues();
+    if (data[4] && data[4][1]) url = data[4][1];
+  }
+  importarDesdeKoboAE(url, 'Derivaciones_Institucionales');
+}
+
+function importarTodoAE() {
+  ejecutarImportacionAutomaticaAE(); // Referencias
+  sincronizarHojaInteresAE();        // Interés 2026
+  sincronizarHojaInstitucionalAE();  // Institucional
+}
+
+function diagnosticoKoboAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const configSheet = ss.getSheetByName('⚙️ CONFIGURACIÓN');
+  let urlRef = CONFIG_AE.KOBO_URL;
+  if (configSheet) {
+    const raw = configSheet.getDataRange().getValues();
+    if (raw[1] && raw[1][1]) urlRef = raw[1][1];
+  }
+  try {
+    const resp = UrlFetchApp.fetch(urlRef, { muteHttpExceptions: true });
+    alertSafeAE('Conexión KOBO', 'Status HTTP: ' + resp.getResponseCode());
+  } catch(e) {}
+}
+
+function inicializarHojaConfiguracionAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('⚙️ CONFIGURACIÓN') || ss.insertSheet('⚙️ CONFIGURACIÓN');
+  sheet.clear();
+  const rows = [
+    ['⚙️ AJUSTES DE CONEXIÓN KOBO', 'VALOR (URL CSV PÚBLICA)'],
+    ['🔗 URL Nuevos Referidos (Actual)', CONFIG_AE.KOBO_URL],
+    ['🔗 URL Históricos 2025 (1 vez)', CONFIG_AE.KOBO_URL_2025],
+    ['🔗 URL Hoja de Interés 2026', CONFIG_AE.KOBO_URL_2026],
+    ['🔗 URL Derivaciones Institucionales', CONFIG_AE.KOBO_URL_INSTITUCIONAL]
+  ];
+  sheet.getRange(1, 1, rows.length, 2).setValues(rows);
+  sheet.getRange(1, 1, 1, 2).setBackground('#4a148c').setFontColor('#ffffff').setFontWeight('bold');
+  sheet.setColumnWidth(1, 400); sheet.setColumnWidth(2, 600);
+}
+
+function configurarKoboURLAE() {
+  inicializarHojaConfiguracionAE();
+  SpreadsheetApp.getActiveSpreadsheet().getSheetByName('⚙️ CONFIGURACIÓN').activate();
+}
+
+function gestionarActivadoresAEToggle() {
+  const triggers = ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'importarTodoAE');
+  if (triggers.length > 0) {
+    eliminarActivadoresAE();
+    alertSafeAE('📴 OFF', 'Actualización automática desactivada para las hojas principales.');
+  } else {
+    eliminarActivadoresAE();
+    // Activa la actualización cada 1 minuto
+    ScriptApp.newTrigger('importarTodoAE').timeBased().everyMinutes(1).create();
+    alertSafeAE('🕒 ON', 'Actualización de Interés, Referencias e Institucionales activada (cada 1 min).');
+  }
+}
+
+function ejecutarImportacionAutomaticaAE() {
+  importarDesdeKoboAE(null, 'Referencias a grupos');
+}
+
+function eliminarActivadoresAE() {
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'importarTodoAE') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+}
+
+function parsearCSVManualAE(csv, sep) {
+  const result = []; let row = []; let field = ''; let inQuotes = false;
+  for (let i = 0; i < csv.length; i++) {
+    const char = csv[i]; const nextChar = csv[i + 1];
+    if (inQuotes) {
+      if (char === '"') {
+        if (nextChar === '"') { field += '"'; i++; } else { inQuotes = false; }
+      } else { field += char; }
+    } else {
+      if (char === '"') { inQuotes = true; } 
+      else if (char === sep) { row.push(field.trim()); field = ''; } 
+      else if (char === '\n' || char === '\r') {
+        row.push(field.trim());
+        if (row.length > 1 || (row.length === 1 && row[0] !== '')) result.push(row);
+        row = []; field = '';
+        if (char === '\r' && nextChar === '\n') i++; 
+      } else { field += char; }
+    }
+  }
+  if (field || row.length > 0) { row.push(field.trim()); result.push(row); }
+  return result.filter(r => r.length > 1);
+}
+
+function limpiarPropiedadesSistemaAE() {
+  PropertiesService.getDocumentProperties().deleteAllProperties();
+  toastSafeAE('🧹 Memoria limpia.');
+}
+
+function eliminarDuplicadosManualAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hojas = ['Referencias a grupos', 'Hoja de Interés'];
+  let totalBorrados = 0;
+  hojas.forEach(nombre => {
+    const sheet = ss.getSheetByName(nombre);
+    if (!sheet || sheet.getLastRow() < 2) return;
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const colID = headers.indexOf('Creamos ID');
+    const colNombre = headers.indexOf('Nombre Completo');
+    const colTel = headers.indexOf('Teléfono');
+    const firmasVistas = new Set();
+    const filasABorrar = [];
+    for (let i = 1; i < data.length; i++) {
+      const id = String(data[i][colID] || '').trim().toUpperCase();
+      const nom = String(data[i][colNombre] || '').trim().toUpperCase();
+      const tel = String(data[i][colTel] || '').trim().replace(/\D/g, '');
+      const firma = id ? 'ID:' + id : 'SIG:' + nom + '|' + tel;
+      if (firmasVistas.has(firma) || (!nom && !tel)) filasABorrar.push(i + 1);
+      else firmasVistas.add(firma);
+    }
+    for (let j = filasABorrar.length - 1; j >= 0; j--) {
+      sheet.deleteRow(filasABorrar[j]);
+      totalBorrados++;
+    }
+  });
+  alertSafeAE('🧹 Limpieza Terminada', 'Se eliminaron ' + totalBorrados + ' registros.');
+}
+
+function rescatarDatosInteresAE() {
+  toastSafeAE('Iniciando rescate de datos.');
+}
+
+// =====================================================================
+// REPORTE MENSUAL AUTOMATIZADO — GRUPOS
+// =====================================================================
+
+const HEADERS_REPORTE_GRUPOS = [
+  'Mes',
+  'Grupos Activos', 'Total Participantes',
+  'Referencias (Total)', 'Referencias (Mes)',
+  'Deriv. Inst. (Total)', 'Deriv. Inst. (Mes)',
+  'Hoja Interés (Total)', 'Hoja Interés (Mes)',
+  'Graduadx (Total)', 'Graduadx (Mes)',
+  'Retiradx (Total)', 'Retiradx (Mes)',
+  'Total Sesiones',
+  'Última Actualización'
+];
+
+/** Cuenta registros cuya columna de fecha cae dentro del rango [inicio, fin]. */
+function _contarEnRangoAE_(hoja, colFecha, inicio, fin) {
+  if (!hoja || hoja.getLastRow() < 2) return { total: 0, mes: 0 };
+  const total = hoja.getLastRow() - 1;
+  let mes = 0;
+  const datos = hoja.getRange(2, colFecha, total, 1).getValues();
+  datos.forEach(function(f) {
+    const d = f[0];
+    if (d instanceof Date && d >= inicio && d <= fin) mes++;
+  });
+  return { total: total, mes: mes };
+}
+
+/** Lee todas las métricas del sistema de grupos y devuelve la fila lista. */
+function _leerDatosReporteGrupos_(ss, mesLabel) {
+  const hoy = new Date();
+  const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0, 23, 59, 59);
+
+  // Resumen de Grupos → grupos activos, participantes, sesiones
+  const resumen = ss.getSheetByName('Resumen de Grupos');
+  let gruposActivos = 0, totalParticipantes = 0, totalSesiones = 0;
+  if (resumen && resumen.getLastRow() > 1) {
+    const datosR = resumen.getRange(2, 1, resumen.getLastRow() - 1, 11).getValues();
+    datosR.forEach(function(row) {
+      const estado = String(row[8] || '').toLowerCase();
+      if (estado === 'activo') {
+        gruposActivos++;
+        totalParticipantes += parseInt(row[4]) || 0;  // col E: Inscritos
+        totalSesiones += parseInt(row[3]) || 0;        // col D: Sesiones
+      }
+    });
+  }
+
+  // Captación
+  const refs = _contarEnRangoAE_(ss.getSheetByName('Referencias a grupos'), 1, primerDia, ultimoDia);
+  const deriv = _contarEnRangoAE_(ss.getSheetByName('Derivaciones_Institucionales'), 1, primerDia, ultimoDia);
+  const interes = _contarEnRangoAE_(ss.getSheetByName('Hoja de Interés'), 1, primerDia, ultimoDia);
+
+  // Resultados
+  const grad = _contarEnRangoAE_(ss.getSheetByName('Graduadx'), 1, primerDia, ultimoDia);
+  const ret = _contarEnRangoAE_(ss.getSheetByName('Retiradx'), 1, primerDia, ultimoDia);
+
+  return [
+    mesLabel,
+    gruposActivos, totalParticipantes,
+    refs.total, refs.mes,
+    deriv.total, deriv.mes,
+    interes.total, interes.mes,
+    grad.total, grad.mes,
+    ret.total, ret.mes,
+    totalSesiones,
+    new Date()
+  ];
+}
+
+/**
+ * Crea (o recrea) la hoja "Reporte Mensual Automatizado" para Grupos.
+ * Row 1: encabezados. Row 2: datos en vivo del mes actual.
+ */
+function crearHojaReporteMensualAutomatizadoAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const NOMBRE = 'Reporte Mensual Automatizado';
+
+  let sheet = ss.getSheetByName(NOMBRE);
+  if (!sheet) sheet = ss.insertSheet(NOMBRE);
+
+  const ncols = HEADERS_REPORTE_GRUPOS.length;
+  sheet.clearContents();
+  sheet.clearFormats();
+
+  const headerRange = sheet.getRange(1, 1, 1, ncols);
+  headerRange.setValues([HEADERS_REPORTE_GRUPOS]);
+  headerRange.setFontWeight('bold')
+    .setBackground('#1a237e')
+    .setFontColor('#ffffff')
+    .setWrap(true);
+
+  sheet.getRange('A1').setValue('Mes (EN VIVO)');
+  sheet.setColumnWidth(1, 160);
+  for (let c = 2; c <= ncols; c++) sheet.setColumnWidth(c, 130);
+  sheet.setFrozenRows(1);
+
+  // Rellenar con datos actuales
+  const hoy = new Date();
+  const mesLabel = Utilities.formatDate(
+    new Date(hoy.getFullYear(), hoy.getMonth(), 1),
+    Session.getScriptTimeZone(), 'MMMM yyyy'
+  );
+  const fila = _leerDatosReporteGrupos_(ss, mesLabel);
+  sheet.getRange(2, 1, 1, fila.length).setValues([fila]);
+  sheet.getRange(2, 1, 1, ncols).setBackground('#e8eaf6');
+
+  sheet.getRange(1, 1, 1, 1)
+    .setNote('Se actualiza automáticamente cada día a las 8:00 AM.\n' +
+             'Para congelar el mes: Menú → Pasar Reporte al Historial.');
+
+  toastSafeAE('Hoja "' + NOMBRE + '" lista.');
+  return sheet;
+}
+
+/**
+ * Actualización automática diaria (trigger 8:00 AM) — GRUPOS.
+ * Escribe en "Reporte Mensual Automatizado" y envía email de gracia días 1-3.
+ */
+function autoActualizarReporteMensualAE() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const hoy = new Date();
+    const dia = hoy.getDate();
+    const mesActualLabel = Utilities.formatDate(
+      new Date(hoy.getFullYear(), hoy.getMonth(), 1),
+      Session.getScriptTimeZone(), 'MMMM yyyy'
+    );
+
+    const fila = _leerDatosReporteGrupos_(ss, mesActualLabel);
+
+    let liveSheet = ss.getSheetByName('Reporte Mensual Automatizado');
+    if (!liveSheet) liveSheet = crearHojaReporteMensualAutomatizadoAE();
+    if (liveSheet) {
+      if (liveSheet.getLastRow() < 2) {
+        liveSheet.appendRow(fila);
+      } else {
+        liveSheet.getRange(2, 1, 1, fila.length).setValues([fila]);
+      }
+      Logger.log('Reporte grupos en vivo actualizado: ' + mesActualLabel);
+    }
+
+    if (dia >= 1 && dia <= 3) {
+      const mesAnteriorLabel = Utilities.formatDate(
+        new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1),
+        Session.getScriptTimeZone(), 'MMMM yyyy'
+      );
+      _enviarEmailGraciaMensualAE_(mesAnteriorLabel, 4 - dia);
+    }
+
+  } catch (e) {
+    Logger.log('Error en autoActualizarReporteMensualAE: ' + e.message);
+  }
+}
+
+/** Email de gracia para grupos — avisa que el mes anterior se va a congelar. */
+function _enviarEmailGraciaMensualAE_(mesAnteriorLabel, diasRestantes) {
+  try {
+    const emailDir = PropertiesService.getDocumentProperties().getProperty('EMAIL_DIRECTOR')
+      || PropertiesService.getScriptProperties().getProperty('EMAIL_DIRECTORA');
+    if (!emailDir) {
+      Logger.log('Email de gracia (grupos): no hay dirección configurada.');
+      return;
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const url = ss.getUrl();
+    const diasTexto = diasRestantes === 1 ? '1 día' : diasRestantes + ' días';
+    const fechaCierre = Utilities.formatDate(
+      new Date(new Date().getFullYear(), new Date().getMonth(), 4),
+      Session.getScriptTimeZone(), 'dd/MM/yyyy'
+    );
+
+    const asunto = '[Grupos] Cierre de ' + mesAnteriorLabel + ' — quedan ' + diasTexto;
+
+    const cuerpo = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+      '<style>' +
+      'body{font-family:Arial,sans-serif;color:#333;margin:0;padding:0}' +
+      '.header{background:#1a237e;color:#fff;padding:20px 30px}' +
+      '.header h1{margin:0;font-size:20px}' +
+      '.content{padding:24px 30px}' +
+      '.alert-box{background:#fff3e0;border-left:5px solid #ff6d00;padding:14px 18px;border-radius:4px;margin-bottom:20px}' +
+      '.alert-box strong{color:#e65100;font-size:16px}' +
+      '.checklist{background:#f5f5f5;border-radius:6px;padding:16px 20px;margin-bottom:20px}' +
+      '.checklist h3{margin:0 0 10px;color:#1a237e;font-size:15px}' +
+      '.checklist li{margin:6px 0;font-size:14px}' +
+      '.btn{display:inline-block;background:#1a237e;color:#fff !important;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:15px;margin:10px 0}' +
+      '.footer{background:#f5f5f5;padding:14px 30px;font-size:12px;color:#777}' +
+      '</style></head><body>' +
+      '<div class="header"><h1>Apoyo Emocional — Sistema de Grupos</h1>' +
+      '<p>Notificación automática — Cierre mensual de grupos</p></div>' +
+      '<div class="content">' +
+      '<div class="alert-box"><strong>Quedan ' + diasTexto + ' para cerrar el mes de ' + mesAnteriorLabel + '</strong><br>' +
+      'El <strong>' + fechaCierre + '</strong> el sistema pasará al nuevo mes.</div>' +
+      '<p>Antes del cierre, por favor verifica que los datos del mes de <strong>' + mesAnteriorLabel + '</strong> estén completos:</p>' +
+      '<div class="checklist"><h3>Lista de verificación — ' + mesAnteriorLabel + '</h3><ul>' +
+      '<li>Asistencias de cada grupo registradas</li>' +
+      '<li>Graduadx del mes ingresados</li>' +
+      '<li>Retiradx del mes ingresados</li>' +
+      '<li>Derivaciones institucionales importadas desde KoboToolbox</li>' +
+      '<li>Referencias a grupos actualizadas</li>' +
+      '<li>Notas de sesión registradas para cada grupo</li>' +
+      '</ul></div>' +
+      '<p>Una vez verificado, congela el mes con <strong>"Pasar Reporte al Historial"</strong>:</p>' +
+      '<a href="' + url + '" class="btn">Abrir Sistema de Grupos</a>' +
+      '<p style="margin-top:20px;color:#555;font-size:13px;">' +
+      'Si los datos ya están completos, puedes ignorar este mensaje.</p>' +
+      '</div><div class="footer">Mensaje generado automáticamente. No respondas a este correo.</div>' +
+      '</body></html>';
+
+    GmailApp.sendEmail(emailDir, asunto, '', { htmlBody: cuerpo });
+    Logger.log('Email de gracia (grupos) enviado a ' + emailDir);
+
+  } catch (e) {
+    Logger.log('Error enviando email de gracia (grupos): ' + e.message);
+  }
+}
+
+/**
+ * Copia la fila actual de "Reporte Mensual Automatizado" al historial
+ * "Reportes Mensuales". Upsert con confirmación.
+ */
+function pasarReporteAlHistorialAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let ui;
+  try { ui = SpreadsheetApp.getUi(); } catch (e) { ui = null; }
+
+  try {
+    const liveSheet = ss.getSheetByName('Reporte Mensual Automatizado');
+    if (!liveSheet || liveSheet.getLastRow() < 2) {
+      if (ui) ui.alert('No hay datos en "Reporte Mensual Automatizado".\nActiva el auto-guardado primero.');
+      return;
+    }
+
+    // Crear hoja de historial si no existe
+    let mensuales = ss.getSheetByName('Reportes Mensuales');
+    if (!mensuales) {
+      mensuales = ss.insertSheet('Reportes Mensuales');
+      mensuales.getRange(1, 1, 1, HEADERS_REPORTE_GRUPOS.length).setValues([HEADERS_REPORTE_GRUPOS]);
+      mensuales.getRange(1, 1, 1, HEADERS_REPORTE_GRUPOS.length)
+        .setFontWeight('bold').setBackground('#1a237e').setFontColor('#ffffff');
+      mensuales.setFrozenRows(1);
+    }
+
+    const ncols = HEADERS_REPORTE_GRUPOS.length;
+    const filaViva = liveSheet.getRange(2, 1, 1, ncols).getValues()[0];
+    const mesLabel = filaViva[0] ? String(filaViva[0]) : '';
+    if (!mesLabel) {
+      if (ui) ui.alert('La fila en vivo no tiene mes asignado.');
+      return;
+    }
+
+    if (ui) {
+      const resp = ui.alert(
+        'Pasar al Historial',
+        '¿Guardar el reporte de "' + mesLabel + '" en Reportes Mensuales?\n\n' +
+        'Si ya existe será reemplazado.',
+        ui.ButtonSet.YES_NO
+      );
+      if (resp !== ui.Button.YES) return;
+    }
+
+    // Upsert
+    const datos = mensuales.getDataRange().getValues();
+    let filaExistente = -1;
+    for (let i = 1; i < datos.length; i++) {
+      if (String(datos[i][0]).toLowerCase() === mesLabel.toLowerCase()) {
+        filaExistente = i + 1;
+        break;
+      }
+    }
+
+    if (filaExistente > 0) {
+      mensuales.getRange(filaExistente, 1, 1, filaViva.length).setValues([filaViva]);
+    } else {
+      mensuales.appendRow(filaViva);
+    }
+
+    if (ui) ui.alert('Reporte de "' + mesLabel + '" guardado en el historial.');
+    toastSafeAE('Historial actualizado: ' + mesLabel);
+
+  } catch (e) {
+    Logger.log('Error en pasarReporteAlHistorialAE: ' + e.message);
+    if (ui) ui.alert('Error: ' + e.message);
+  }
+}
+
+function instalarTriggerAutoReporteMensualAE() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'autoActualizarReporteMensualAE') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  ScriptApp.newTrigger('autoActualizarReporteMensualAE')
+    .timeBased()
+    .atHour(8)
+    .everyDays(1)
+    .create();
+  toastSafeAE('Auto-guardado mensual de grupos activado (8:00 AM diario).');
+}
+
+function desactivarAutoReporteMensualAE() {
+  let borrados = 0;
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'autoActualizarReporteMensualAE') {
+      ScriptApp.deleteTrigger(t);
+      borrados++;
+    }
+  });
+  toastSafeAE(borrados > 0 ? 'Auto-guardado mensual desactivado.' : 'No había trigger activo.');
+}
