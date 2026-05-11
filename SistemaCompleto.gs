@@ -1023,7 +1023,7 @@ function configurarValidaciones() {
       ])
       .setAllowInvalid(true)
       .build();
-    retirxs.getRange('F2:F200').setDataValidation(motivoDesercionRule);
+    retirxs.getRange('E2:E200').setDataValidation(motivoDesercionRule); // E = Motivo (columna correcta)
   }
 
   // =====================================================================
@@ -1047,8 +1047,8 @@ function configurarValidaciones() {
   //   - Tipo (E) - desplegable: Referencia programas, Derivación institucional, Paps, Crisis suicida
   //   - Motivo (F) - texto libre, sin validación
   //
-  // RETIRADX:
-  //   - Motivo de retiro (F) - 21 opciones
+  // RETIRADX: (A=Fecha, B=CreamosID, C=Terapeuta, D=Sesiones, E=Motivo)
+  //   - Motivo de retiro (E) - 21 opciones
   //
   // =====================================================================
 }
