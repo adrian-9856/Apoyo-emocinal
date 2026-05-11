@@ -192,10 +192,11 @@ function actualizarTodo() {
     pasos.push('✅ Datos faltantes completados');
   } catch(e) { pasos.push('⚠️ Rellenar datos: ' + e.message); }
 
-  ss.toast('🔄 Paso 3/4 — Actualizando fórmulas del Reporte...', 'Actualizando Todo', -1);
+  ss.toast('🔄 Paso 3/4 — Verificando fórmulas del Reporte...', 'Actualizando Todo', -1);
   try {
+    // Solo actualizar fórmulas si es el layout antiguo (la función tiene guardia interna)
     actualizarFormulasReporte();
-    pasos.push('✅ Fórmulas del Reporte actualizadas');
+    pasos.push('✅ Fórmulas del Reporte verificadas');
   } catch(e) { pasos.push('⚠️ Fórmulas: ' + e.message); }
 
   ss.toast('🔄 Paso 4/4 — Recalculando Reporte...', 'Actualizando Todo', -1);
@@ -219,7 +220,7 @@ function mantenimientoAutomatico() {
   try {
     Logger.log('🔧 Iniciando mantenimiento automático...');
 
-    // 0. Renombrar hojas antiguas si aún tienen nombre viejo
+    // 0. Renombrar hojas antiguas si aún tienen nombre viejo (solo nombres, no datos)
     try {
       const cambios = repararNombresHojas();
       if (cambios.length > 0) {
@@ -232,21 +233,17 @@ function mantenimientoAutomatico() {
     // Ocultar hoja maestra si está visible
     try { _ocultarHojaMaestra(); } catch(e) {}
 
-    // 1. Rellenar datos faltantes desde hoja maestra (silencioso, no lanza si no existe)
-    try {
-      rellenarDatosFaltantes();
-    } catch (eFill) {
-      Logger.log('⚠️ rellenarDatosFaltantes: ' + eFill.message);
-    }
+    // NOTA: rellenarDatosFaltantes() se omite del mantenimiento automático
+    // porque modifica Terapias Individual silenciosamente. Usar manualmente si se necesita.
 
-    // 4. Reparar headers de Reportes Mensuales si faltan columnas
+    // 4. Reparar solo los headers de Reportes Mensuales (fila 1, no datos)
     try {
       actualizarHeadersReportesMensuales();
     } catch (eHeaders) {
       Logger.log('actualizarHeadersReportesMensuales: ' + eHeaders.message);
     }
 
-    // 5. Actualizar reportes
+    // 5. Actualizar solo el reporte (recalcula fórmulas, no modifica datos de pacientes)
     actualizarReportes();
     Logger.log('✅ Reportes actualizados');
 
@@ -3280,15 +3277,17 @@ function actualizarReportes() {
     const esNuevoDashboard = a4val.includes('RESUMEN GENERAL');
 
     if (esNuevoDashboard) {
-      // Nuevo dashboard: verificar si fue corrompido por actualizarFormulasReporte()
-      // Síntoma: B11 es un número (debería ser "Casos Activos") o
-      //          la celda de Bienestar en fila 20 usa COUNTA en vez de COUNTIFS
-      const b11val = reporte.getRange(11, 2).getValue();
+      // Nuevo dashboard: verificar corrupción.
+      // Síntoma confiable: el texto del encabezado de la tabla de terapeutas (A10)
+      // debe existir y fila 11 columna 1 debe ser "Terapeuta" (texto), no un número.
+      // También verificar que la fila 20 use COUNTIFS con fecha, no COUNTA sin fecha.
+      const a10val = (reporte.getRange(10, 1).getValue() || '').toString();
       const fC20   = reporte.getRange(20, 3).getFormula();
-      const dashboardCorrompido = (typeof b11val === 'number') ||
-        (fC20 && fC20.toUpperCase().includes('COUNTA'));
+      const dashboardCorrompido =
+        !a10val.includes('CASOS ACTIVOS') ||
+        (fC20 && fC20.toUpperCase().includes('COUNTA') && !fC20.toUpperCase().includes('COUNTIFS'));
       if (dashboardCorrompido) {
-        Logger.log('🔧 actualizarReportes: dashboard corrompido — reconstruyendo...');
+        Logger.log('🔧 actualizarReportes: dashboard corrompido (A10="'+a10val+'") — reconstruyendo...');
         _construirReporteDashboard_();
       }
     } else {
@@ -5416,6 +5415,14 @@ function actualizarFormulasReporte() {
 
     if (!reporte) {
       ss.toast('No se encontro la hoja Reporte', 'Error', 3);
+      return;
+    }
+
+    // GUARDIA: Si el dashboard es el nuevo layout, NO aplicar fórmulas del layout antiguo
+    // Las fórmulas del nuevo dashboard ya están embebidas en _construirReporteDashboard_()
+    const a4val = (reporte.getRange('A4').getValue() || '').toString();
+    if (a4val.includes('RESUMEN GENERAL')) {
+      Logger.log('ℹ️ actualizarFormulasReporte: nuevo dashboard detectado — se omite (usar Rediseñar Hoja Reporte)');
       return;
     }
 
@@ -10393,11 +10400,15 @@ function rellenarDatosFaltantes() {
   // --- Definición de hojas objetivo ---
   // { nombre, colCreamosID (1-based), colNombre (1-based), colEdad (1-based, 0=no aplica) }
   // NOTA: En "Hoja de interés" (nueva estructura): B=CreamosID, D=Nombre(s), H=Edad
+  // Columnas 1-based por hoja:
+  // Terapias Individual: A=Fecha, B=Terapeuta, C=CreamosID, D=Participante, G=Edad
+  // Retiradx:            A=Fecha, B=CreamosID (no hay nombre explícito, omitir)
+  // Lista de Espera:     col3=Nombre, col4=CreamosID, col6=Edad
+  // Hoja de interés:     B=CreamosID, D=Nombre, H=Edad
   const objetivos = [
     { nombre: 'Lista de Espera',     colCreamosID: 4, colNombre: 3, colEdad: 6  },
-    { nombre: 'Terapias Individual', colCreamosID: 3, colNombre: 2, colEdad: 0  },
-    { nombre: 'Retiradx',            colCreamosID: 4, colNombre: 2, colEdad: 0  },
-    { nombre: 'Hoja de interés',     colCreamosID: 2, colNombre: 4, colEdad: 8  }  // Actualizado para nueva estructura
+    { nombre: 'Terapias Individual', colCreamosID: 3, colNombre: 4, colEdad: 7  }, // D=Participante, G=Edad
+    { nombre: 'Hoja de interés',     colCreamosID: 2, colNombre: 4, colEdad: 8  }  // estructura actualizada
   ];
 
   objetivos.forEach(function(obj) {
