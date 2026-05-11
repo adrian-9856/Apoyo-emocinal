@@ -4945,12 +4945,9 @@ function repararValidaciones() {
     // 2. Reconfigurar todas las validaciones
     configurarValidaciones();
 
-    // 3. Recrear hoja de Reporte con fórmulas corregidas
-    const reporteViejo = ss.getSheetByName('Reporte');
-    if (reporteViejo) {
-      ss.deleteSheet(reporteViejo);
-    }
-    crearReporte();
+    // 3. Reconstruir dashboard (usa el nuevo formato, NO el layout antiguo)
+    // NUNCA eliminar la hoja Reporte — reconstruirla con el nuevo dashboard
+    _construirReporteDashboard_();
 
     // 4. Actualizar reportes
     actualizarReportes();
@@ -5216,128 +5213,8 @@ function repararTerapias() {
 
   return;
 
-  try {
-    ss.toast('Reparando hoja de Terapias Individual...', 'Reparando', 3);
-
-    const terapias = ss.getSheetByName('Terapias Individual');
-    if (!terapias) {
-      ui.alert('❌ Error', 'No se encontró la hoja "Terapias Individual"', ui.ButtonSet.OK);
-      return;
-    }
-
-    // 1. Verificar si ya tiene la columna Fecha
-    const headerB = terapias.getRange(1, 2).getValue();
-    if (headerB && headerB.toString() === 'Fecha') {
-      Logger.log('✅ Columna Fecha ya existe');
-    } else {
-      // NO tiene columna Fecha, hay que insertarla
-      ss.toast('Insertando columna Fecha...', 'Reparando', 2);
-
-      // Insertar columna después de A (Terapeuta)
-      terapias.insertColumnAfter(1);
-
-      // Renombrar encabezado
-      terapias.getRange(1, 2).setValue('Fecha')
-        .setBackground('#2e7d32')
-        .setFontColor('white')
-        .setFontWeight('bold')
-        .setHorizontalAlignment('center');
-
-      // Ajustar ancho
-      terapias.setColumnWidth(2, 110);
-
-      Logger.log('✅ Columna Fecha insertada');
-    }
-
-    // 2. Limpiar validaciones
-    terapias.getRange('A1:Z200').clearDataValidations();
-    Logger.log('✅ Validaciones limpiadas');
-
-    // 3. Agregar fórmulas de Fecha
-    for (let i = 2; i <= 200; i++) {
-      terapias.getRange('B' + i).setFormula('=IF(C' + i + '<>"",TODAY(),"")');
-    }
-    Logger.log('✅ Fórmulas de Fecha agregadas');
-
-    // 4. Proteger columna Fecha
-    try {
-      terapias.getRange('B2:B200').protect().setWarningOnly(true);
-      Logger.log('✅ Columna Fecha protegida');
-    } catch (e) {
-      Logger.log('⚠️ No se pudo proteger: ' + e.message);
-    }
-
-    // 5. Aplicar validaciones
-    // Terapeuta (A)
-    const terapeutaRule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(['Gerber', 'Melissa', 'Diana', 'Karina'])
-      .setAllowInvalid(false)
-      .build();
-    terapias.getRange('A2:A200').setDataValidation(terapeutaRule);
-
-    // Género (D)
-    const generoRule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(['Hombre', 'Mujer', 'Trans hombre', 'No binario', 'Otro'])
-      .setAllowInvalid(false)
-      .build();
-    terapias.getRange('D2:D200').setDataValidation(generoRule);
-
-    // No. Sesión (E)
-    const sesiones = [];
-    for (let i = 0; i <= 20; i++) {
-      sesiones.push(i.toString());
-    }
-    const sesionRule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(sesiones)
-      .setAllowInvalid(false)
-      .build();
-    terapias.getRange('E2:E200').setDataValidation(sesionRule);
-
-    // Estado (F)
-    const estadoRule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(['En proceso', 'Proceso culminado', 'retirxs'])
-      .setAllowInvalid(false)
-      .build();
-    terapias.getRange('F2:F200').setDataValidation(estadoRule);
-
-    Logger.log('✅ Validaciones aplicadas');
-
-    // 6. Inicializar columnas numéricas
-    for (let i = 2; i <= 200; i++) {
-      const participante = terapias.getRange(i, 2).getValue();
-      if (participante && participante.toString().trim() !== '') {
-        if (!terapias.getRange(i, 8).getValue()) {
-          terapias.getRange(i, 8).setValue(0);
-        }
-        if (!terapias.getRange(i, 9).getValue()) {
-          terapias.getRange(i, 9).setValue(0);
-        }
-      }
-    }
-
-    ui.alert(
-      '✅ REPARACIÓN COMPLETA',
-      'Estructura actualizada:\n' +
-      '• A: Terapeuta (desplegable)\n' +
-      '• B: Fecha (automática) ← NUEVA\n' +
-      '• C: Participante\n' +
-      '• D: Creamos ID\n' +
-      '• E: Género (desplegable)\n' +
-      '• F: No. Sesión (desplegable 1-20)\n' +
-      '• G: Estado (desplegable)\n' +
-      '• H: Motivo Finalización\n' +
-      '• I: Sesiones Mes Anterior\n' +
-      '• J: Inasistencias\n\n' +
-      'Recarga la página (F5) para ver cambios.',
-      ui.ButtonSet.OK
-    );
-
-    Logger.log('✅ Reparación completada');
-
-  } catch (error) {
-    ui.alert('❌ Error', 'Error: ' + error.message, ui.ButtonSet.OK);
-    Logger.log('❌ Error: ' + error.message);
-  }
+  // Código antiguo eliminado para prevenir ejecución accidental de operaciones
+  // que modificarían columnas en la estructura incorrecta de Terapias Individual.
 }
 
 /**
