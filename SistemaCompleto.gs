@@ -1905,42 +1905,41 @@ function mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion) {
   const ui = SpreadsheetApp.getUi();
 
   const motivosDeserciones = [
-    '1. Otras prioridades',
-    '2. Horario laboral',
-    '3. Retos/problemas familiares',
-    '4. Violencia de parte de la pareja/violencia de género',
-    '5. Migración (por motivos económicos/por violencia)',
-    '6. Embarazo',
-    '7. Retos/problemas de salud física',
-    '8. Retos/problemas de salud mental',
-    '9. Retos/Problemas legales/Privación de libertad',
-    '10. Falta de apoyo',
-    '11. Compromisos religiosos',
-    '12. Problemas financieros',
-    '13. Violencia comunitaria',
-    '14. Falta de motivación',
-    '15. No querer continuar en el proceso',
-    '16. Descontento con la organización',
-    '17. Falta de comunicación',
-    '18. Falta de interés',
-    '19. Asesinato/Fallecimiento',
-    '20. Cuidado de terceras personas',
-    '21. Falta de adaptabilidad'
+    'Otras prioridades',
+    'Horario laboral',
+    'Retos/problemas familiares',
+    'Violencia de parte de la pareja/violencia de género',
+    'Migración (por motivos económicos/por violencia)',
+    'Embarazo',
+    'Retos/problemas de salud física',
+    'Retos/problemas de salud mental',
+    'Retos/Problemas legales/Privación de libertad',
+    'Falta de apoyo',
+    'Compromisos religiosos',
+    'Problemas financieros',
+    'Violencia comunitaria',
+    'Falta de motivación',
+    'No querer continuar en el proceso',
+    'Descontento con la organización',
+    'Falta de comunicación',
+    'Falta de interés',
+    'Asesinato/Fallecimiento',
+    'Cuidado de terceras personas',
+    'Falta de adaptabilidad'
   ];
 
-  const listaMotivos = motivosDeserciones.join('\n');
+  const listaMotivos = motivosDeserciones.map((m, i) => (i + 1) + '. ' + m).join('\n');
 
   const mensaje =
-    '🔴 MOTIVO DE DESERCIÓN\n\n' +
     'Participante: ' + nombre + '\n' +
     'Terapeuta: ' + terapeuta + '\n' +
-    'Sesiones: ' + numSesion + '\n\n' +
-    'MOTIVOS DISPONIBLES:\n' +
+    'Sesiones realizadas: ' + numSesion + '\n\n' +
+    '¿Por qué ha decidido abandonar el programa?\n\n' +
     listaMotivos + '\n\n' +
-    'Ingrese el NÚMERO (1-21) del motivo:';
+    'Escribe el NÚMERO del motivo (1-21):';
 
   const respuesta = ui.prompt(
-    'Motivo de Retiro',
+    '🔴 Registrar Retiro — ' + nombre,
     mensaje,
     ui.ButtonSet.OK_CANCEL
   );
@@ -1953,16 +1952,17 @@ function mostrarDialogoMotivoDesercion(nombre, terapeuta, numSesion) {
   const numeroSeleccionado = respuesta.getResponseText().trim();
   const numero = parseInt(numeroSeleccionado);
 
-  if (isNaN(numero) || numero < 1 || numero > 21) {
-    ui.alert('❌ Error', 'Debe ingresar un número entre 1 y 21', ui.ButtonSet.OK);
+  if (isNaN(numero) || numero < 1 || numero > motivosDeserciones.length) {
+    ui.alert(
+      '❌ Número inválido',
+      'Debes escribir un número entre 1 y ' + motivosDeserciones.length + '.\n\nVuelve a seleccionar "retirxs" para intentarlo de nuevo.',
+      ui.ButtonSet.OK
+    );
     Logger.log('❌ Número inválido ingresado: ' + numeroSeleccionado);
     return '';
   }
 
-  // Obtener el motivo sin el número
-  const motivoCompleto = motivosDeserciones[numero - 1];
-  const motivo = motivoCompleto.substring(motivoCompleto.indexOf('.') + 2); // Quitar "1. "
-
+  const motivo = motivosDeserciones[numero - 1];
   Logger.log('✅ Motivo seleccionado: ' + motivo);
   return motivo;
 }
