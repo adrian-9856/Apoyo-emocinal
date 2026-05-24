@@ -94,6 +94,12 @@ function onOpen() {
       .addItem('🔴 Instalación Completa', 'instalacionCompleta')
       .addItem('✅ Verificar Instalación', 'verificarInstalacion');
 
+    // ── Submenú: Verificación de IDs ──
+    const menuVerificacionIDs = ui.createMenu('🔍 Verificación de IDs')
+      .addItem('Auditar IDs', 'auditarIDs')
+      .addItem('Limpiar IDs incorrectos', 'limpiarIDsIncorrectos')
+      .addItem('Reporte sin ID', 'reporteSinID');
+
     // ── Menú principal ──
     ui.createMenu('🏥 Apoyo Emocional')
       .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodo')
@@ -110,6 +116,9 @@ function onOpen() {
       .addSubMenu(menuAutomatizacion)
       .addSubMenu(menuValidacion)
       .addSubMenu(menuMantenimiento)
+      .addSeparator()
+      .addSubMenu(menuVerificacionIDs)
+      .addItem('⚡ Prueba de Rendimiento', 'pruebaRendimiento')
       .addToUi();
 
     // Ejecutar mantenimiento automático al abrir
@@ -11567,3 +11576,627 @@ function diagnosticoCompleto() {
 }
 
 
+
+// =====================================================================
+// VERIFICACIÓN DE IDs — Auditoría, Limpieza y Reportes
+// =====================================================================
+
+var NOMBRE_DIRECTORIO_ID = 'Copy of CREAMOS ID nuevo';
+var NOMBRE_COLUMNA_ID_UNICO = 'Creamos ID';
+var HOJAS_EXCLUIR_ID = [
+  'Copy of CREAMOS ID nuevo',
+  'Reporte',
+  'Reportes Mensuales',
+  'Hoja de interés',
+  '🔍 Auditoría IDs',
+  '📋 Sin ID',
+  '⚡ Rendimiento'
+];
+
+/**
+ * Detecta hojas que contienen la columna "Creamos ID" en su encabezado.
+ * Resultado cacheado 1 hora. Con forzarRefresh=true limpia el caché primero.
+ */
+function _detectarHojasConID(ss, nombreDirectorio, forzarRefresh) {
+  var CACHE_KEY = 'hojas_con_id_v1';
+  var cache = CacheService.getScriptCache();
+
+  if (!forzarRefresh) {
+    var cached = cache.get(CACHE_KEY);
+    if (cached) {
+      try { return JSON.parse(cached); } catch (e) {}
+    }
+  }
+
+  var hojas = ss.getSheets();
+  var resultado = [];
+
+  for (var i = 0; i < hojas.length; i++) {
+    var nombre = hojas[i].getName();
+
+    // Excluir hojas del sistema
+    var excluir = false;
+    for (var x = 0; x < HOJAS_EXCLUIR_ID.length; x++) {
+      if (HOJAS_EXCLUIR_ID[x] === nombre) { excluir = true; break; }
+    }
+    if (excluir) continue;
+
+    // Leer solo fila 1 (encabezado), máx 60 columnas
+    var maxCols = Math.min(hojas[i].getMaxColumns(), 60);
+    if (maxCols < 1) continue;
+
+    try {
+      var encabezado = hojas[i].getRange(1, 1, 1, maxCols).getValues()[0];
+      for (var c = 0; c < encabezado.length; c++) {
+        if (encabezado[c] && encabezado[c].toString().trim() === NOMBRE_COLUMNA_ID_UNICO) {
+          resultado.push(nombre);
+          break;
+        }
+      }
+    } catch (e) {
+      Logger.log('_detectarHojasConID: error en hoja "' + nombre + '": ' + e.message);
+    }
+  }
+
+  try { cache.put(CACHE_KEY, JSON.stringify(resultado), 3600); } catch (e) {}
+  return resultado;
+}
+
+/**
+ * Normaliza un string: minúsculas, sin tildes, sin caracteres especiales.
+ * Solo letras, números y espacios.
+ */
+function _normalizarNombre(str) {
+  if (!str) return '';
+  var s = str.toString().toLowerCase();
+  s = s.replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i')
+       .replace(/ó/g, 'o').replace(/ú/g, 'u').replace(/ü/g, 'u')
+       .replace(/ñ/g, 'n').replace(/à/g, 'a').replace(/è/g, 'e')
+       .replace(/ì/g, 'i').replace(/ò/g, 'o').replace(/ù/g, 'u');
+  s = s.replace(/[^a-z0-9 ]/g, ' ');
+  s = s.replace(/\s+/g, ' ').trim();
+  return s;
+}
+
+/**
+ * Calcula similitud entre dos nombres basada en palabras (no caracteres).
+ * Tolerancia: 0 si palabra ≤ 4 letras, 1 si > 4 letras.
+ * score = precision*0.65 + recall*0.35
+ * Retorna 0-100.
+ */
+function similitudNombre(nombre1, nombre2) {
+  var n1 = _normalizarNombre(nombre1);
+  var n2 = _normalizarNombre(nombre2);
+  if (!n1 || !n2) return 0;
+  if (n1 === n2) return 100;
+
+  var palabras1 = n1.split(' ').filter(function(p) { return p.length >= 2; });
+  var palabras2 = n2.split(' ').filter(function(p) { return p.length >= 2; });
+  if (palabras1.length === 0 || palabras2.length === 0) return 0;
+
+  var matches = 0;
+  var usadas = [];
+  for (var j = 0; j < palabras2.length; j++) { usadas.push(false); }
+
+  for (var i = 0; i < palabras1.length; i++) {
+    var p1 = palabras1[i];
+    var tolerancia = p1.length <= 4 ? 0 : 1;
+    for (var j2 = 0; j2 < palabras2.length; j2++) {
+      if (usadas[j2]) continue;
+      var p2 = palabras2[j2];
+      var dist = _distanciaEdicion(p1, p2);
+      if (dist <= tolerancia) {
+        matches++;
+        usadas[j2] = true;
+        break;
+      }
+    }
+  }
+
+  var precision = matches / palabras1.length;
+  var recall = matches / palabras2.length;
+  var score = precision * 0.65 + recall * 0.35;
+  return Math.round(score * 100);
+}
+
+/**
+ * Distancia de edición (Levenshtein) entre dos strings cortos.
+ */
+function _distanciaEdicion(a, b) {
+  if (a === b) return 0;
+  var la = a.length, lb = b.length;
+  if (la === 0) return lb;
+  if (lb === 0) return la;
+  var prev = [];
+  for (var j = 0; j <= lb; j++) { prev.push(j); }
+  for (var i = 1; i <= la; i++) {
+    var curr = [i];
+    for (var j2 = 1; j2 <= lb; j2++) {
+      var costo = a[i - 1] === b[j2 - 1] ? 0 : 1;
+      curr.push(Math.min(curr[j2 - 1] + 1, prev[j2] + 1, prev[j2 - 1] + costo));
+    }
+    prev = curr;
+  }
+  return prev[lb];
+}
+
+/**
+ * Carga el directorio y devuelve mapa ID (string) → nombre.
+ * Usa la primera fila como encabezado para ubicar las columnas.
+ */
+function _cargarMapaDirectorio(ss) {
+  var hoja = ss.getSheetByName(NOMBRE_DIRECTORIO_ID);
+  if (!hoja) throw new Error('No se encontró la hoja directorio "' + NOMBRE_DIRECTORIO_ID + '"');
+
+  var datos = hoja.getDataRange().getValues();
+  if (datos.length < 2) return {};
+
+  var headers = datos[0];
+  var colID = -1, colNombre = -1;
+  for (var c = 0; c < headers.length; c++) {
+    var h = headers[c] ? headers[c].toString().trim() : '';
+    if (h === NOMBRE_COLUMNA_ID_UNICO) colID = c;
+    if (colNombre === -1 && (h === 'Nombre completo' || h === 'Nombre Completo' ||
+        h.toLowerCase().indexOf('nombre') === 0)) colNombre = c;
+  }
+  if (colID === -1) throw new Error('No se encontró columna "' + NOMBRE_COLUMNA_ID_UNICO + '" en el directorio');
+
+  var mapa = {};
+  for (var r = 1; r < datos.length; r++) {
+    var id = datos[r][colID];
+    if (!id || id.toString().trim() === '') continue;
+    var nombre = colNombre >= 0 ? (datos[r][colNombre] || '') : '';
+    mapa[id.toString().trim()] = nombre.toString().trim();
+  }
+  return mapa;
+}
+
+/**
+ * Recorre las hojas detectadas y devuelve array de problemas.
+ * Cada problema: {hoja, fila, nombreHoja, id, nombreDirectorio, problema}
+ */
+function _detectarProblemasID(ss, mapaDir, hojasConID) {
+  var problemas = [];
+
+  for (var h = 0; h < hojasConID.length; h++) {
+    var nombreHoja = hojasConID[h];
+    var hoja = ss.getSheetByName(nombreHoja);
+    if (!hoja) continue;
+
+    var datos = hoja.getDataRange().getValues();
+    if (datos.length < 2) continue;
+
+    var headers = datos[0];
+    var colID = -1, colNombre = -1;
+    for (var c = 0; c < headers.length; c++) {
+      var hdr = headers[c] ? headers[c].toString().trim() : '';
+      if (hdr === NOMBRE_COLUMNA_ID_UNICO) colID = c;
+      if (colNombre === -1 && hdr && (hdr === 'Nombre completo' || hdr === 'Nombre Completo' ||
+          hdr === 'Participante' || hdr.toLowerCase().indexOf('nombre') === 0)) colNombre = c;
+    }
+    if (colID === -1) continue;
+
+    for (var r = 1; r < datos.length; r++) {
+      var idVal = datos[r][colID];
+      if (!idVal || idVal.toString().trim() === '') continue;
+      var idStr = idVal.toString().trim();
+      if (idStr.indexOf('⚠️') === 0) continue; // ya marcado
+
+      var nombreEnHoja = colNombre >= 0 ? (datos[r][colNombre] || '').toString().trim() : '';
+
+      if (!mapaDir.hasOwnProperty(idStr)) {
+        problemas.push({
+          hoja: nombreHoja, fila: r + 1,
+          nombreHoja: nombreEnHoja, id: idStr,
+          nombreDirectorio: '', problema: '⚠️ ID no encontrado'
+        });
+      } else {
+        var nombreDir = mapaDir[idStr];
+        if (nombreDir && nombreEnHoja) {
+          var sim = similitudNombre(nombreEnHoja, nombreDir);
+          if (sim < 60) {
+            problemas.push({
+              hoja: nombreHoja, fila: r + 1,
+              nombreHoja: nombreEnHoja, id: idStr,
+              nombreDirectorio: nombreDir, problema: '⚠️ Nombre no coincide'
+            });
+          }
+        }
+      }
+    }
+  }
+  return problemas;
+}
+
+// ── 1. AUDITORÍA DE IDs ──────────────────────────────────────────────
+
+function auditarIDs() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui;
+  try { ui = SpreadsheetApp.getUi(); } catch (e) {}
+
+  ss.toast('🔍 Cargando directorio...', 'Auditoría de IDs', -1);
+  var mapaDir;
+  try { mapaDir = _cargarMapaDirectorio(ss); }
+  catch (e) { if (ui) ui.alert('Error: ' + e.message); return; }
+
+  ss.toast('🔍 Detectando hojas con ID...', 'Auditoría de IDs', -1);
+  var hojasConID = _detectarHojasConID(ss, NOMBRE_DIRECTORIO_ID, false);
+
+  ss.toast('🔍 Analizando registros...', 'Auditoría de IDs', -1);
+  var problemas = _detectarProblemasID(ss, mapaDir, hojasConID);
+
+  // Contar total revisados
+  var totalRevisados = 0;
+  for (var h = 0; h < hojasConID.length; h++) {
+    var hoja = ss.getSheetByName(hojasConID[h]);
+    if (!hoja) continue;
+    var datos = hoja.getDataRange().getValues();
+    if (datos.length < 2) continue;
+    var headers = datos[0];
+    var colID = -1;
+    for (var c = 0; c < headers.length; c++) {
+      if (headers[c] && headers[c].toString().trim() === NOMBRE_COLUMNA_ID_UNICO) { colID = c; break; }
+    }
+    if (colID === -1) continue;
+    for (var r = 1; r < datos.length; r++) {
+      var v = datos[r][colID];
+      if (v && v.toString().trim() !== '' && v.toString().trim().indexOf('⚠️') !== 0) totalRevisados++;
+    }
+  }
+
+  // Crear / reemplazar hoja de auditoría
+  var NOMBRE_AUDIT = '🔍 Auditoría IDs';
+  var hojaExiste = ss.getSheetByName(NOMBRE_AUDIT);
+  if (hojaExiste) ss.deleteSheet(hojaExiste);
+  var hojaAudit = ss.insertSheet(NOMBRE_AUDIT);
+
+  var encabezado = [['Hoja', 'Fila', 'Nombre en hoja', 'ID', 'Nombre en directorio', 'Problema']];
+  hojaAudit.getRange(1, 1, 1, 6).setValues(encabezado)
+    .setBackground('#4a4a8c').setFontColor('#ffffff').setFontWeight('bold');
+
+  if (problemas.length > 0) {
+    var filas = [];
+    for (var p = 0; p < problemas.length; p++) {
+      var pr = problemas[p];
+      filas.push([pr.hoja, pr.fila, pr.nombreHoja, pr.id, pr.nombreDirectorio, pr.problema]);
+    }
+    hojaAudit.getRange(2, 1, filas.length, 6).setValues(filas);
+
+    // Colorear filas con problema
+    for (var p2 = 0; p2 < filas.length; p2++) {
+      var bg = filas[p2][5].indexOf('no encontrado') >= 0 ? '#ffcccc' : '#fff3cc';
+      hojaAudit.getRange(p2 + 2, 1, 1, 6).setBackground(bg);
+    }
+  } else {
+    hojaAudit.getRange(2, 1).setValue('✅ Sin problemas encontrados');
+  }
+
+  hojaAudit.autoResizeColumns(1, 6);
+
+  var totalOk = totalRevisados - problemas.length;
+  var msg = '📊 Resultado de Auditoría de IDs\n' +
+    '─────────────────────────────\n' +
+    '• Total revisados: ' + totalRevisados + '\n' +
+    '• Con problemas:   ' + problemas.length + '\n' +
+    '• OK:              ' + totalOk + '\n\n' +
+    'Ver hoja "🔍 Auditoría IDs" para detalles.';
+  if (ui) ui.alert('Auditoría completada', msg, ui.ButtonSet.OK);
+  ss.toast('✅ Auditoría completada: ' + problemas.length + ' problemas', 'Auditoría de IDs', 8);
+}
+
+// ── 2. LIMPIEZA DE IDs INCORRECTOS ──────────────────────────────────
+
+function limpiarIDsIncorrectos() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui;
+  try { ui = SpreadsheetApp.getUi(); } catch (e) {}
+
+  ss.toast('🔍 Cargando directorio...', 'Limpieza de IDs', -1);
+  var mapaDir;
+  try { mapaDir = _cargarMapaDirectorio(ss); }
+  catch (e) { if (ui) ui.alert('Error: ' + e.message); return; }
+
+  ss.toast('🔍 Detectando problemas...', 'Limpieza de IDs', -1);
+  var hojasConID = _detectarHojasConID(ss, NOMBRE_DIRECTORIO_ID, false);
+  var problemas = _detectarProblemasID(ss, mapaDir, hojasConID);
+
+  if (problemas.length === 0) {
+    if (ui) ui.alert('✅ Sin problemas', 'No se encontraron IDs incorrectos.', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Mostrar lista y pedir confirmación
+  var lista = '';
+  var max = Math.min(problemas.length, 20);
+  for (var i = 0; i < max; i++) {
+    var p = problemas[i];
+    lista += '• [' + p.hoja + '] fila ' + p.fila + ': ID "' + p.id + '" — ' + p.problema + '\n';
+  }
+  if (problemas.length > 20) lista += '... y ' + (problemas.length - 20) + ' más.\n';
+
+  if (!ui) return;
+  var resp = ui.alert(
+    '⚠️ IDs incorrectos encontrados (' + problemas.length + ')',
+    lista + '\n¿Desea borrar SOLO el valor del ID en esas celdas y marcarlas en naranja?',
+    ui.ButtonSet.YES_NO
+  );
+  if (resp !== ui.Button.YES) return;
+
+  ss.toast('🧹 Limpiando IDs...', 'Limpieza de IDs', -1);
+
+  // Agrupar problemas por hoja para minimizar llamadas al servidor
+  var porHoja = {};
+  for (var j = 0; j < problemas.length; j++) {
+    var pr = problemas[j];
+    if (!porHoja[pr.hoja]) porHoja[pr.hoja] = [];
+    porHoja[pr.hoja].push(pr);
+  }
+
+  var limpiados = 0;
+  for (var nombreHoja in porHoja) {
+    var hoja = ss.getSheetByName(nombreHoja);
+    if (!hoja) continue;
+    var headers = hoja.getRange(1, 1, 1, Math.min(hoja.getMaxColumns(), 60)).getValues()[0];
+    var colID = -1;
+    for (var c = 0; c < headers.length; c++) {
+      if (headers[c] && headers[c].toString().trim() === NOMBRE_COLUMNA_ID_UNICO) { colID = c + 1; break; }
+    }
+    if (colID === -1) continue;
+
+    var items = porHoja[nombreHoja];
+    for (var k = 0; k < items.length; k++) {
+      var celda = hoja.getRange(items[k].fila, colID);
+      celda.clearContent();
+      celda.setBackground('#ffab40'); // naranja
+      limpiados++;
+    }
+  }
+
+  ui.alert('✅ Limpieza completada',
+    'Se limpiaron ' + limpiados + ' IDs incorrectos.\nLas celdas están marcadas en naranja para revisión.',
+    ui.ButtonSet.OK);
+  ss.toast('✅ ' + limpiados + ' IDs limpiados', 'Limpieza de IDs', 8);
+}
+
+// ── 3. REPORTE DE REGISTROS SIN ID ──────────────────────────────────
+
+function reporteSinID() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui;
+  try { ui = SpreadsheetApp.getUi(); } catch (e) {}
+
+  ss.toast('📋 Buscando registros sin ID...', 'Reporte Sin ID', -1);
+  var hojasConID = _detectarHojasConID(ss, NOMBRE_DIRECTORIO_ID, false);
+
+  var filasSinID = [];
+  var conteosPorHoja = {};
+
+  for (var h = 0; h < hojasConID.length; h++) {
+    var nombreHoja = hojasConID[h];
+    var hoja = ss.getSheetByName(nombreHoja);
+    if (!hoja) continue;
+
+    var datos = hoja.getDataRange().getValues();
+    if (datos.length < 2) continue;
+
+    var headers = datos[0];
+    var colID = -1, colNombre = -1, colDPI = -1;
+    for (var c = 0; c < headers.length; c++) {
+      var hdr = headers[c] ? headers[c].toString().trim() : '';
+      if (hdr === NOMBRE_COLUMNA_ID_UNICO) colID = c;
+      if (colNombre === -1 && hdr && (hdr === 'Nombre completo' || hdr === 'Nombre Completo' ||
+          hdr === 'Participante' || hdr.toLowerCase().indexOf('nombre') === 0)) colNombre = c;
+      if (hdr.toLowerCase().indexOf('dpi') >= 0) colDPI = c;
+    }
+    if (colID === -1 || colNombre === -1) continue;
+
+    var conteo = 0;
+    for (var r = 1; r < datos.length; r++) {
+      var nombre = datos[r][colNombre] ? datos[r][colNombre].toString().trim() : '';
+      if (!nombre) continue; // fila sin nombre = fila vacía
+
+      var idVal = datos[r][colID] ? datos[r][colID].toString().trim() : '';
+      var sinID = idVal === '' || idVal.indexOf('⚠️') === 0;
+      if (!sinID) continue;
+
+      var dpi = colDPI >= 0 ? (datos[r][colDPI] || '').toString().trim() : '';
+      filasSinID.push([nombreHoja, r + 1, nombre, dpi]);
+      conteo++;
+    }
+    if (conteo > 0) conteosPorHoja[nombreHoja] = conteo;
+  }
+
+  // Crear / reemplazar hoja de reporte
+  var NOMBRE_SINID = '📋 Sin ID';
+  var hojaExiste = ss.getSheetByName(NOMBRE_SINID);
+  if (hojaExiste) ss.deleteSheet(hojaExiste);
+  var hojaReporte = ss.insertSheet(NOMBRE_SINID);
+
+  hojaReporte.getRange(1, 1, 1, 4).setValues([['Hoja', 'Fila', 'Nombre', 'DPI']])
+    .setBackground('#4a4a8c').setFontColor('#ffffff').setFontWeight('bold');
+
+  if (filasSinID.length > 0) {
+    hojaReporte.getRange(2, 1, filasSinID.length, 4).setValues(filasSinID);
+    // Color alterno por hoja
+    var colorA = '#fff9c4', colorB = '#ffffff';
+    var hojaActual = '', colorActual = colorA;
+    for (var i = 0; i < filasSinID.length; i++) {
+      if (filasSinID[i][0] !== hojaActual) {
+        hojaActual = filasSinID[i][0];
+        colorActual = colorActual === colorA ? colorB : colorA;
+      }
+      hojaReporte.getRange(i + 2, 1, 1, 4).setBackground(colorActual);
+    }
+  }
+
+  // Sección resumen al final
+  var filaResumen = filasSinID.length + 3;
+  hojaReporte.getRange(filaResumen, 1).setValue('RESUMEN POR HOJA')
+    .setFontWeight('bold').setBackground('#e8eaf6');
+  filaResumen++;
+  for (var nombreH in conteosPorHoja) {
+    hojaReporte.getRange(filaResumen, 1).setValue(nombreH);
+    hojaReporte.getRange(filaResumen, 2).setValue(conteosPorHoja[nombreH]);
+    filaResumen++;
+  }
+  hojaReporte.getRange(filaResumen, 1).setValue('TOTAL').setFontWeight('bold');
+  hojaReporte.getRange(filaResumen, 2).setValue(filasSinID.length).setFontWeight('bold');
+
+  hojaReporte.autoResizeColumns(1, 4);
+
+  var msg = '📋 Reporte Sin ID\n' +
+    '─────────────────────────────\n' +
+    '• Total sin ID: ' + filasSinID.length + '\n\n';
+  for (var nh in conteosPorHoja) {
+    msg += '  • ' + nh + ': ' + conteosPorHoja[nh] + '\n';
+  }
+  msg += '\nVer hoja "📋 Sin ID" para detalles.';
+  if (ui) ui.alert('Reporte completado', msg, ui.ButtonSet.OK);
+  ss.toast('✅ ' + filasSinID.length + ' registros sin ID', 'Reporte Sin ID', 8);
+}
+
+// ── 4. PRUEBA DE RENDIMIENTO ─────────────────────────────────────────
+
+function pruebaRendimiento() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui;
+  try { ui = SpreadsheetApp.getUi(); } catch (e) {}
+
+  ss.toast('⚡ Ejecutando prueba de rendimiento...', 'Rendimiento', -1);
+
+  var resultados = [];
+
+  function medir(etiqueta, fn) {
+    var t0 = new Date().getTime();
+    var info = '';
+    try { info = fn() || ''; } catch (e) { info = 'ERROR: ' + e.message; }
+    var ms = new Date().getTime() - t0;
+    resultados.push({ etiqueta: etiqueta, ms: ms, info: info });
+    return ms;
+  }
+
+  var mapaDir = {};
+  var filasDirStr = '';
+
+  // 1. Carga del directorio
+  medir('1. Carga del directorio', function() {
+    mapaDir = _cargarMapaDirectorio(ss);
+    var n = Object.keys(mapaDir).length;
+    filasDirStr = n + ' registros';
+    return filasDirStr;
+  });
+
+  // 2. Detección de hojas con ID (forzarRefresh=true)
+  var hojasConID = [];
+  medir('2. Detección de hojas con ID (fresh)', function() {
+    hojasConID = _detectarHojasConID(ss, NOMBRE_DIRECTORIO_ID, true);
+    return hojasConID.length + ' hojas';
+  });
+
+  // 3. Lectura de todas las hojas
+  var todasDatos = [];
+  medir('3. Lectura de todas las hojas (getDataRange)', function() {
+    var totalFilas = 0;
+    for (var h = 0; h < hojasConID.length; h++) {
+      var hoja = ss.getSheetByName(hojasConID[h]);
+      if (!hoja) continue;
+      var d = hoja.getDataRange().getValues();
+      todasDatos.push(d);
+      totalFilas += d.length;
+    }
+    return totalFilas + ' filas totales';
+  });
+
+  // 4. Construcción del mapa de búsqueda
+  medir('4. Construcción mapa búsqueda', function() {
+    var mapa = {};
+    for (var k in mapaDir) { mapa[k.toLowerCase()] = mapaDir[k]; }
+    return Object.keys(mapa).length + ' entradas';
+  });
+
+  // 5. 100 comparaciones de similitud
+  medir('5. 100 comparaciones de similitud', function() {
+    var nombres = ['Juan Carlos López', 'María García', 'Pedro Ramírez',
+                   'Ana Sofía Pérez', 'Carlos Mendoza'];
+    for (var i = 0; i < 100; i++) {
+      similitudNombre(nombres[i % nombres.length], nombres[(i + 2) % nombres.length]);
+    }
+    return '100 comparaciones';
+  });
+
+  // 6. Conteo de triggers onEdit
+  var numTriggers = 0;
+  medir('6. Conteo de triggers onEdit', function() {
+    var triggers = ScriptApp.getProjectTriggers();
+    for (var t = 0; t < triggers.length; t++) {
+      if (triggers[t].getEventType() === ScriptApp.EventType.ON_EDIT) numTriggers++;
+    }
+    return numTriggers + ' trigger(s) onEdit';
+  });
+
+  // Crear / reemplazar hoja de rendimiento
+  var NOMBRE_REND = '⚡ Rendimiento';
+  var hojaExiste = ss.getSheetByName(NOMBRE_REND);
+  if (hojaExiste) ss.deleteSheet(hojaExiste);
+  var hojaRend = ss.insertSheet(NOMBRE_REND);
+
+  hojaRend.getRange(1, 1, 1, 3).setValues([['Prueba', 'Tiempo (ms)', 'Detalle']])
+    .setBackground('#4a4a8c').setFontColor('#ffffff').setFontWeight('bold');
+
+  var totalMs = 0;
+  for (var i = 0; i < resultados.length; i++) {
+    var r = resultados[i];
+    totalMs += r.ms;
+    var fila = i + 2;
+    hojaRend.getRange(fila, 1).setValue(r.etiqueta);
+    hojaRend.getRange(fila, 2).setValue(r.ms);
+    hojaRend.getRange(fila, 3).setValue(r.info);
+
+    var bg;
+    if (r.ms < 2000) bg = '#c8e6c9';       // verde
+    else if (r.ms < 5000) bg = '#fff9c4';  // amarillo
+    else bg = '#ffcdd2';                    // rojo
+
+    hojaRend.getRange(fila, 1, 1, 3).setBackground(bg);
+  }
+
+  // Total
+  var filaTot = resultados.length + 2;
+  hojaRend.getRange(filaTot, 1).setValue('TOTAL').setFontWeight('bold');
+  hojaRend.getRange(filaTot, 2).setValue(totalMs).setFontWeight('bold');
+  var bgTotal;
+  if (totalMs < 10000) bgTotal = '#c8e6c9';
+  else if (totalMs < 20000) bgTotal = '#fff9c4';
+  else bgTotal = '#ffcdd2';
+  hojaRend.getRange(filaTot, 1, 1, 3).setBackground(bgTotal);
+
+  // Veredicto
+  var veredicto;
+  if (totalMs < 10000) veredicto = '🟢 Rápido (' + totalMs + 'ms < 10s)';
+  else if (totalMs < 20000) veredicto = '🟡 Aceptable (' + totalMs + 'ms < 20s)';
+  else veredicto = '🔴 Lento (' + totalMs + 'ms > 20s)';
+
+  hojaRend.getRange(filaTot + 2, 1).setValue('Veredicto').setFontWeight('bold');
+  hojaRend.getRange(filaTot + 2, 2, 1, 2).merge().setValue(veredicto);
+
+  hojaRend.autoResizeColumns(1, 3);
+
+  // Alerta si hay más de 1 trigger onEdit
+  var alertaTrigger = '';
+  if (numTriggers > 1) {
+    alertaTrigger = '\n\n⚠️ ALERTA: Se detectaron ' + numTriggers + ' triggers onEdit instalados.\n' +
+      'Esto puede causar que los diálogos aparezcan duplicados.\n' +
+      'Recomendado: desinstalar y reinstalar con el menú → ⏰ Automatización.';
+  }
+
+  var msgFinal = veredicto + '\nTotal: ' + totalMs + ' ms\n\nDetalle:\n';
+  for (var j = 0; j < resultados.length; j++) {
+    var sym = resultados[j].ms < 2000 ? '🟢' : (resultados[j].ms < 5000 ? '🟡' : '🔴');
+    msgFinal += sym + ' ' + resultados[j].etiqueta + ': ' + resultados[j].ms + 'ms\n';
+  }
+  msgFinal += alertaTrigger;
+
+  if (ui) ui.alert('⚡ Prueba de Rendimiento', msgFinal, ui.ButtonSet.OK);
+  ss.toast(veredicto, 'Rendimiento', 10);
+}
