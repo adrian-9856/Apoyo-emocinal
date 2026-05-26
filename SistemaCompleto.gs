@@ -3635,7 +3635,7 @@ function _construirReporteDashboard_() {
   // FILA 4: RESUMEN GENERAL
   // ═══════════════════════════════════════════════════
   reporte.getRange('A4:F4').merge()
-    .setValue('📊  RESUMEN GENERAL')
+    .setValue('📊  RESUMEN GENERAL DE TODO EL AÑO')
     .setBackground('#37474f').setFontColor('#ffffff')
     .setFontWeight('bold').setFontSize(12)
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
