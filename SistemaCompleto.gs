@@ -4490,6 +4490,96 @@ function guardarReporteMesEspecifico() {
 }
 
 /**
+ * Recalcula retroactivamente la columna "Culminados 12+ ses." (col 27) en todos los
+ * meses guardados en "Reportes Mensuales".
+ *
+ * Para cada fila usa la Fecha Guardado (col 41) para saber hasta qué mes contar,
+ * y cuenta las entradas de "Procesos Culminados" con fecha <= fin de ese mes Y sesiones >= 12.
+ * Ejecutar UNA SOLA VEZ desde el editor de Apps Script para corregir datos históricos.
+ */
+function corregirCulminados12Historico() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const mensuales = ss.getSheetByName('Reportes Mensuales');
+  if (!mensuales || mensuales.getLastRow() < 2) {
+    ui.alert('No hay datos en Reportes Mensuales.');
+    return;
+  }
+
+  const culminadosSheet = ss.getSheetByName('Procesos Culminados');
+  if (!culminadosSheet || culminadosSheet.getLastRow() < 2) {
+    ui.alert('No hay datos en Procesos Culminados.');
+    return;
+  }
+
+  // Leer todos los datos de Procesos Culminados (col A=fecha, col D=sesiones)
+  const datosCulminados = culminadosSheet
+    .getRange(2, 1, culminadosSheet.getLastRow() - 1, 4)
+    .getValues();
+
+  // Leer todas las filas de Reportes Mensuales
+  const totalFilas = mensuales.getLastRow() - 1;
+  const reportes = mensuales.getRange(2, 1, totalFilas, 41).getValues();
+
+  let filasActualizadas = 0;
+  let resumen = '';
+
+  reportes.forEach(function(fila, idx) {
+    const mesLabel = fila[0];         // col 1: etiqueta del mes
+    const fechaGuardado = fila[40];   // col 41: fecha en que se guardó el reporte
+
+    if (!mesLabel) return;
+
+    // Determinar el último día del mes reportado usando la fecha de guardado.
+    // Si no hay fecha de guardado, intentar parsear el mesLabel.
+    let finMes;
+    if (fechaGuardado instanceof Date && !isNaN(fechaGuardado)) {
+      finMes = new Date(fechaGuardado.getFullYear(), fechaGuardado.getMonth() + 1, 0, 23, 59, 59);
+    } else {
+      // Fallback: parsear mesLabel ("enero 2025", "febrero 2025", etc.)
+      const meses = {
+        'enero':1,'febrero':2,'marzo':3,'abril':4,'mayo':5,'junio':6,
+        'julio':7,'agosto':8,'septiembre':9,'octubre':10,'noviembre':11,'diciembre':12
+      };
+      const partes = mesLabel.toString().toLowerCase().split(' ');
+      const numMes = meses[partes[0]];
+      const anio = parseInt(partes[1]);
+      if (!numMes || !anio) return;
+      finMes = new Date(anio, numMes, 0, 23, 59, 59);
+    }
+
+    // Contar entradas en Procesos Culminados con fecha <= finMes y sesiones >= 12
+    let cuenta = 0;
+    datosCulminados.forEach(function(c) {
+      const fecha = c[0];
+      const sesiones = Number(c[3]) || 0;
+      if (fecha instanceof Date && fecha <= finMes && sesiones >= 12) {
+        cuenta++;
+      }
+    });
+
+    const valorActual = fila[26]; // col 27 (índice 26)
+    if (valorActual !== cuenta) {
+      mensuales.getRange(idx + 2, 27).setValue(cuenta);
+      resumen += '• ' + mesLabel + ': ' + valorActual + ' → ' + cuenta + '\n';
+      filasActualizadas++;
+    }
+  });
+
+  if (filasActualizadas === 0) {
+    ui.alert('✅ Revisión completa', 'Todos los valores ya eran correctos. No se realizaron cambios.', ui.ButtonSet.OK);
+  } else {
+    ui.alert(
+      '✅ Corrección aplicada',
+      'Se actualizaron ' + filasActualizadas + ' mes(es):\n\n' + resumen,
+      ui.ButtonSet.OK
+    );
+  }
+  Logger.log('corregirCulminados12Historico: ' + filasActualizadas + ' filas actualizadas.');
+}
+
+/**
  * Actualización automática diaria (trigger 8:00 AM).
  *
  * Siempre escribe en "Reporte Mensual Automatizado" (hoja en vivo, fila 2)
