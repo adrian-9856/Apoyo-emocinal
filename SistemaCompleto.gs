@@ -569,7 +569,7 @@ function crearReporte() {
 
     // SECCIÓN 6: PROCESOS CULMINADOS
     ['PROCESOS CULMINADOS', 'Total', 'Este mes', 'Tasa culminación (12 ses.)'],
-    ['Tasa de culminación de Terapia Individual', '=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF((B24+B27)>0,ROUND(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12")/(B24+B27)*100,1)&"%","0%"),"0%")'],
+    ['Tasa de culminación de Terapia Individual', '=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)', '=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)', '=IFERROR(IF((B24+B27)>0,ROUND(COUNTIF(\'Procesos Culminados\'!D2:D500,">=12")/(B24+B27)*100,1)&"%","0%"),"0%")'],
     ['', '', '', ''],
 
     // SECCIÓN 7: RETIRADX
@@ -3373,25 +3373,21 @@ function instalarTriggerTiempo() {
 }
 
 /**
- * Verifica si hoy es el penúltimo día del mes y envía recordatorio
+ * Verifica si hoy es 3 días antes del último día del mes y envía recordatorio
  * Esta función debe ejecutarse diariamente mediante trigger
  */
 function verificarYEnviarRecordatorioReporteMensual() {
   try {
     const hoy = new Date();
-    const manana = new Date(hoy);
-    manana.setDate(hoy.getDate() + 1);
+    const ultimoDiaDelMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+    const diasRestantes = ultimoDiaDelMes.getDate() - hoy.getDate();
 
-    // Verificar si mañana es el último día del mes
-    // Si el día de mañana es mayor que el de pasado mañana, significa que mañana es el último día
-    // Comparar con el último día real del mes de mañana
-    const ultimoDiaDelMes = new Date(manana.getFullYear(), manana.getMonth() + 1, 0);
-    if (manana.getDate() === ultimoDiaDelMes.getDate()) {
-      // Mañana es el último día del mes: hoy es el penúltimo, enviar recordatorio
+    if (diasRestantes === 3) {
+      // Faltan exactamente 3 días para el fin de mes: enviar recordatorio
       enviarRecordatorioReporteMensual();
-      Logger.log('✅ Recordatorio de reporte mensual enviado');
+      Logger.log('✅ Recordatorio de reporte mensual enviado (3 días antes del cierre)');
     } else {
-      Logger.log('ℹ️ Hoy no es el penúltimo día del mes. No se envía recordatorio.');
+      Logger.log('ℹ️ Faltan ' + diasRestantes + ' días para fin de mes. No se envía recordatorio.');
     }
   } catch (error) {
     Logger.log('❌ Error verificando fecha para recordatorio: ' + error.message);
@@ -3399,23 +3395,39 @@ function verificarYEnviarRecordatorioReporteMensual() {
 }
 
 /**
- * Envía email a la directora recordando generar el reporte mensual
+ * Envía email a la directora y a todos los terapeutas recordando generar el reporte mensual
+ * (se dispara 3 días antes del fin de mes)
  */
 function enviarRecordatorioReporteMensual() {
   try {
     const props = PropertiesService.getScriptProperties();
+    const docProps = PropertiesService.getDocumentProperties();
     const emailDirectora = props.getProperty('EMAIL_DIRECTORA');
-
-    if (!emailDirectora || emailDirectora === '') {
-      Logger.log('⚠️ Email de directora no configurado');
-      return;
-    }
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const nombreHoja = ss.getName();
     const urlHoja = ss.getUrl();
     const mesActual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM yyyy');
     const fechaHoy = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+
+    // Recopilar todos los destinatarios
+    const destinatarios = [];
+    if (emailDirectora && emailDirectora !== '') {
+      destinatarios.push(emailDirectora);
+    }
+
+    const terapeutas = ['Gerber', 'Melissa', 'Diana', 'Karina'];
+    terapeutas.forEach(function(t) {
+      const email = docProps.getProperty('EMAIL_' + t.toUpperCase());
+      if (email && email !== '' && destinatarios.indexOf(email) === -1) {
+        destinatarios.push(email);
+      }
+    });
+
+    if (destinatarios.length === 0) {
+      Logger.log('⚠️ No hay emails configurados para enviar el recordatorio');
+      return;
+    }
 
     const asunto = '⏰ Recordatorio: Generar Reporte Mensual - ' + mesActual;
 
@@ -3441,11 +3453,11 @@ function enviarRecordatorioReporteMensual() {
       '<div class="content">' +
       '<p><strong>Fecha:</strong> ' + fechaHoy + '</p>' +
       '<div class="warning">' +
-      '<h3>🗓️ Mañana es el último día del mes</h3>' +
-      '<p>Este es un recordatorio para que genere el <strong>Reporte Mensual de ' + mesActual + '</strong> antes de que termine el mes.</p>' +
+      '<h3>🗓️ Faltan 3 días para el cierre del mes</h3>' +
+      '<p>Este es un recordatorio para que se genere el <strong>Reporte Mensual de ' + mesActual + '</strong> antes de que termine el mes.</p>' +
       '</div>' +
       '<div class="info">' +
-      '<h4>📋 Pasos para generar el reporte:</h4>' +
+      '<h4>📋 Pasos para generar el reporte (solo directora/admin):</h4>' +
       '<ol>' +
       '<li>Abra la hoja de cálculo</li>' +
       '<li>Vaya al menú <strong>📊 Sistema Apoyo Emocional</strong></li>' +
@@ -3466,13 +3478,14 @@ function enviarRecordatorioReporteMensual() {
       '</body>' +
       '</html>';
 
-    MailApp.sendEmail({
-      to: emailDirectora,
-      subject: asunto,
-      htmlBody: cuerpo
+    destinatarios.forEach(function(email) {
+      try {
+        MailApp.sendEmail({ to: email, subject: asunto, htmlBody: cuerpo });
+        Logger.log('✅ Email de recordatorio enviado a: ' + email);
+      } catch (e) {
+        Logger.log('⚠️ No se pudo enviar a ' + email + ': ' + e.message);
+      }
     });
-
-    Logger.log('✅ Email de recordatorio enviado a: ' + emailDirectora);
 
   } catch (error) {
     Logger.log('❌ Error enviando recordatorio de reporte mensual: ' + error.message);
@@ -3501,8 +3514,8 @@ function instalarTriggerRecordatorioMensual() {
 
     SpreadsheetApp.getActiveSpreadsheet().toast(
       '✅ Trigger de recordatorio mensual instalado correctamente\n\n' +
-      'Se verificará diariamente a las 9:00 AM si es el penúltimo día del mes\n' +
-      'y se enviará un recordatorio a la directora para generar el reporte.',
+      'Se verificará diariamente a las 9:00 AM si faltan 3 días para el fin de mes\n' +
+      'y se enviará un recordatorio a la directora y a todos los terapeutas.',
       'Recordatorio Mensual',
       6
     );
@@ -4119,8 +4132,8 @@ function _calcularDatosMesActual_(ss, mesLabel) {
   let culminados12 = 0;
   const hojaCulminados = ss.getSheetByName('Procesos Culminados');
   if (hojaCulminados && hojaCulminados.getLastRow() > 1) {
-    const sesCol = hojaCulminados.getRange(2, 5, hojaCulminados.getLastRow() - 1, 1).getValues();
-    sesCol.forEach(f => { if (f[0] >= 12) culminados12++; });
+    const sesCol = hojaCulminados.getRange(2, 4, hojaCulminados.getLastRow() - 1, 1).getValues();
+    sesCol.forEach(f => { if (Number(f[0]) >= 12) culminados12++; });
   }
 
   const retiradx = contarHoja('Retiradx', 1);
@@ -4394,8 +4407,8 @@ function guardarReporteMesEspecifico() {
     const culminados = contarEnRango(hojaCulminados, 1, primerDia, ultimoDia);
     let culminados12 = 0;
     if (hojaCulminados && hojaCulminados.getLastRow() > 1) {
-      const sesCol = hojaCulminados.getRange(2, 5, hojaCulminados.getLastRow() - 1, 1).getValues();
-      sesCol.forEach(f => { if (f[0] >= 12) culminados12++; });
+      const sesCol = hojaCulminados.getRange(2, 4, hojaCulminados.getLastRow() - 1, 1).getValues();
+      sesCol.forEach(f => { if (Number(f[0]) >= 12) culminados12++; });
     }
 
     // 6. RETIRADX
@@ -5361,7 +5374,7 @@ function actualizarFormulasReporte() {
     reporte.getRange('A24').setValue('Procesos Culminados');
     reporte.getRange('B24').setFormula('=IFERROR(COUNTA(\'Procesos Culminados\'!A:A)-1,0)');
     reporte.getRange('C24').setFormula('=IFERROR(COUNTIFS(\'Procesos Culminados\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),\'Procesos Culminados\'!A:A,"<="&EOMONTH(TODAY(),0)),0)');
-    reporte.getRange('E24').setFormula('=IFERROR(COUNTIF(\'Procesos Culminados\'!E2:E500,">=12"),0)');
+    reporte.getRange('E24').setFormula('=IFERROR(COUNTIF(\'Procesos Culminados\'!D2:D500,">=12"),0)');
 
     // Fila 27: Retiradx
     reporte.getRange('B27').setFormula('=IFERROR(COUNTA(Retiradx!A:A)-1,0)');
@@ -10988,7 +11001,7 @@ function generarReporteMarzo2026() {
 
       datos.forEach(fila => {
         const fecha = fila[0];
-        const numSesiones = fila[4] || 0; // Columna E: número de sesiones
+        const numSesiones = Number(fila[3]) || 0; // Columna D: número de sesiones
 
         if (fecha) {
           culminadosTotal++;
@@ -11001,12 +11014,12 @@ function generarReporteMarzo2026() {
 
       // Calcular promedio de sesiones de procesos culminados con >= 12 sesiones
       const conMas12 = datos.filter(fila => {
-        const numSesiones = fila[4] || 0;
+        const numSesiones = Number(fila[3]) || 0;
         return numSesiones >= 12;
       });
 
       if (conMas12.length > 0) {
-        const sumaTotal = conMas12.reduce((sum, fila) => sum + (fila[4] || 0), 0);
+        const sumaTotal = conMas12.reduce((sum, fila) => sum + (Number(fila[3]) || 0), 0);
         promedioSesiones = Math.round(sumaTotal / conMas12.length);
       }
     }
