@@ -4490,6 +4490,237 @@ function guardarReporteMesEspecifico() {
 }
 
 /**
+ * Genera (o actualiza) la hoja "Exportar_PowerBI" con una fila por participante,
+ * consolidando datos de todas las hojas del sistema.
+ *
+ * Fuentes:
+ *   - Hoja de interés      → demografía, captación, zona, malestar inicial
+ *   - Terapias Individual  → terapeuta, sesiones, asistencias, inasistencias, estado
+ *   - Procesos Culminados  → fecha cierre, sesiones totales, motivo cierre
+ *   - Retiradx             → fecha retiro, sesiones al retirarse, motivo retiro
+ *   - Personas no asistidas → si tuvo inasistencia inicial
+ *
+ * La llave de unión es "Creamos ID".
+ * Ejecutar desde Apps Script para refrescar los datos antes de abrir Power BI.
+ */
+function exportarParaPowerBI() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const tz = Session.getScriptTimeZone();
+
+  ss.toast('Generando exportación para Power BI...', 'Procesando', 20);
+
+  // ── 1. LEER TODAS LAS FUENTES ────────────────────────────────────────────
+
+  // Hoja de interés: A=Fecha B=CreamosID C=YaParticipante D=Nombre(s) E=Apellido(s)
+  //   F=Género G=Edad H=Teléfono I=Zona J=OtraZona K=ProgramasInterés L=_uuid
+  //   M=MalestarInicial N=TerapeutaAsignado O=AsistióCita P=NumLlamadas Q=_notasLlamadas
+  const hojaInteres = ss.getSheetByName('Hoja de interés');
+  const datosInteres = hojaInteres && hojaInteres.getLastRow() > 1
+    ? hojaInteres.getRange(2, 1, hojaInteres.getLastRow() - 1, 17).getValues()
+    : [];
+
+  // Terapias Individual: A=FechaIngreso B=Terapeuta C=CreamosID D=Participante
+  //   E=MalestarInicial F=Género G=Edad H=NoSesion I=Estado J=MotivoFinal
+  //   K=SesionesMesAnt L=Inasistencias M=Asistencias N=InasistenciasMesAnt
+  const hojaTerapias = ss.getSheetByName('Terapias Individual');
+  const datosTerapias = hojaTerapias && hojaTerapias.getLastRow() > 1
+    ? hojaTerapias.getRange(2, 1, hojaTerapias.getLastRow() - 1, 14).getValues()
+    : [];
+
+  // Procesos Culminados: A=Fecha B=CreamosID C=Terapeuta D=TotalSesiones E=Motivo
+  const hojaCulminados = ss.getSheetByName('Procesos Culminados');
+  const datosCulminados = hojaCulminados && hojaCulminados.getLastRow() > 1
+    ? hojaCulminados.getRange(2, 1, hojaCulminados.getLastRow() - 1, 5).getValues()
+    : [];
+
+  // Retiradx: A=Fecha B=CreamosID C=Terapeuta D=Sesiones E=Motivo
+  const hojaRetiradx = ss.getSheetByName('Retiradx');
+  const datosRetiradx = hojaRetiradx && hojaRetiradx.getLastRow() > 1
+    ? hojaRetiradx.getRange(2, 1, hojaRetiradx.getLastRow() - 1, 5).getValues()
+    : [];
+
+  // Personas no asistidas: A=Fecha B=CreamosID C=Género D=Edad E=MalestarPrincipal
+  //   F=TerapeutaAsignado G=Teléfono H=NotasLlamadas
+  const hojaNoAsist = ss.getSheetByName('Personas no asistidas');
+  const datosNoAsist = hojaNoAsist && hojaNoAsist.getLastRow() > 1
+    ? hojaNoAsist.getRange(2, 1, hojaNoAsist.getLastRow() - 1, 8).getValues()
+    : [];
+
+  // ── 2. INDEXAR POR CREAMOS ID ─────────────────────────────────────────────
+
+  function indexarPorId(datos, colId) {
+    const mapa = {};
+    datos.forEach(function(fila) {
+      const id = fila[colId] ? fila[colId].toString().trim() : '';
+      if (id) mapa[id] = fila;
+    });
+    return mapa;
+  }
+
+  const mapaInteres    = indexarPorId(datosInteres,    1);  // col B
+  const mapaTerapias   = indexarPorId(datosTerapias,   2);  // col C
+  const mapaCulminados = indexarPorId(datosCulminados, 1);  // col B
+  const mapaRetiradx   = indexarPorId(datosRetiradx,   1);  // col B
+  const mapaNoAsist    = indexarPorId(datosNoAsist,    1);  // col B
+
+  // ── 3. OBTENER LISTA COMPLETA DE IDs (unión de todas las fuentes) ─────────
+
+  const todosIds = new Set();
+  Object.keys(mapaInteres).forEach(id => todosIds.add(id));
+  Object.keys(mapaTerapias).forEach(id => todosIds.add(id));
+  Object.keys(mapaCulminados).forEach(id => todosIds.add(id));
+  Object.keys(mapaRetiradx).forEach(id => todosIds.add(id));
+
+  // ── 4. CONSTRUIR FILAS CONSOLIDADAS ──────────────────────────────────────
+
+  const filas = [];
+
+  todosIds.forEach(function(id) {
+    const i  = mapaInteres[id]    || [];
+    const t  = mapaTerapias[id]   || [];
+    const c  = mapaCulminados[id] || [];
+    const r  = mapaRetiradx[id]   || [];
+    const na = mapaNoAsist[id]    || [];
+
+    // Determinar estado final consolidado
+    let estadoFinal = '';
+    if (c.length) estadoFinal = 'Proceso culminado';
+    else if (r.length) estadoFinal = 'Retiradx';
+    else if (t.length) estadoFinal = t[8] || 'En proceso';  // col I Estado
+    else estadoFinal = 'Solo captación';
+
+    // Determinar si llegó a 12+ sesiones
+    const totalSesiones = c.length ? (Number(c[3]) || 0) : (t.length ? (Number(t[7]) || 0) : 0);
+    const llego12 = totalSesiones >= 12 ? 'Sí' : 'No';
+
+    // Fecha de primera consulta (Hoja de interés o Terapias)
+    const fechaCaptacion = i.length && i[0] instanceof Date ? i[0] : '';
+    const fechaIngreso   = t.length && t[0] instanceof Date ? t[0] : '';
+    const fechaCierre    = c.length && c[0] instanceof Date ? c[0]
+                         : (r.length && r[0] instanceof Date ? r[0] : '');
+
+    // Días en proceso (captación → cierre o hoy)
+    let diasEnProceso = '';
+    if (fechaIngreso instanceof Date) {
+      const fin = fechaCierre instanceof Date ? fechaCierre : new Date();
+      diasEnProceso = Math.round((fin - fechaIngreso) / (1000 * 60 * 60 * 24));
+    }
+
+    // Género y edad: priorizar Terapias, luego Hoja de Interés
+    const genero = (t.length && t[5]) ? t[5] : (i.length ? i[5] : '');
+    const edad   = (t.length && t[6]) ? t[6] : (i.length ? i[6] : '');
+    const zona   = i.length ? (i[8] === 'Otra zona' ? i[9] : i[8]) : '';
+    const malestar = (t.length && t[4]) ? t[4] : (i.length ? i[12] : '');
+    const terapeuta = (t.length && t[1]) ? t[1] : (c.length ? c[2] : (r.length ? r[2] : ''));
+
+    // Nombre (solo para identificación interna, sin apellido)
+    const nombre = t.length ? t[3] : (i.length ? (i[3] + ' ' + i[4]).trim() : '');
+
+    filas.push([
+      // IDENTIFICACIÓN
+      id,                                   // Creamos ID
+      nombre,                               // Nombre (sin apellido)
+      genero,                               // Género
+      edad,                                 // Edad
+      zona,                                 // Zona geográfica
+      i.length ? (i[2] || 'No') : 'No',    // ¿Ya era participante antes?
+
+      // CAPTACIÓN
+      fechaCaptacion,                        // Fecha primera consulta (Hoja Interés)
+      i.length ? i[13] : '',               // Terapeuta asignado en captación
+      i.length ? (i[14] || '') : '',        // ¿Asistió a cita inicial?
+      i.length ? (i[15] || 0) : 0,         // Número de llamadas realizadas
+
+      // PROCESO TERAPÉUTICO
+      fechaIngreso,                          // Fecha ingreso a terapias
+      terapeuta,                             // Terapeuta de terapia
+      malestar,                              // Malestar inicial
+      t.length ? (t[7] || 0) : 0,          // No. Sesión actual
+      t.length ? (t[12] || 0) : 0,         // Asistencias
+      t.length ? (t[11] || 0) : 0,         // Inasistencias
+      estadoFinal,                           // Estado final consolidado
+      t.length ? (t[9] || '') : '',         // Motivo finalización (Terapias)
+
+      // CIERRE
+      fechaCierre,                           // Fecha cierre / retiro
+      c.length ? (Number(c[3]) || 0) : (r.length ? (Number(r[3]) || 0) : 0), // Total sesiones al cierre
+      c.length ? (c[4] || '') : '',         // Motivo cierre (Culminados)
+      r.length ? (r[4] || '') : '',         // Motivo retiro (Retiradx)
+
+      // INDICADORES CALCULADOS
+      llego12,                               // ¿Llegó a 12+ sesiones?
+      diasEnProceso,                         // Días desde ingreso hasta cierre/hoy
+      na.length ? 'Sí' : 'No',             // ¿Tuvo inasistencia inicial?
+
+      // TRAZABILIDAD
+      Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm') // Fecha exportación
+    ]);
+  });
+
+  // Ordenar por Creamos ID
+  filas.sort(function(a, b) {
+    return a[0].toString().localeCompare(b[0].toString());
+  });
+
+  // ── 5. ESCRIBIR EN HOJA DE EXPORTACIÓN ───────────────────────────────────
+
+  const NOMBRE_HOJA_EXPORT = 'Exportar_PowerBI';
+  let hojaExport = ss.getSheetByName(NOMBRE_HOJA_EXPORT);
+  if (!hojaExport) {
+    hojaExport = ss.insertSheet(NOMBRE_HOJA_EXPORT);
+  } else {
+    hojaExport.clearContents();
+  }
+
+  const encabezados = [
+    // IDENTIFICACIÓN
+    'Creamos_ID', 'Nombre', 'Genero', 'Edad', 'Zona', 'Ya_Participante',
+    // CAPTACIÓN
+    'Fecha_Captacion', 'Terapeuta_Captacion', 'Asistio_Cita_Inicial', 'Num_Llamadas_Captacion',
+    // PROCESO
+    'Fecha_Ingreso_Terapia', 'Terapeuta', 'Malestar_Inicial',
+    'Num_Sesion_Actual', 'Asistencias', 'Inasistencias',
+    'Estado_Final', 'Motivo_Finalizacion',
+    // CIERRE
+    'Fecha_Cierre', 'Total_Sesiones_Cierre', 'Motivo_Cierre_Culminado', 'Motivo_Retiro',
+    // INDICADORES
+    'Llego_12_Sesiones', 'Dias_En_Proceso', 'Tuvo_Inasistencia_Inicial',
+    // TRAZABILIDAD
+    'Fecha_Exportacion'
+  ];
+
+  hojaExport.getRange(1, 1, 1, encabezados.length).setValues([encabezados])
+    .setBackground('#1a237e')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  if (filas.length > 0) {
+    hojaExport.getRange(2, 1, filas.length, encabezados.length).setValues(filas);
+  }
+
+  // Formato de fechas
+  const fmtFecha = 'dd/mm/yyyy';
+  [7, 11, 19].forEach(function(col) {
+    hojaExport.getRange(2, col, Math.max(filas.length, 1), 1)
+      .setNumberFormat(fmtFecha);
+  });
+
+  // Congelar encabezado y auto-ajustar
+  hojaExport.setFrozenRows(1);
+  hojaExport.autoResizeColumns(1, encabezados.length);
+
+  ss.toast(
+    '✅ Exportación lista: ' + filas.length + ' participantes\n' +
+    'Hoja: "' + NOMBRE_HOJA_EXPORT + '"',
+    'Power BI Export', 6
+  );
+
+  Logger.log('✅ exportarParaPowerBI: ' + filas.length + ' filas generadas.');
+}
+
+/**
  * Recalcula retroactivamente la columna "Culminados 12+ ses." (col 27) en todos los
  * meses guardados en "Reportes Mensuales".
  *
