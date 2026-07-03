@@ -79,6 +79,10 @@ function onOpen() {
       .addItem('🆕 Crear Nuevo Grupo', 'crearNuevoGrupoAE')
       .addItem('📊 Ver Resumen de Grupos', 'verResumenGruposAE')
       .addItem('📝 Registrar Nota Masiva (Sesión)', 'mostrarDialogoNotaMasivaAE')
+      .addSeparator()
+      .addItem('🟢 Graduar Participante (fila seleccionada)', 'graduarParticipanteDesdeMenuAE')
+      .addItem('🔴 Retirar Participante (fila seleccionada)', 'retirarParticipanteDesdeMenuAE')
+      .addSeparator()
       .addItem('🔒 Cerrar/Finalizar Grupo', 'mostrarDialogoCerrarGrupoAE')
       .addItem('🗑️ Eliminar Grupo/Cohorte', 'mostrarDialogoEliminarGrupoAE'))
     .addSeparator()
@@ -907,7 +911,7 @@ function crearNuevoGrupoAE() {
   sheet.setFrozenColumns(4); 
 
   const colEtapa = headers.length;
-  const validation = SpreadsheetApp.newDataValidation().requireValueInList(['Retirar Participante']).build();
+  const validation = SpreadsheetApp.newDataValidation().requireValueInList(['Retirar Participante', 'Graduar Participante']).build();
   if (numRows > 0 && colEtapa > 0) {
     sheet.getRange(2, colEtapa, numRows, 1).setDataValidation(validation);
   }
@@ -1349,6 +1353,10 @@ function onEdit(e) {
     moverARetiradx(sheet, row);
   }
 
+  if (value === 'Graduar Participante' && row > 1) {
+    graduarParticipanteIndividualAE(sheet, row);
+  }
+
   // Ahora Acción está en la columna 11 (K) SOLO en Hoja de Interés
   if (col === 11 && value && row > 1 && sheet.getName() === 'Hoja de Interés' && value !== 'Si' && value !== 'No') {
     enviarAHojaGrupoAE(sheet, row, value);
@@ -1618,7 +1626,7 @@ function enviarAHojaGrupoAE(sheetSrc, row, targetName) {
   }
 
   if (colEtapa > 0) {
-    sheetDest.getRange(nextRow, colEtapa).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Retirar Participante']).build());
+    sheetDest.getRange(nextRow, colEtapa).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Retirar Participante', 'Graduar Participante']).build());
   }
 
   // EN LUGAR DE BORRAR, SOLO MARCÁMOS
@@ -1642,29 +1650,169 @@ function moverARetiradx(sheet, row) {
   const sheetRetiradx = ss.getSheetByName('Retiradx');
   if (!sheetRetiradx) return;
 
-  const data = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  
-  const colID = headers.indexOf('Creamos ID');
+  const numCols = sheet.getLastColumn();
+  const data = sheet.getRange(row, 1, 1, numCols).getValues()[0];
+  const headers = sheet.getRange(1, 1, 1, numCols).getValues()[0];
+
+  const colID    = headers.indexOf('Creamos ID');
   const colNombre = headers.indexOf('Nombre Completo');
-  const colTel = headers.indexOf('Teléfono');
-  const colAsis = headers.indexOf('% Asis') !== -1 ? headers.indexOf('% Asis') : headers.indexOf('% Asistencia');
+  const colTel   = headers.indexOf('Teléfono');
+  const colAsis  = headers.indexOf('% Asistencia') !== -1 ? headers.indexOf('% Asistencia') : headers.indexOf('% Asis');
+  const colEtapa = headers.indexOf('Etapa');
 
   const ui = SpreadsheetApp.getUi();
-  const motivo = ui.prompt('❓ Motivo', 'Ingrese el motivo del retiro:', ui.ButtonSet.OK).getResponseText();
+  const motivoResp = ui.prompt('❓ Motivo de Retiro', 'Ingrese el motivo del retiro:', ui.ButtonSet.OK_CANCEL);
+  if (motivoResp.getSelectedButton() !== ui.Button.OK) {
+    // Si cancela, limpiar la celda Etapa para que no quede con el texto
+    if (colEtapa !== -1) sheet.getRange(row, colEtapa + 1).clearContent();
+    return;
+  }
+  const motivo = motivoResp.getResponseText().trim() || 'Sin motivo';
 
-  // Header en Retiradx: ['Fecha Retiro', 'Creamos ID', 'Nombre Completo', 'Teléfono', 'Grupo de Origen', '% Asistencia', 'Motivo Retiradx']
+  // Calcular % asistencia como número limpio
+  const asisVal = colAsis !== -1 ? data[colAsis] : 0;
+  const asisPct = typeof asisVal === 'number' ? (asisVal * 100).toFixed(0) + '%' : String(asisVal);
+
+  // Registrar en hoja Retiradx
+  // Headers: ['Fecha Retiro', 'Creamos ID', 'Nombre Completo', 'Teléfono', 'Grupo de Origen', '% Asistencia', 'Motivo Retiradx']
   sheetRetiradx.appendRow([
-    new Date(), 
-    colID !== -1 ? data[colID] : 'S/I', 
+    new Date(),
+    colID     !== -1 ? data[colID]     : 'S/I',
     colNombre !== -1 ? data[colNombre] : 'S/N',
-    colTel !== -1 ? data[colTel] : 'S/T', 
+    colTel    !== -1 ? data[colTel]    : 'S/T',
     sheet.getName(),
-    colAsis !== -1 ? (data[colAsis] * 100).toFixed(0) + '%' : '0%', 
+    asisPct,
     motivo
   ]);
 
-  sheet.deleteRow(row);
+  // Marcar la fila con fondo rojo suave (NO eliminar) para que quede visible como retiradx
+  sheet.getRange(row, 1, 1, numCols).setBackground('#FFCDD2').setFontColor('#7F0000');
+
+  // Actualizar celda Etapa con texto fijo (quitar el dropdown para no volver a activar)
+  if (colEtapa !== -1) {
+    sheet.getRange(row, colEtapa + 1)
+      .clearDataValidations()
+      .setValue('🔴 Retiradx')
+      .setFontColor('#7F0000')
+      .setFontWeight('bold');
+  }
+
+  toastSafeAE('🔴 ' + (colNombre !== -1 ? data[colNombre] : 'Participante') + ' marcadx como Retiradx.', 'Retiro', 5);
+  actualizarReportesAE();
+}
+
+/**
+ * Gradúa a un participante individual desde el desplegable "Graduar Participante"
+ * o desde el menú. Copia el registro a "Graduadx" y marca la fila en verde.
+ */
+function graduarParticipanteIndividualAE(sheet, row) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetGraduadx = ss.getSheetByName('Graduadx');
+  if (!sheetGraduadx) {
+    toastSafeAE('❌ No se encontró la hoja "Graduadx".', 'Error');
+    return;
+  }
+
+  const numCols = sheet.getLastColumn();
+  const data    = sheet.getRange(row, 1, 1, numCols).getValues()[0];
+  const headers = sheet.getRange(1, 1, 1, numCols).getValues()[0];
+
+  const colID     = headers.indexOf('Creamos ID');
+  const colNombre = headers.indexOf('Nombre Completo');
+  const colAsis   = headers.indexOf('% Asistencia') !== -1 ? headers.indexOf('% Asistencia') : headers.indexOf('% Asis');
+  const colEtapa  = headers.indexOf('Etapa');
+
+  const nombre = colNombre !== -1 ? data[colNombre] : 'S/N';
+
+  // Buscar responsable del grupo en Resumen de Grupos
+  let responsable = 'S/D';
+  const sheetResumen = ss.getSheetByName('Resumen de Grupos');
+  if (sheetResumen) {
+    const resData = sheetResumen.getDataRange().getValues();
+    for (let i = 1; i < resData.length; i++) {
+      if (resData[i][0] && resData[i][0].includes(sheet.getName())) {
+        responsable = resData[i][2] || 'S/D';
+        break;
+      }
+    }
+  }
+
+  const asisVal = colAsis !== -1 ? data[colAsis] : 0;
+  const asisPct = typeof asisVal === 'number' ? asisVal : 0;
+
+  // Registrar en Graduadx
+  // Headers: ['Fecha Graduación', 'Creamos ID', 'Nombre Completo', 'Grupo', 'Responsable', '% Asistencia', 'Notas']
+  sheetGraduadx.appendRow([
+    new Date(),
+    colID !== -1 ? data[colID] : 'S/I',
+    nombre,
+    sheet.getName(),
+    responsable,
+    asisPct,
+    'Graduación individual'
+  ]);
+  sheetGraduadx.getRange(sheetGraduadx.getLastRow(), 6).setNumberFormat('0%');
+
+  // Marcar la fila con fondo verde (NO eliminar) para que quede visible como graduadx
+  sheet.getRange(row, 1, 1, numCols).setBackground('#C8E6C9').setFontColor('#1B5E20');
+
+  // Actualizar celda Etapa con texto fijo
+  if (colEtapa !== -1) {
+    sheet.getRange(row, colEtapa + 1)
+      .clearDataValidations()
+      .setValue('🟢 Graduadx')
+      .setFontColor('#1B5E20')
+      .setFontWeight('bold');
+  }
+
+  toastSafeAE('🟢 ' + nombre + ' graduadx exitosamente.', 'Graduación', 5);
+  actualizarReportesAE();
+}
+
+/**
+ * Permite graduar al participante de la fila activa desde el menú.
+ */
+function graduarParticipanteDesdeMenuAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getActiveSheet();
+  const row = sheet.getActiveRange().getRow();
+
+  const exclude = ['Referencias a grupos', 'Hoja de Interés', 'Resumen de Grupos', 'Retiradx',
+    'Graduadx', 'Reporte General', 'Derivaciones_Institucionales', '⚙️ CONFIGURACIÓN',
+    'LOG_KOBO', 'TEMPORAL_LIMPIEZA'];
+
+  if (exclude.includes(sheet.getName())) {
+    alertSafeAE('⚠️ Acción no permitida', 'Ubícate en una hoja de grupo y selecciona la fila del participante a graduar.');
+    return;
+  }
+  if (row <= 1) {
+    alertSafeAE('⚠️ Selección inválida', 'Selecciona la fila del participante (no el encabezado).');
+    return;
+  }
+  graduarParticipanteIndividualAE(sheet, row);
+}
+
+/**
+ * Permite retirar al participante de la fila activa desde el menú.
+ */
+function retirarParticipanteDesdeMenuAE() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getActiveSheet();
+  const row = sheet.getActiveRange().getRow();
+
+  const exclude = ['Referencias a grupos', 'Hoja de Interés', 'Resumen de Grupos', 'Retiradx',
+    'Graduadx', 'Reporte General', 'Derivaciones_Institucionales', '⚙️ CONFIGURACIÓN',
+    'LOG_KOBO', 'TEMPORAL_LIMPIEZA'];
+
+  if (exclude.includes(sheet.getName())) {
+    alertSafeAE('⚠️ Acción no permitida', 'Ubícate en una hoja de grupo y selecciona la fila del participante a retirar.');
+    return;
+  }
+  if (row <= 1) {
+    alertSafeAE('⚠️ Selección inválida', 'Selecciona la fila del participante (no el encabezado).');
+    return;
+  }
+  moverARetiradx(sheet, row);
 }
 
 function autoCompletarDatosAE() {
