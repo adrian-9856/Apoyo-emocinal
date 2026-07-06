@@ -80,9 +80,6 @@ function onOpen() {
       .addItem('📊 Ver Resumen de Grupos', 'verResumenGruposAE')
       .addItem('📝 Registrar Nota Masiva (Sesión)', 'mostrarDialogoNotaMasivaAE')
       .addSeparator()
-      .addItem('🟢 Graduar Participante (fila seleccionada)', 'graduarParticipanteDesdeMenuAE')
-      .addItem('🔴 Retirar Participante (fila seleccionada)', 'retirarParticipanteDesdeMenuAE')
-      .addSeparator()
       .addItem('🔒 Cerrar/Finalizar Grupo', 'mostrarDialogoCerrarGrupoAE')
       .addItem('🗑️ Eliminar Grupo/Cohorte', 'mostrarDialogoEliminarGrupoAE'))
     .addSeparator()
@@ -911,7 +908,7 @@ function crearNuevoGrupoAE() {
   sheet.setFrozenColumns(4); 
 
   const colEtapa = headers.length;
-  const validation = SpreadsheetApp.newDataValidation().requireValueInList(['Retirar Participante', 'Graduar Participante']).build();
+  const validation = SpreadsheetApp.newDataValidation().requireValueInList(['Retirar Participante']).build();
   if (numRows > 0 && colEtapa > 0) {
     sheet.getRange(2, colEtapa, numRows, 1).setDataValidation(validation);
   }
@@ -1200,54 +1197,194 @@ function mostrarDialogoCerrarGrupoAE() {
 }
 
 function cerrarGrupoAE(nombreGrupo) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss  = SpreadsheetApp.getActiveSpreadsheet();
+  const ui  = SpreadsheetApp.getUi();
   const sheet = ss.getSheetByName(nombreGrupo);
-  if (!sheet) return;
-  
-  const ui = SpreadsheetApp.getUi();
-  const confirm = ui.alert('⚠️ Cerrar Grupo', '¿Seguro que desea cerrar "' + nombreGrupo + '"?', ui.ButtonSet.YES_NO);
-  if (confirm != ui.Button.YES) return;
+  if (!sheet) {
+    alertSafeAE('❌ Error', 'No se encontró el grupo "' + nombreGrupo + '".');
+    return;
+  }
 
-  const sheetResumen = ss.getSheetByName('Resumen de Grupos');
-  const sheetGraduadas = ss.getSheetByName('Graduadx');
-  const data = sheet.getDataRange().getValues();
-  const graduadas = [];
-  const fechaHoy = new Date();
-  
+  const numCols = sheet.getLastColumn();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    alertSafeAE('⚠️ Sin participantes', 'No hay participantes en este grupo.');
+    return;
+  }
+
+  const headers   = sheet.getRange(1, 1, 1, numCols).getValues()[0];
+  const colID     = headers.indexOf('Creamos ID');
+  const colNombre = headers.indexOf('Nombre Completo');
+  const colAsis   = headers.indexOf('% Asistencia') !== -1 ? headers.indexOf('% Asistencia') : headers.indexOf('% Asis');
+  const colEtapa  = headers.indexOf('Etapa');
+
+  // Obtener responsable desde Resumen de Grupos
   let responsable = 'S/D';
+  const sheetResumen = ss.getSheetByName('Resumen de Grupos');
   if (sheetResumen) {
-    const resumenData = sheetResumen.getDataRange().getValues();
-    for (let i = 1; i < resumenData.length; i++) {
-      if (resumenData[i][0] && resumenData[i][0].includes(nombreGrupo)) {
-        responsable = resumenData[i][2];
-        sheetResumen.getRange(i + 1, 9).setValue('Finalizado'); // Columna I = Estado
+    const resData = sheetResumen.getDataRange().getValues();
+    for (let i = 1; i < resData.length; i++) {
+      if (resData[i][0] && String(resData[i][0]).includes(nombreGrupo)) {
+        responsable = resData[i][2] || 'S/D';
         break;
       }
     }
   }
 
-  const headers = data[0];
-  const colID = headers.indexOf('Creamos ID');
-  const colNombre = headers.indexOf('Nombre Completo');
-  let colAsis = headers.indexOf('% Asistencia');
-  if (colAsis === -1) colAsis = headers.indexOf('% Asis'); // Compatibilidad con versiones anteriores
+  const sheetGraduadx = ss.getSheetByName('Graduadx');
 
-  for (let i = 1; i < data.length; i++) {
-    const nombre = data[i][colNombre];
-    if (nombre && nombre !== "" && nombre !== "Nombre Completo") {
-      graduadas.push([
-        fechaHoy, colID !== -1 ? data[i][colID] : 'S/I', nombre, 
-        nombreGrupo, responsable, colAsis !== -1 ? data[i][colAsis] : 'N/A', 'Graduación automática al cerrar cohorte'
-      ]);
+  // Leer filas y colores actuales
+  const dataRows = sheet.getRange(2, 1, lastRow - 1, numCols).getValues();
+  const bgColors = sheet.getRange(2, 1, lastRow - 1, numCols).getBackgrounds();
+
+  const AMARILLO = '#fff9c4';
+  const VERDE    = '#c8e6c9';
+  const ROJO     = '#ffcdd2';
+
+  // Clasificar participantes
+  const participantes = [];
+  dataRows.forEach(function(row, idx) {
+    const nombre = colNombre !== -1 ? String(row[colNombre] || '').trim() : '';
+    if (!nombre || nombre === 'Nombre Completo') return;
+    const bg = String(bgColors[idx][0] || '').toLowerCase();
+    participantes.push({ fila: idx + 2, nombre: nombre, bg: bg, data: row });
+  });
+
+  if (participantes.length === 0) {
+    alertSafeAE('⚠️ Sin participantes', 'No hay participantes registrados en este grupo.');
+    return;
+  }
+
+  const amarillas = participantes.filter(function(p) { return p.bg === AMARILLO; });
+  const rojas     = participantes.filter(function(p) { return p.bg === ROJO; });
+  const verdes    = participantes.filter(function(p) { return p.bg === VERDE; });
+  const esPrimerIntento = amarillas.length === 0 && rojas.length === 0 && verdes.length === 0;
+
+  // ── PRIMER INTENTO: ninguna fila marcada todavía ─────────────────────────
+  if (esPrimerIntento) {
+    const confirm = ui.alert(
+      '⚠️ Cerrar cohorte',
+      '¿Seguro que deseas cerrar "' + nombreGrupo + '"?\n(' + participantes.length + ' participantes)',
+      ui.ButtonSet.YES_NO
+    );
+    if (confirm !== ui.Button.YES) return;
+
+    const todosGrad = ui.alert(
+      '🎓 Graduación del cohorte',
+      '¿Todos los ' + participantes.length + ' participantes se graduaron?',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (todosGrad === ui.Button.YES) {
+      // Graduar a todos y cerrar
+      _graduarLoteAE(sheet, participantes, nombreGrupo, responsable, colID, colNombre, colAsis, colEtapa, numCols, sheetGraduadx);
+      _marcarFinalizadoResumenAE(sheetResumen, nombreGrupo);
+      sheet.hideSheet();
+      alertSafeAE('✅ Cohorte finalizado', 'Todos los participantes fueron registrados como Graduadx.\nLa hoja queda oculta como historial.');
+    } else {
+      // Marcar todos en amarillo y esperar que el equipo señale los retiros
+      participantes.forEach(function(p) {
+        sheet.getRange(p.fila, 1, 1, numCols).setBackground('#FFF9C4');
+      });
+      alertSafeAE(
+        '🟡 Filas marcadas — acción requerida',
+        'Se marcaron ' + participantes.length + ' filas en AMARILLO.\n\n' +
+        '▶ Usa el dropdown de la columna "Etapa" → "Retirar Participante"\n' +
+        '  para cada persona que se retiró del grupo.\n\n' +
+        '▶ Las filas que queden en AMARILLO se graduarán\n' +
+        '  automáticamente cuando vuelvas a cerrar el grupo.\n\n' +
+        'Cuando termines, ejecuta "Cerrar Grupo" de nuevo.'
+      );
+    }
+    return;
+  }
+
+  // ── SEGUNDO INTENTO: ya hay filas marcadas ────────────────────────────────
+  // Las amarillas restantes = no retiradas = se asumen graduadas
+  const aGraduar = amarillas.concat(
+    participantes.filter(function(p) { return p.bg !== AMARILLO && p.bg !== ROJO && p.bg !== VERDE; })
+  );
+
+  // Mostrar resumen antes de confirmar cierre
+  let resumenMsg = '';
+  if (aGraduar.length > 0) {
+    resumenMsg += '🟢 Se graduarán (' + aGraduar.length + '):\n' +
+      aGraduar.map(function(p) { return '  • ' + p.nombre; }).join('\n') + '\n\n';
+  }
+  if (rojas.length > 0) {
+    resumenMsg += '🔴 Ya registrados como Retiradx (' + rojas.length + '):\n' +
+      rojas.map(function(p) { return '  • ' + p.nombre; }).join('\n') + '\n\n';
+  }
+  if (verdes.length > 0) {
+    resumenMsg += '✅ Ya graduados individualmente (' + verdes.length + ')\n\n';
+  }
+
+  const confirmarCierre = ui.alert(
+    '🔒 Confirmar cierre del cohorte',
+    resumenMsg + '¿Confirmar y cerrar el cohorte?',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirmarCierre !== ui.Button.YES) return;
+
+  // Graduar los pendientes (amarillos)
+  if (aGraduar.length > 0) {
+    _graduarLoteAE(sheet, aGraduar, nombreGrupo, responsable, colID, colNombre, colAsis, colEtapa, numCols, sheetGraduadx);
+  }
+
+  _marcarFinalizadoResumenAE(sheetResumen, nombreGrupo);
+  sheet.hideSheet();
+  alertSafeAE(
+    '✅ Cohorte finalizado',
+    '🟢 Graduadx: ' + (verdes.length + aGraduar.length) + '\n' +
+    '🔴 Retiradx: ' + rojas.length + '\n\n' +
+    'La hoja queda oculta como historial.'
+  );
+}
+
+// Gradúa un lote de participantes: los marca verde y los copia a Graduadx
+function _graduarLoteAE(sheet, lista, nombreGrupo, responsable, colID, colNombre, colAsis, colEtapa, numCols, sheetGraduadx) {
+  const fechaHoy = new Date();
+  const filas = [];
+
+  lista.forEach(function(p) {
+    const asisVal = colAsis !== -1 ? p.data[colAsis] : 0;
+    filas.push([
+      fechaHoy,
+      colID !== -1 ? p.data[colID] : 'S/I',
+      p.nombre,
+      nombreGrupo,
+      responsable,
+      typeof asisVal === 'number' ? asisVal : 0,
+      'Graduadx al cerrar cohorte'
+    ]);
+
+    sheet.getRange(p.fila, 1, 1, numCols).setBackground('#C8E6C9').setFontColor('#1B5E20');
+    if (colEtapa !== -1) {
+      sheet.getRange(p.fila, colEtapa + 1)
+        .clearDataValidations()
+        .setValue('🟢 Graduadx')
+        .setFontColor('#1B5E20')
+        .setFontWeight('bold');
+    }
+  });
+
+  if (filas.length > 0 && sheetGraduadx) {
+    const startRow = sheetGraduadx.getLastRow() + 1;
+    sheetGraduadx.getRange(startRow, 1, filas.length, 7).setValues(filas);
+    sheetGraduadx.getRange(startRow, 6, filas.length, 1).setNumberFormat('0%');
+  }
+}
+
+// Marca el grupo como Finalizado en Resumen de Grupos
+function _marcarFinalizadoResumenAE(sheetResumen, nombreGrupo) {
+  if (!sheetResumen) return;
+  const resData = sheetResumen.getDataRange().getValues();
+  for (let i = 1; i < resData.length; i++) {
+    if (resData[i][0] && String(resData[i][0]).includes(nombreGrupo)) {
+      sheetResumen.getRange(i + 1, 9).setValue('Finalizado');
+      break;
     }
   }
-
-  if (graduadas.length > 0 && sheetGraduadas) {
-    sheetGraduadas.getRange(sheetGraduadas.getLastRow() + 1, 1, graduadas.length, graduadas[0].length).setValues(graduadas);
-  }
-
-  sheet.hideSheet();
-  alertSafeAE('✅ Cohorte Finalizada', 'Se registraron todas las graduaciones y la hoja se ha ocultado para preservar el historial.');
 }
 
 /**
@@ -1353,9 +1490,6 @@ function onEdit(e) {
     moverARetiradx(sheet, row);
   }
 
-  if (value === 'Graduar Participante' && row > 1) {
-    graduarParticipanteIndividualAE(sheet, row);
-  }
 
   // Ahora Acción está en la columna 11 (K) SOLO en Hoja de Interés
   if (col === 11 && value && row > 1 && sheet.getName() === 'Hoja de Interés' && value !== 'Si' && value !== 'No') {
@@ -1626,7 +1760,7 @@ function enviarAHojaGrupoAE(sheetSrc, row, targetName) {
   }
 
   if (colEtapa > 0) {
-    sheetDest.getRange(nextRow, colEtapa).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Retirar Participante', 'Graduar Participante']).build());
+    sheetDest.getRange(nextRow, colEtapa).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Retirar Participante']).build());
   }
 
   // EN LUGAR DE BORRAR, SOLO MARCÁMOS
