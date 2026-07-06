@@ -1505,29 +1505,46 @@ function procesarNoVinoConLlamadas(nombre, creemosId, genero, edad, malestar, te
     sheetOrigen.getRange(fila, 17).setValue(todasLasNotas);
 
     if (nuevasLlamadas >= 5) {
-      // QUINTA LLAMADA: Enviar a Personas no asistidas con todas las notas
+      // QUINTA LLAMADA: Se alcanzó el máximo, se cierra automáticamente
       Logger.log('5ª llamada alcanzada - Enviando a Personas no asistidas: ' + creemosId);
       enviarAPersonasNoAsistidasConNotas(creemosId, genero, edad, malestar, terapeuta, telefono, todasLasNotas, sheetOrigen, fila);
-    } else {
-      // AÚN NO ES LA 5ª LLAMADA: Mantener en Hoja de interés
-      Logger.log('Llamada ' + nuevasLlamadas + ' registrada - Manteniendo en Hoja de interés');
-
-      // Limpiar la selección de "No vino" para permitir nueva verificación
-      sheetOrigen.getRange(fila, 15).clearContent();
-
-      // Marcar fila en amarillo (pendiente de seguimiento)
-      sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#fff3cd');
-
-      ss.toast(
-        '📞 Llamada ' + nuevasLlamadas + ' de 5 registrada\n\n' +
-        '👤 ' + nombre + '\n' +
-        '📝 Nota: ' + notaLlamada + '\n\n' +
-        'Quedó en Hoja de interés.\n' +
-        'Asignar nuevamente cuando conteste.',
-        'Llamada Registrada',
-        8
-      );
+      return;
     }
+
+    // AÚN NO ES LA 5ª LLAMADA: preguntar si desea continuar el seguimiento o cerrar ya
+    const resSeguimiento = ui.alert(
+      '📞 ¿Continuar seguimiento?',
+      'Nota registrada (Llamada ' + nuevasLlamadas + ' de 5).\n\n' +
+      'SÍ = Continuar el seguimiento (se harán más llamadas)\n' +
+      'NO = Cerrar el caso ahora (no se harán más llamadas)',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (resSeguimiento === ui.Button.NO) {
+      // CIERRE ANTICIPADO: el equipo decide no seguir insistiendo, sin importar cuántas llamadas iban
+      Logger.log('Cierre anticipado en llamada ' + nuevasLlamadas + ' - Enviando a Personas no asistidas: ' + creemosId);
+      enviarAPersonasNoAsistidasConNotas(creemosId, genero, edad, malestar, terapeuta, telefono, todasLasNotas, sheetOrigen, fila);
+      return;
+    }
+
+    // CONTINUAR: Mantener en Hoja de interés esperando la próxima llamada
+    Logger.log('Llamada ' + nuevasLlamadas + ' registrada - Manteniendo en Hoja de interés');
+
+    // Limpiar la selección de "No vino" para permitir nueva verificación
+    sheetOrigen.getRange(fila, 15).clearContent();
+
+    // Marcar fila en amarillo (pendiente de seguimiento)
+    sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#fff3cd');
+
+    ss.toast(
+      '📞 Llamada ' + nuevasLlamadas + ' de 5 registrada\n\n' +
+      '👤 ' + nombre + '\n' +
+      '📝 Nota: ' + notaLlamada + '\n\n' +
+      'Quedó en Hoja de interés.\n' +
+      'Asignar nuevamente cuando conteste.',
+      'Llamada Registrada',
+      8
+    );
 
   } catch (error) {
     Logger.log('❌ ERROR en procesarNoVinoConLlamadas: ' + error.toString());
@@ -1536,7 +1553,8 @@ function procesarNoVinoConLlamadas(nombre, creemosId, genero, edad, malestar, te
 }
 
 /**
- * Envía a Personas no asistidas incluyendo todas las notas de las 5 llamadas
+ * Envía a Personas no asistidas incluyendo todas las notas de las llamadas realizadas
+ * (puede cerrarse al llegar a 5 llamadas, o antes si el equipo decide cerrar el seguimiento)
  */
 function enviarAPersonasNoAsistidasConNotas(creemosId, genero, edad, malestar, terapeuta, telefono, notas, sheetOrigen, fila) {
   try {
@@ -1580,20 +1598,20 @@ function enviarAPersonasNoAsistidasConNotas(creemosId, genero, edad, malestar, t
     noAsistidas.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
     Logger.log('✅ Agregado a Personas no asistidas en fila: ' + nuevaFila);
 
-    // Marcar fila en rojo en Hoja de interés (5 llamadas completadas - No vino)
+    // Marcar fila en rojo en Hoja de interés (seguimiento cerrado - No vino)
     sheetOrigen.getRange(fila, 1, 1, 17).setBackground('#f8d7da');
-    Logger.log('✅ Fila ' + fila + ' marcada en rojo en Hoja de interés (5 llamadas - No vino)');
+    Logger.log('✅ Fila ' + fila + ' marcada en rojo en Hoja de interés (seguimiento cerrado - No vino)');
 
     SpreadsheetApp.flush();
     ss.toast(
-      '🔴 5 LLAMADAS COMPLETADAS\n\n' +
+      '🔴 SEGUIMIENTO CERRADO\n\n' +
       '🆔 ' + creemosId + '\n' +
       '→ Enviado a Personas no asistidas\n\n' +
-      '📝 Con notas de todas las llamadas',
-      'No Asistió - 5 Llamadas',
+      '📝 Con notas de todas las llamadas realizadas',
+      'No Asistió - Caso Cerrado',
       8
     );
-    Logger.log('✅ Proceso de 5 llamadas completado');
+    Logger.log('✅ Proceso de llamadas cerrado (Creamos ID: ' + creemosId + ')');
   } catch (error) {
     Logger.log('❌ ERROR en enviarAPersonasNoAsistidasConNotas: ' + error.toString());
     SpreadsheetApp.getActiveSpreadsheet().toast('❌ Error: ' + error.message, 'Error', 5);
